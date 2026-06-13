@@ -23,6 +23,7 @@
 6. 用户问 API Key 时，说明 SiliconFlow 用来做向量索引；不配置也可以先做 Markdown/wiki，配置后检索效果更好。
 7. 用户处理 PDF、扫描件、表格或公式时，提醒 MinerU MCP 可能需要单独安装。
 8. 用户想深入了解图谱、问答、颜色配置或常见问题时，再阅读 `KB-GUIDE.md`。
+9. 用户问 MinerU、SiliconFlow、嵌入模型、rerank、API Key 或隐私边界时，再阅读 `CONFIG.md`。
 
 ---
 
@@ -98,7 +99,7 @@ AI 应先查 wiki 结构，再回到 raw 原文证据，不要只凭记忆回答
 | 查证据 | 「回答这个问题，并引用原文证据」 |
 | 做综述 | 「基于这个知识库写一份文献综述」 |
 | 查断链 | 「检查知识库有没有断链或待补页面」 |
-| 配 API Key | 「帮我配置 SiliconFlow API Key」 |
+| 配 API Key | 「帮我配置 SiliconFlow API Key，用 BAAI/bge-m3 建索引」 |
 | 处理扫描 PDF | 「这批 PDF 是扫描件，优先用 MinerU」 |
 
 ---

@@ -4,7 +4,7 @@
 
 这个仓库只放知识库链路相关技能，支持 **Claude Code**、**Codex**、**Hermes**。
 
-> 小白上手看 [START.md](START.md) —— 不用懂技术，会说目标就行。详细图谱和问答说明看 [KB-GUIDE.md](KB-GUIDE.md)。
+> 小白上手看 [START.md](START.md) —— 不用懂技术，会说目标就行。详细图谱和问答说明看 [KB-GUIDE.md](KB-GUIDE.md)。MinerU / SiliconFlow 配置看 [CONFIG.md](CONFIG.md)。
 
 ## AI 使用流程
 
@@ -13,7 +13,7 @@
 1. **先说明目标** —— 这是知识库技能包，适合把资料整理成长期可用的 Markdown/wiki/Obsidian/RAG 知识库
 2. **再确认目标 agent** —— 问用户要装到 Claude Code、Codex、Hermes，还是全部
 3. **再安装** —— `bash setup.sh`
-4. **最后教** —— 安装/更新完成后，不要只说「装好了」，也不要先问要不要介绍；直接读 [START.md](START.md)，给用户一段 3 分钟上手教程：先讲「用户只管说资料目标，AI 负责挑技能和流程」，再给 3-5 个常用说法示例，最后问用户想重点了解建库、加资料、Obsidian 看图、提问检索，还是 API Key 配置；用户要深入时再读 [KB-GUIDE.md](KB-GUIDE.md)
+4. **最后教** —— 安装/更新完成后，不要只说「装好了」，也不要先问要不要介绍；直接读 [START.md](START.md)，给用户一段 3 分钟上手教程：先讲「用户只管说资料目标，AI 负责挑技能和流程」，再给 3-5 个常用说法示例，最后问用户想重点了解建库、加资料、Obsidian 看图、提问检索，还是 API Key 配置；用户要深入时再读 [KB-GUIDE.md](KB-GUIDE.md)，问配置时再读 [CONFIG.md](CONFIG.md)
 
 安装后教程示例：
 
@@ -98,8 +98,8 @@ bash setup.sh --update-only
 
 ## 重要依赖
 
-- MinerU 的 skill 已在本仓库；MinerU MCP 需要按官方说明安装和配置：https://mineru.net/ecosystem
-- `SiliconFlow-rag` 需要 SiliconFlow API Key 才能建立高质量向量索引；如果用户只是先整理 Markdown/wiki，可以稍后再配置
+- MinerU 的 skill 已在本仓库；MinerU MCP 需要按 [CONFIG.md](CONFIG.md) 或官方说明安装和配置：https://mineru.net/ecosystem
+- `SiliconFlow-rag` 需要 SiliconFlow API Key 才能建立真实语义索引；默认嵌入模型是 `BAAI/bge-m3`，详细配置见 [CONFIG.md](CONFIG.md)
 - Obsidian 不是必需，但强烈建议安装，用来看知识图谱：https://obsidian.md
 
 ## 目录结构
@@ -114,6 +114,7 @@ kb-skills-repo/
 │   ├── SiliconFlow-rag/
 │   └── social-science-km/
 ├── KB-GUIDE.md
+├── CONFIG.md
 ├── START.md
 └── setup.sh
 ```
