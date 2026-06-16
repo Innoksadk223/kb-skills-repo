@@ -37,9 +37,6 @@ Command-line flags override config values.
 - Private key config: `~/.hermes/private/SiliconFlow-rag/config.json` preferred; `~/.codex/SiliconFlow-rag/config.json` legacy fallback
 - Embedding model: `BAAI/bge-m3`
 - Optional rerank model: `Qwen/Qwen3-Reranker-8B`
-- Public setup guide in this repo: `CONFIG.md`
-
-`BAAI/bge-m3` is the repository default because it is available through SiliconFlow embeddings and handles mixed Chinese/English knowledge-base text well. Changing the embedding model changes vector space and requires rebuilding affected indexes.
 
 ## Maintenance wording
 
