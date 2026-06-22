@@ -24,6 +24,9 @@ Use the cheapest path that preserves quality:
 
 | User intent / source state | Route |
 |---|---|
+| User starts from zero and asks to search a field and build a new knowledge base | Academic-search acquisition → source folder setup → Step 1 → Step 2 decision → Step 3 → Step 4 initial build |
+| User already has source files and asks to build or expand the wiki | Step 1 for local files → Step 2 decision → Step 3 → Step 4 update; use Gap-driven expansion only for stated gaps |
+| Existing corpus is thin, stale, or missing obvious related-field sources | Academic-search acquisition → Step 1 → Step 2 decision → Step 3 → Step 4 update |
 | New PDFs or documents need conversion | Step 1 → Step 2 decision → Step 3 → Step 4 update |
 | User wants to add related-field papers beyond local sources | Academic-search acquisition → Step 1 → Step 2 decision → Step 3 → Step 4 update |
 | Source is a book, long chapter, theory-heavy paper, or thesis-critical text | Step 2 is required before Step 3 |
