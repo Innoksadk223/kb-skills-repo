@@ -106,7 +106,10 @@ bash setup.sh --update-only
 
 ## 技能来源
 
-- `academic-search`：从 [`skills-repo/skills/academic-search`](https://github.com/Innoksadk223/skills-repo/tree/main/skills/academic-search) 同步加入本知识库技能包。
+- `academic-search`：来自 [`ustc-ai4science/academic-search`](https://github.com/ustc-ai4science/academic-search)。
+- `mineru-document-extractor`：来自 MinerU 官网生态说明：https://mineru.net/ecosystem
+- `markitdown`：来自 Microsoft MarkItDown：https://github.com/microsoft/markitdown
+- `deep-reading-to-wiki`、`karpathy-wiki`、`SiliconFlow-rag`、`social-science-km`：来自本仓库维护的知识库技能链路。
 
 ## 目录结构
 
