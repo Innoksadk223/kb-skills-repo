@@ -28,6 +28,7 @@
 
 | 技能 | 负责什么 |
 |---|---|
+| `academic-search` | 搜索相关领域论文、筛选候选文献、判断开放获取 PDF、导出结构化论文元数据 |
 | `mineru-document-extractor` | PDF、扫描件、表格、公式、多格式文档高保真解析 |
 | `markitdown` | Word、PPT、Excel、HTML、图片等文件轻量转 Markdown |
 | `deep-reading-to-wiki` | 长书、章节、理论文献先生成深读档案，避免浅总结直接入库 |
@@ -43,11 +44,12 @@
 
 AI 应该按场景调度：
 
-1. `mineru-document-extractor` / `markitdown` —— 先把文件转成 Markdown 原文
-2. `deep-reading-to-wiki` —— 对长文、理论文献、补库候选源做深读档案
-3. `karpathy-wiki` —— 编译 Obsidian 可读的图谱 wiki
-4. `SiliconFlow-rag` —— 建立可查询索引
-5. `social-science-km` —— 负责统筹流程、补库和问答入口
+1. `academic-search` —— 可选；本地资料不够时，先找相关领域论文并筛出可合法获取的全文
+2. `mineru-document-extractor` / `markitdown` —— 先把文件转成 Markdown 原文
+3. `deep-reading-to-wiki` —— 对长文、理论文献、补库候选源做深读档案
+4. `karpathy-wiki` —— 编译 Obsidian 可读的图谱 wiki
+5. `SiliconFlow-rag` —— 建立可查询索引
+6. `social-science-km` —— 负责统筹流程、补库和问答入口
 
 ## 安装
 
@@ -102,11 +104,16 @@ bash setup.sh --update-only
 - `SiliconFlow-rag` 需要 SiliconFlow API Key 才能建立真实语义索引；默认嵌入模型是 `BAAI/bge-m3`，详细配置见 [CONFIG.md](CONFIG.md)
 - Obsidian 不是必需，但强烈建议安装，用来看知识图谱：https://obsidian.md
 
+## 技能来源
+
+- `academic-search`：从 [`skills-repo/skills/academic-search`](https://github.com/Innoksadk223/skills-repo/tree/main/skills/academic-search) 同步加入本知识库技能包。
+
 ## 目录结构
 
 ```text
 kb-skills-repo/
 ├── skills/
+│   ├── academic-search/
 │   ├── mineru-document-extractor/
 │   ├── markitdown/
 │   ├── deep-reading-to-wiki/

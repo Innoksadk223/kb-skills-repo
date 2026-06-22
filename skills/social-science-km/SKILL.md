@@ -1,6 +1,6 @@
 ---
 name: social-science-km
-description: Use when coordinating a social-science knowledge base across source conversion, deep-reading dossiers, karpathy-wiki graph compilation, and SiliconFlow-rag indexing or querying.
+description: Use when managing social-science knowledge bases that need paper discovery, source ingestion, raw evidence conversion, deep reading, wiki graph writing, RAG indexing, or evidence-backed answers.
 ---
 
 # Social Science Knowledge Management
@@ -11,6 +11,8 @@ Use this skill as the coordinator for a layered social-science knowledge system:
 2. **Deep-read long or important sources → `reading_dossiers/`**: use `deep-reading-to-wiki` when direct raw-to-wiki ingest would be shallow, when the source is long/theoretical, or when the source is thesis-critical.
 3. **Compile dossiers/raw → graph-readable `wiki/`**: use `karpathy-wiki` for formal `claims/`, `concepts/`, `entities/`, `comparisons/`, lightweight `synthesis/`, backlinks, `index.md`, and `log.md`.
 4. **Build/query RAG indexes → `检索索引/`**: use `SiliconFlow-rag` for raw evidence recall, source discovery, and wiki-first expansion.
+
+Optional before Step 1: **Discover new papers → source folder** with `academic-search` when the existing corpus is thin or the user asks to broaden coverage beyond local files. Only accepted, legally accessible full texts become source files; search metadata and abstracts are candidate records, not raw evidence.
 
 Do not create a separate `资料md/` layer. In this workflow, `wiki/raw/` is the single bottom-layer text store; `reading_dossiers/` is a pre-wiki interpretation layer; `wiki/claims`, `wiki/concepts`, `wiki/entities`, and `wiki/comparisons` are graph-readable knowledge layers, not replacements for raw evidence.
 
@@ -23,6 +25,7 @@ Use the cheapest path that preserves quality:
 | User intent / source state | Route |
 |---|---|
 | New PDFs or documents need conversion | Step 1 → Step 2 decision → Step 3 → Step 4 update |
+| User wants to add related-field papers beyond local sources | Academic-search acquisition → Step 1 → Step 2 decision → Step 3 → Step 4 update |
 | Source is a book, long chapter, theory-heavy paper, or thesis-critical text | Step 2 is required before Step 3 |
 | Source is short, narrow, and low-risk | Step 3 may compile directly from `wiki/raw/` |
 | Existing wiki question or citation lookup | Step 4 query; do not re-ingest |
@@ -31,6 +34,23 @@ Use the cheapest path that preserves quality:
 | RAG output is weak | Check index freshness, then escalate query mode before changing wiki |
 
 `deep-reading-to-wiki` exists to prevent shallow raw-to-wiki compilation. It produces `reading_dossiers/` only; formal wiki writing remains `karpathy-wiki`'s job.
+
+### Optional Academic-Search Acquisition
+
+Use this route when the user explicitly asks the agent to find related papers, or when `wiki/raw/` and the RAG indexes do not contain enough candidate sources for a stated gap.
+
+**REQUIRED SUB-SKILL:** Use `academic-search` for paper search, metadata extraction, open-access status checks, and legal full-text acquisition.
+
+Procedure:
+
+1. Follow `academic-search`, including the relevant discipline profile, before searching.
+2. Search with 2-3 focused queries, then return a shortlist with title, year, venue/source, relevance reason, citation count when available, DOI/arXiv ID, and open full-text status.
+3. Ask before downloading papers or running a long batch. Download only `open_pdf` or otherwise legally accessible full text; never use paywall bypasses.
+4. After user approval, save accepted new source files under the source folder, preferably `<source-folder>/academic-search/<topic>/...`, then treat them as ordinary source files for Step 1. This is the only allowed source-folder mutation; do not move, delete, or rewrite existing source files.
+5. Convert accepted PDFs through MinerU and accepted non-PDF/HTML sources through the Step 1 MarkItDown/MinerU routing into `wiki/raw/<source-folder-name>/academic-search/<topic>/...`.
+6. Record paper provenance in `wiki/raw/_conversion_manifest.md`: query/topic, DOI/arXiv ID when available, source URL/PDF URL, download status, converter, and output path.
+
+Do not write wiki pages from search results alone. Metadata, abstracts, and candidate lists help decide what to acquire; only converted full text in `wiki/raw/` or a checked dossier may support formal wiki nodes.
 
 ### Gap-Driven Expansion
 
@@ -477,6 +497,7 @@ Use this for index status, conversion coverage, helper failures, API-key blocker
 
 - Explain progress in plain Chinese.
 - **Proactive RAG check**: every session where the knowledge base is involved, run `check_rebuild_rag.py --check` before any query or wiki work. If either raw or wiki index is stale, ask the user before updating the index. Say "新增到索引" or "增量更新" for ordinary new/changed files; say "重建" only for full rebuilds. Do NOT wait for the user to tell you to check.
+- **Optional paper acquisition**: when local sources are thin or the user asks to add related papers, use `academic-search` first for a candidate shortlist, then acquire only user-accepted legal full texts and route them through Step 1 into `wiki/raw/`.
 - **Source-discovery routing**: when the user wants to supplement a topic, first return candidate `wiki/raw/` sources and gaps; do not jump straight to wiki page creation.
 - **Deep-reading routing**: when the user asks to ingest, process, or wiki-compile a book, long chapter, theory-heavy paper, or thesis-critical source, route through `deep-reading-to-wiki` before `karpathy-wiki` unless the user explicitly asks for a quick/rough ingest.
 - **Prefer `km_query.py`** for queries: it auto-checks both indexes, routes source lookups to raw-only, and uses wiki-first for conceptual/cross-source questions — one command instead of several.
@@ -492,6 +513,7 @@ Ask the user before:
 | Boundary | Ask before doing this |
 |---|---|
 | Network/API privacy | Sending raw chunks, questions, wiki retrieval text, multi-query prompts, or rerank candidates to external APIs when the project has not already approved that boundary |
+| Academic paper acquisition | Sending search queries to academic APIs/search sites, downloading open PDFs, or adding newly downloaded papers to the source folder |
 | Index mutation | Updating, removing, or rebuilding `检索索引/raw` or `检索索引/wiki` |
 | Batch conversion | Running long MinerU/MarkItDown batches or using MinerU token-backed network extraction |
 | Mass wiki edits | Touching 10+ existing wiki pages or changing a taxonomy in `SCHEMA.md` |

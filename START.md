@@ -76,10 +76,11 @@ AI 应先查 wiki 结构，再回到 raw 原文证据，不要只凭记忆回答
 
 ---
 
-## 这 6 个技能怎么分工？
+## 这 7 个技能怎么分工？
 
 | 技能 | 什么时候会用 |
 |---|---|
+| `academic-search` | 本地资料不够时，搜索相关论文、筛候选来源、判断开放获取 PDF |
 | `mineru-document-extractor` | PDF、扫描件、复杂表格、公式、版式复杂的资料 |
 | `markitdown` | Word、PPT、Excel、网页、普通文档的轻量转换 |
 | `deep-reading-to-wiki` | 长书、章节、理论文献、需要认真吃透的材料 |

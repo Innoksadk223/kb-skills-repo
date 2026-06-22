@@ -5,6 +5,7 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_DIR="$REPO_DIR/skills"
 
 SKILL_NAMES=(
+    academic-search
     mineru-document-extractor
     markitdown
     deep-reading-to-wiki
@@ -115,6 +116,7 @@ detect_agents() {
 
 hermes_relative_path() {
     case "$1" in
+        academic-search) echo "research/$1" ;;
         mineru-document-extractor) echo "productivity/$1" ;;
         deep-reading-to-wiki|karpathy-wiki|SiliconFlow-rag|social-science-km) echo "research/$1" ;;
         markitdown) echo "$1" ;;
