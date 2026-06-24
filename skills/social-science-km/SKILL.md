@@ -326,6 +326,7 @@ Default to routed querying rather than one expensive mode for every question. Us
 - Direct source lookup ("原文", "出处", "哪一段", "引用", "证据", page/source/quote/passage) → raw-only.
 - Conceptual, argumentative, cross-source, comparison, or thesis-writing questions → wiki-first.
 - Broad wording, terminology mismatch, or the first pass returns fewer than 3 usable raw sources → add `--multi-query`.
+- Conceptual questions where wiki graph relationships matter more than keyword overlap → use **wiki-graph-expanded query**. See [references/wiki-graph-expanded-query.md](references/wiki-graph-expanded-query.md).
 - Top hits are on-topic but poorly ordered, or the user is writing final prose / needs precise evidence ranking → add `--rerank`.
 - A hit is relevant but depends on the previous/next paragraph, pronouns, table context, or transitional wording → add `--expand-context --context-window 1` before changing chunk size.
 - Final citation checking or high-risk thesis claims → use deep mode: wiki-first + multi-query + rerank + context.
@@ -362,6 +363,12 @@ python skills/SiliconFlow-rag/scripts/query_index.py \
   --expand-context \
   --context-window 1
 ```
+
+### Wiki-Graph-Expanded Query
+
+When a conceptual question depends on how the concept relates to others in the wiki graph, use the procedure in [references/wiki-graph-expanded-query.md](references/wiki-graph-expanded-query.md).
+
+The agent reads wiki pages to discover graph neighbors and their relationships, generates sub-questions targeting those relationships, retrieves evidence in parallel, then merges and deduplicates results. This is an escalation from standard wiki-first — use it when wiki-first alone returns shallow results.
 
 ### Unified Query (km_query.py)
 
