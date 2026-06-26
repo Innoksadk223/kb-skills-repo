@@ -2,6 +2,8 @@
 
 Use these gates before handing a dossier to `karpathy-wiki`.
 
+**Gate 0 (mechanical):** `scripts/validate_dossier.py` must report `PASS` first — it checks frontmatter, the five blocks, every HV candidate's raw anchor + context capsule, and the self-check. The judgment gates below are what the script cannot automate; each points to its canonical definition in `SKILL.md` instead of restating it.
+
 ## Gate 1: Not A Summary
 
 Fail if the output is mainly a book report.
@@ -28,30 +30,21 @@ If the source cannot meet these numbers, explain why instead of padding.
 
 ## Gate 2A: Structure-Traceable Selection
 
-Fail if high-value choices are not traceable to the source structure, or if the dossier jumps from raw excerpts directly to wiki claims.
+Apply the `Structure-First Reading` procedure in `SKILL.md` as the canonical method; this gate only checks its result.
 
-Required signals:
+Fail if:
 
-- The reading map covers every major chapter, section, or argument phase at L0.
-- Each major unit has a function, selected/skipped reason, and answers: what problem it solves, what source-level thread it advances, and which wiki gap it touches.
-- L1 sampling is tied to structural signals such as definitions, thesis statements, transitions, summaries, objections, limitations, or user-targeted topics.
-- Every high-value area points back to a mapped unit and names its structural role.
-- Every high-value candidate names a compact layered path: whole source / part or argument phase / chapter or section / candidate point.
-- The candidate pool is not built from isolated passages without showing where they sit in the whole source.
-- The layered path compresses structure; it does not require reading every section in full.
+- the reading map does not cover every major chapter/section/argument phase at L0;
+- a major unit lacks function and selected/skipped reason, or does not answer what problem it solves / which source thread it advances / which wiki gap it touches;
+- a high-value area does not point back to a mapped unit and name its structural role;
+- a high-value candidate lacks its compact layered path (whole source / part / section / point);
+- the candidate pool jumps from isolated raw excerpts directly to wiki claims.
 
 ## Gate 3: Enough Depth
 
 High-value candidates need context capsules. A high-value item without one must be downgraded or re-read.
 
-Depth is not longer prose. Depth means the candidate preserves:
-
-- source position;
-- local argumentative function;
-- whole-source role;
-- evidence type;
-- compression risk;
-- relationship to existing wiki pages.
+Depth is not longer prose. Depth means the candidate preserves every field of the `Context Capsules` definition in `SKILL.md` (raw anchor, local context, whole-source role, compression risk, method boundary, RAG follow-up). A capsule missing any field is shallow, not deep.
 
 ## Gate 4: Wiki-Oriented
 
@@ -67,13 +60,7 @@ It must say what to do next:
 - ignore as duplicate or low relevance;
 - verify with RAG before compilation.
 
-For each recommended wiki target, the handoff must include:
-
-- core contribution: what the page should add to the graph;
-- nuance or boundary: what must not be flattened or overgeneralized;
-- relationship/backlink suggestions: what existing pages it supports, challenges, limits, or connects;
-- required raw anchors: what must be checked before compilation;
-- entry condition: what evidence or context is needed before writing the formal node.
+For each recommended wiki target, the handoff must carry the full node depth packet defined in `SKILL.md` (`Handoff To Karpathy-Wiki`). Fail if any recommended target lists only a path without that packet.
 
 ## Gate 5: Evidence Boundaries
 
@@ -94,12 +81,7 @@ Fail if the agent reads the full source by default.
 
 Fail if the agent treats structure coverage as permission to read every section in full.
 
-Allowed escalation:
-
-- L0 covers the source map through headings, openings/endings, summaries, and other cheap structural signals.
-- L1 samples structurally relevant units to produce candidates.
-- L2 builds context only for high-value candidates with wiki relevance and structural role.
-- L3 is used only for thesis-critical sections, major disputes, or high compression risk.
+Escalation follows the L0-L3 `Reading Budget` table in `SKILL.md`: L0 maps via cheap structural signals, L1 samples structurally relevant units, L2 builds context only for HV candidates with wiki relevance and structural role, L3 only for thesis-critical sections, major disputes, or high compression risk. Fail if a higher level is used without the lower one being insufficient.
 
 ## Stop Conditions
 

@@ -13,6 +13,8 @@ It does not replace `karpathy-wiki`, does not write formal wiki pages, and does 
 
 The point of depth is to give future wiki nodes depth and richness: definitions with boundaries, claims with support and limits, relationships to existing pages, and raw anchors that preserve context. A dossier that only lists possible page paths is too thin.
 
+**摘要 vs 深度判定线**：如果一个候选只能写成"X 主张 Y"，却答不出"它在原文哪个位置、解决什么问题、压缩成一个 wiki 节点会误读什么"，那是摘要，不是深度——必须补上下文胶囊，否则降级。这条线由 `scripts/validate_dossier.py` 机械检查（锚点+胶囊存在），由 `references/quality-gates.md` Gate 3 判断质量。
+
 It may start from an explicit raw file or from a user-directed expansion shortlist produced by `SiliconFlow-rag`, such as "补充儿童教育" → candidate `wiki/raw/` sources.
 
 ## Output Contract
@@ -163,18 +165,20 @@ If a candidate lacks a raw anchor and context capsule, do not label it high valu
 
 ## Quality Gates
 
-Load `references/quality-gates.md` before finalizing the dossier.
+Before handoff, run the mechanical pre-check, then the judgment gates.
 
-At minimum, the dossier must show:
+Mechanical pre-check — the structural contract this skill guarantees:
 
-- high-value areas and skipped areas;
-- candidate concepts and claims;
-- at least two of support, objection, limitation, or bridge claims when the source supports them;
-- context capsules for high-value candidates;
-- wiki relationship notes: update existing, create new, challenge existing, ignore as duplicate;
-- clear separation between author claims, raw evidence, AI inference, and wiki migration suggestions.
+```bash
+python skills/deep-reading-to-wiki/scripts/validate_dossier.py \
+  reading_dossiers/<source-title>-深读档案.md
+```
 
-If the gate fails, do not hand the dossier to `karpathy-wiki`. Continue targeted reading or report the blocker.
+It must print `PASS`: frontmatter fields, the five required blocks, every `### HV-` candidate's raw anchor and context capsule, and the self-check are present. A `FAIL` blocks handoff. Lines prefixed `!` are soft richness warnings (Gate 2), not hard failures.
+
+The judgment gates the script cannot check — richness, structure-traceable selection, depth quality, evidence boundaries, token discipline — live in `references/quality-gates.md`. Load it before handoff.
+
+If a gate fails, do not hand the dossier to `karpathy-wiki`. Continue targeted reading or report the blocker.
 
 ## Handoff To Karpathy-Wiki
 

@@ -143,6 +143,7 @@ Repeat this block for each high-value candidate.
 - [ ] 已区分作者原意、raw 证据、AI 推论、wiki 迁移建议。
 - [ ] 已标出不能直接进入 wiki 的弱候选。
 - [ ] wiki 交接清单不仅列路径，还给出条目深度素材、互链关系、必查 raw 锚点和入库条件。
+- [ ] 已运行 `scripts/validate_dossier.py <本档案>` 并得到 `PASS`。
 
 ### 下一步
 
