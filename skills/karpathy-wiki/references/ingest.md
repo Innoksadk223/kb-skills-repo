@@ -14,6 +14,15 @@ When the user provides a source (URL, file, paste), integrate it into the wiki.
 - Name the file descriptively: `raw/articles/karpathy-wiki-2026.md`
 - **Add raw frontmatter** with `ingested`, `sha256` of the body. Compute the hash over the body after the closing `---`, ignoring blank lines immediately after frontmatter. Use `source_url` for web-sourced files only (omit for local files). On re-ingest: recompute sha256, compare to stored value — skip if identical, flag drift if different.
 
+### ②.5 Check for a deep-reading dossier (acceleration path)
+
+Before extracting entities/concepts from scratch, check whether a deep-reading dossier already exists for this source. This is an optional acceleration — normal ingest is the default:
+
+- Search `reading_dossiers/` for a file matching the source title.
+- **If a dossier exists** with `status: draft` and `target: karpathy-wiki`: you have a choice. The dossier's CERIC capsules and handoff list provide richer, deeper material than extracting from scratch. Load `references/compile-dossier.md` to use them. But you may still use normal ingest if the dossier doesn't cover what the user needs.
+- **If no dossier exists**: proceed with normal ingest. For long/theory-heavy sources (>200 lines), optionally note that `deep-reading-to-wiki` could produce a deeper dossier — but don't block ingest on it.
+- **Short/descriptive sources**: skip this check entirely.
+
 ### ② Discuss takeaways
 
 Discuss with the user — what's interesting, what matters for the domain. (Skip this in automated/cron contexts — proceed directly.)
