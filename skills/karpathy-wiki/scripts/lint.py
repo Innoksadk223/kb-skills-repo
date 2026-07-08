@@ -17,6 +17,9 @@ ENTITIES = os.path.join(WIKI, "entities")
 CONCEPTS = os.path.join(WIKI, "concepts")
 COMPARISONS = os.path.join(WIKI, "comparisons")
 DEBATES = os.path.join(WIKI, "debates")
+OBSERVATIONS = os.path.join(WIKI, "observations")
+STRUCTURES = os.path.join(WIKI, "structures")
+PREDICTS = os.path.join(WIKI, "predicts")
 CLAIMS = os.path.join(WIKI, "claims")
 QUERIES = os.path.join(WIKI, "queries")
 SYNTHESIS = os.path.join(WIKI, "synthesis")
@@ -25,7 +28,7 @@ INDEX = os.path.join(WIKI, "index.md")
 SCHEMA = os.path.join(WIKI, "SCHEMA.md")
 LOG = os.path.join(WIKI, "log.md")
 
-WIKI_DIRS = [ENTITIES, CONCEPTS, COMPARISONS, DEBATES, CLAIMS, QUERIES, SYNTHESIS]
+WIKI_DIRS = [ENTITIES, CONCEPTS, COMPARISONS, DEBATES, CLAIMS, OBSERVATIONS, STRUCTURES, PREDICTS, QUERIES, SYNTHESIS]
 
 def read_frontmatter(filepath):
     """Extract YAML frontmatter as dict. Returns (dict, body_start_line)."""
@@ -336,6 +339,36 @@ def check_stub_cleanup(pages):
             orphan_stubs.append({"page": relpath, "referrers": list(referrers)})
     return orphan_stubs
 
+def check_supersedes_consistency(pages):
+    """Check supersedes ↔ superseded-by bidirectional consistency."""
+    name_to_fm = {p[2]: p[3] for p in pages if p[3]}
+    issues = []
+    for relpath, abspath, name, fm in pages:
+        if not fm:
+            continue
+        supersedes = fm.get("supersedes", [])
+        if isinstance(supersedes, str):
+            supersedes = [s.strip() for s in supersedes.strip("[]").split(",") if s.strip()]
+        if not supersedes:
+            continue
+        for target in supersedes:
+            target_fm = name_to_fm.get(target)
+            if not target_fm:
+                issues.append({
+                    "page": relpath,
+                    "issue": f"supersedes target '{target}' not found in wiki"
+                })
+                continue
+            superseded_by = target_fm.get("superseded-by", [])
+            if isinstance(superseded_by, str):
+                superseded_by = [s.strip() for s in superseded_by.strip("[]").split(",") if s.strip()]
+            if name not in superseded_by:
+                issues.append({
+                    "page": relpath,
+                    "issue": f"supersedes '{target}' but '{target}' missing superseded-by: [{name}]"
+                })
+    return issues
+
 def load_taxonomy():
     """Load tags from SCHEMA.md taxonomy section."""
     if not os.path.exists(SCHEMA):
@@ -501,6 +534,11 @@ def main():
     orphan_stubs = check_stub_cleanup(pages)
     if orphan_stubs:
         report["findings"]["stub_cleanup"] = orphan_stubs
+
+    # Supersedes consistency
+    supersedes_issues = check_supersedes_consistency(pages)
+    if supersedes_issues:
+        report["findings"]["supersedes_consistency"] = supersedes_issues
 
     # Summary
     total_issues = sum(len(v) if isinstance(v, (list, dict)) else 1 for v in report["findings"].values())

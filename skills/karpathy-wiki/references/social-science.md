@@ -64,6 +64,43 @@ Use `references/debates.md` for durable controversies, not ordinary two-column c
 
 Use `references/literature-review.md` when a batch of papers must become a thesis-ready literature review. Keep the matrix as a route map; put durable propositions in `claims/` and concept definitions in `concepts/`.
 
+## Network Structure: Horizontal and Vertical Connections
+
+Social-science knowledge graphs need two complementary connection types. Using only `[[wikilinks]]` (undirected, untyped) loses the distinction between "this argument builds on that one" and "this concept is related to that one."
+
+### Vertical: Argument Sequence (`follows:`)
+
+Linear argument chains preserve **how reasoning unfolds**: premise → evidence → conclusion → limitation → prediction. This is the tree structure — a specific paper's argument has a reading order, and breaking it into graph nodes should preserve that order.
+
+Use `follows:` when:
+- Page B continues or responds to the argument started in page A
+- Multiple evidence pages converge to support one claim
+- A claim branches into predictions or limitations
+
+`follows:` is one-directional ("I follow these pages"). The reverse direction is derived by lint.
+
+### Horizontal: Typed Relationships (`relationships:`)
+
+Cross-domain bridges capture **what connects across branches**. A Foucault concept migrating to organization studies, a statistical method borrowed from epidemiology into education research, two competing definitions of the same term from different schools — these are not "A → B" sequences but typed edges across the graph.
+
+Use `relationships:` with the four core predicates:
+
+| Predicate | Example |
+|---|---|
+| `supports` | Survey data → supports → causal claim |
+| `contradicts` | Qualitative finding → contradicts → established theory |
+| `derives_from` | Org-studies framework → derives_from → Foucault-concept |
+| `supersedes` | 2024 meta-analysis → supersedes → 2016 review |
+
+### How They Work Together
+
+A single page can carry both `follows:` (its position in one argument's linear chain) and `relationships:` (its typed connections to other branches). Together they answer both "how did the reasoning get here?" (tree) and "what else is this connected to across the wiki?" (graph).
+
+This dual structure is especially important for social science because:
+- **Arguments are linear** but **disciplines are networked**: a thesis chapter has a sequence, but its concepts are borrowed, contested, and recombined across fields.
+- **Contradictions are research assets**: `contradicts` edges make disputes visible in the graph rather than smoothed away.
+- **Knowledge evolves**: `supersedes` edges track which conclusions have been updated without deleting the old ones.
+
 ## Evidence Types
 
 Use these labels in claim evidence matrices and literature-review tables:

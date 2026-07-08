@@ -41,6 +41,9 @@ wiki/
 ├── comparisons/        # Layer 2: 辨析页（comparison/distinction）
 ├── debates/            # Layer 2: durable social-science controversies (optional)
 ├── claims/             # Layer 2: graph-visible argument nodes
+├── observations/       # Layer 2: evidence/observation nodes (empirical data, findings)
+├── structures/         # Layer 2: theoretical framework nodes (models, typologies, systems)
+├── predicts/           # Layer 2: prediction/inference nodes (if-A-then-B propositions)
 ├── queries/            # Layer 2: filed query results worth keeping
 ├── synthesis/          # Layer 2: lightweight human entry pages only
 ├── qa-log.md           # Q&A log (append-only)
@@ -48,8 +51,8 @@ wiki/
 
 - **raw/**: Immutable. Read but do not modify except during source capture/re-ingest. Do not make raw files graph nodes.
 - **concepts/entities/comparisons/**: Knowledge nodes.
+- **claims/observations/structures/predicts/**: Argument and evidence nodes — see [网络构建](#网络构建).
 - **debates/**: Optional controversy hubs for mature social-science wikis; use `comparisons/` for simple distinctions.
-- **claims/**: Argument nodes — propositions that can be supported, opposed, limited, or depended on.
 - **synthesis/**: Lightweight entry pages / route maps. Do not store the main argument structure or detailed evidence bank here.
 - **SCHEMA.md**: Domain rules, frontmatter, tag taxonomy, thresholds.
 
@@ -99,6 +102,9 @@ When creating a wiki:
 | 摄入来源 (ingest) | `references/ingest.md` | 单个来源 → wiki 页面 + 交叉引用 + 导航更新 |
 | 查询知识 (query) | `references/query.md` | 检索 → 综合回答 → 有价值的存档 |
 | 论证节点 (claims) | `references/claims.md` | 将论文/理论论证拆成图谱可见的小型论证卡片 |
+| 证据节点 (observations) | `references/claims.md` | 经验观察/数据发现；与 claims 共用规则，type: observation |
+| 框架节点 (structures) | `references/claims.md` | 理论框架/模型/类型学；与 claims 共用规则，type: structure |
+| 预测节点 (predicts) | `references/claims.md` | 推论/预测命题；与 claims 共用规则，type: predict |
 | 社科增强 (social science) | `references/social-science.md` | 社科论文、理论框架、概念界定、方法边界和证据类型 |
 | 争议谱系 (debates) | `references/debates.md` | 多立场理论争议、反方回应、导师追问和研究缺口 |
 | 文献综述矩阵 | `references/literature-review.md` | 将一批文献整理成 thesis-ready matrix |
@@ -107,6 +113,64 @@ When creating a wiki:
 | 综述/入口 (synthesis) | `references/synthesis.md` | 轻量入口页；论证型 synthesis 必须抽取 claims |
 | 用户意图补库 (user-directed expansion) | `references/query.md` + `references/ingest.md` + `references/claims.md` | 用户指出想补某一主题时，先找 raw 来源与 deep-reading dossier，再正式入图谱 |
 | Obsidian 集成 | `references/obsidian-setup.md` | 图谱路径分组、Dataview、raw 排除 |
+
+## 网络构建
+
+社科知识图谱需要两种连接：**纵向**保留论证展开顺序，**横向**捕获跨域概念关联。两者互补——只用 wikilink 会丢失论证结构，只用树状层级会丢失发散性联系。
+
+### 横向连接：类型化关系
+
+所有 page type 可在 frontmatter 中使用 `relationships:` 块声明类型化关系：
+
+```yaml
+relationships:
+  supports: [page-slug]        # 本页为被引用页提供支撑
+  contradicts: [page-slug]     # 本页与被引用页矛盾
+  derives_from: [page-slug]    # 本页分析框架/概念/方法源自被引用页
+  supersedes: [page-slug]      # 本页替代被引用页（旧结论被新证据覆盖）
+```
+
+**何时声明：**
+- `supports` — 本页的证据/论证加强了另一页的主张
+- `contradicts` — 本页的证据/论证削弱或否定另一页；用于 capture 学派争议、方法分歧、证据冲突
+- `derives_from` — 本页的概念定义、分析框架、方法来自另一页；用于追踪理论谱系
+- `supersedes` — 本页提供了更新的证据/结论，取代旧页；旧页不应删除，标记为 superseded
+
+**规则：**
+- 关系声明在 frontmatter 中，`[[wikilinks]]` 仍然保留在正文中
+- 所有四个字段可选，空数组省略
+- `supersedes` 声明后，被替代页的 frontmatter 应加 `superseded-by: [本页]`，lint 检查双向一致
+- 现有 claim 专用的 `supports/opposes/limits/depends_on` 保持不变，新页面推荐使用 `relationships:` 块
+
+### 纵向连接：论证序列
+
+`follows:` 字段声明本页在论证链中的位置——"我接着谁的论证展开"：
+
+```yaml
+follows: [page-a, page-b]   # 本页接在这两页之后
+```
+
+**何时使用 `follows:`：**
+- 当页面之间存在"先读 A 才能理解 B"的论证顺序
+- 当同一理论线索跨越多个页面（如：核心命题 → 支撑证据 → 限定条件 → 推论预测）
+- 论文拆解后需要保留原论证展开路径
+
+**规则：**
+- 单向声明，只写"我接着谁"
+- 一个页面可以 follow 多个来源（多线索汇聚），也可以被多个页面 follow（一条线索分叉）
+- `follows:` 反方向（谁接着我）由 lint 自动推导，无需手动声明 `precedes`
+- 非论证型页面（entity stub、概念辞典页）不需要 `follows`
+
+### 何时用哪种连接
+
+| 场景 | 用 |
+|---|---|
+| 论证按顺序展开（前提→证据→结论→限定） | `follows:` |
+| 跨学派/跨域的概念借用或框架迁移 | `relationships.derives_from` |
+| 两个主张互相矛盾 | `relationships.contradicts` |
+| 同一主张的多条证据汇聚 | `relationships.supports` |
+| 旧结论被新研究推翻 | `relationships.supersedes` |
+| 常规相关概念、参阅、举例 | `[[wikilinks]]`（正文内，不需要类型化） |
 
 ## Bundled Resources
 
@@ -147,7 +211,7 @@ Use this when the user says they want to add, deepen, rebalance, or supplement a
 
 ## Argument Structure Rule
 
-When content contains thesis structure, theoretical framework, objections, limitations, or evidence logic, do **not** leave it as a long `synthesis/` page. Extract graph-worthy propositions into `claims/`.
+When content contains thesis structure, theoretical framework, objections, limitations, or evidence logic, do **not** leave it as a long `synthesis/` page. Extract graph-worthy nodes into the appropriate type:
 
 Use `claims/` for:
 - main theses;
@@ -156,7 +220,22 @@ Use `claims/` for:
 - limitation/boundary claims;
 - bridge claims connecting fields or theories.
 
-Use `synthesis/` only for lightweight entry pages: route maps, reading order, current state, key links, and gaps. Do not generate a standalone long evidence bank; evidence belongs inside the claim it supports.
+Use `observations/` for:
+- empirical findings, data patterns, survey results;
+- qualitative evidence (interview excerpts, fieldnote patterns, case descriptions);
+- counterevidence that weakens a specific claim.
+
+Use `structures/` for:
+- theoretical frameworks, conceptual models, typologies;
+- analytical dimensions, variable taxonomies, mechanism diagrams;
+- method schemas (research design, coding schemes, analysis pipelines).
+
+Use `predicts/` for:
+- testable implications derived from a theory;
+- cross-domain extrapolations ("if mechanism X holds in domain A, it should appear in domain B");
+- forecasts with explicit conditions and confidence.
+
+Use `synthesis/` only for lightweight entry pages: route maps, reading order, current state, key links, and gaps. Do not generate a standalone long evidence bank; evidence belongs inside the claim or observation it supports.
 
 For social-science projects, load `references/social-science.md` before building claims or synthesis. Use debate pages for durable controversies and literature-review matrices for source-to-writing route maps.
 
@@ -179,9 +258,10 @@ When content is fully superseded or domain scope changes:
 - **Always update index.md and log.md** — skipping this makes the wiki degrade.
 - **Don't create pages outside the domain** — follow SCHEMA thresholds.
 - **Don't create graph-dead pages** — every page should link to at least 2 other pages; create stubs for dead wikilinks.
-- **Don't bury arguments in synthesis** — if it is a proposition with support/opposition/limits, make a claim page.
-- **Don't keep evidence banks as durable products** — evidence belongs under the relevant claim; raw locations are plain-text paths, not wikilinks.
+- **Don't bury arguments in synthesis** — if it is a proposition with support/opposition/limits, make a claim page; if it is empirical evidence, use `observations/`; if it is a framework, use `structures/`.
+- **Don't keep evidence banks as durable products** — evidence belongs under the relevant claim or observation; raw locations are plain-text paths, not wikilinks.
 - **Don't flatten social-science disputes** — preserve competing definitions, methods, positions, and evidence limits.
+- **Don't use bare wikilinks when typed relationships fit** — if page A contradicts page B, declare `relationships.contradicts:` in addition to the body wikilink. Typed edges make the graph machine-readable.
 - **Frontmatter is required** — it enables filtering, linting, and staleness detection.
 - **Tags must come from the taxonomy** — add new tags to SCHEMA.md first.
 - **Keep pages scannable** — split pages over ~200 lines.
@@ -194,10 +274,11 @@ When content is fully superseded or domain scope changes:
 - [ ] User-directed expansion found usable raw evidence before writing formal pages.
 - [ ] If a `reading_dossiers/` handoff was used, its raw anchors and context risks were checked.
 - [ ] New/updated pages have required frontmatter and Chinese wikilinks.
-- [ ] `claims/` exists when the wiki contains argument-oriented material.
-- [ ] Core claims are listed in `index.md`; non-core claims are discoverable through links.
+- [ ] `claims/` exists when the wiki contains argument-oriented material; `observations/` and `structures/` exist when the wiki has empirical or framework content.
+- [ ] Core claims are listed in `index.md`; non-core claims and observations/structures/predicts are discoverable through links.
 - [ ] Social-science projects used `references/social-science.md` for concepts, evidence types, debates, and method boundaries.
 - [ ] Claim pages include `## 命题` and `## 关系` so Obsidian graph edges are visible.
+- [ ] `relationships.supersedes` declarations have matching `superseded-by` on the target page (bidirectional consistency).
 - [ ] No `raw/` file is wikilinked as a graph node; raw evidence locations are plain-text paths.
 - [ ] `index.md` and `log.md` were updated.
 - [ ] `scripts/lint.py <wiki_path>` was run when doing health checks or structural migrations.

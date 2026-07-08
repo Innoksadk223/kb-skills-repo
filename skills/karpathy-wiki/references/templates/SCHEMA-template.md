@@ -22,19 +22,51 @@
   title: 页面标题（English Title if needed）
   created: YYYY-MM-DD
   updated: YYYY-MM-DD
-  type: entity | concept | comparison | debate | query | synthesis | claim
+  type: entity | concept | comparison | debate | query | synthesis | claim | observation | structure | predict
   tags: [from taxonomy below]
   sources: [raw/articles/source-name.md or wiki page names]
   # Optional quality signals:
   confidence: high | medium | low        # how well-supported the claims are
+  evidence_count: 0                      # number of sources supporting
+  counterevidence_count: 0               # number of sources challenging or limiting
   contested: true                        # set when the page has unresolved contradictions
   contradictions: [other-page-slug]      # pages this one conflicts with
+  last-verified: YYYY-MM-DD              # last time confidence was re-assessed
+  superseded-by: [page-slug]             # page that replaced this one (set on superseded page)
   ---
   ```
 
 `confidence` and `contested` are optional but recommended for opinion-heavy or fast-moving
-topics. Lint surfaces `contested: true` and `confidence: low` pages for review so weak claims
-don't silently harden into accepted wiki fact.
+topics. `evidence_count` and `counterevidence_count` give the reader a quick signal of
+evidential weight without inflating confidence precision. `last-verified` tracks staleness —
+lint surfaces pages unverified for >12 months.
+
+### Typed Relationships
+
+All page types may optionally declare a `relationships:` block in frontmatter:
+
+```yaml
+relationships:
+  supports: [page-slug]        # this page supports the referenced page
+  contradicts: [page-slug]     # this page contradicts the referenced page
+  derives_from: [page-slug]    # this page's framework/concept/method derives from the referenced page
+  supersedes: [page-slug]      # this page replaces the referenced page (the superseded page must have superseded-by pointing back)
+```
+
+All four fields are optional; omit empty arrays. Existing claim-specific fields
+(`supports`, `opposes`, `limits`, `depends_on` in claim frontmatter) remain compatible
+but new pages should prefer `relationships:`.
+
+### Argument Sequence
+
+Pages that form a linear argument chain may declare `follows:`:
+
+```yaml
+follows: [page-a, page-b]   # this page continues the argument from page-a and page-b
+```
+
+Use `follows:` only when reading order matters (premise → evidence → conclusion → limitation).
+One-directional: declare only which pages this page follows, not which follow it.
 
 ### raw/ Frontmatter
 
@@ -153,6 +185,55 @@ related_comparisons: []
 ```
 
 Do not wikilink `raw/` files from claim evidence; write raw evidence locations as code paths.
+
+## Observation Pages
+Evidence/observation nodes for empirical findings, data patterns, and counterevidence. Include:
+- **观察对象/数据来源** — what was observed, sample, context
+- **发现** — key empirical patterns or data results
+- **方法边界** — what the evidence can and cannot show
+- **关联主张** — wikilinks to claims this observation supports or challenges
+- **来源**
+
+Observation-specific frontmatter (inherits all standard fields):
+
+```yaml
+type: observation
+observation_type: quantitative | qualitative | mixed | counterevidence
+method: [survey, experiment, interview, fieldnote, archive, meta-analysis]
+```
+
+## Structure Pages
+Theoretical framework, conceptual model, typology, or analytical schema. Include:
+- **框架概述** — what the framework models or explains
+- **构成要素** — dimensions, variables, categories, or mechanisms
+- **适用条件** — when the framework applies and when it does not
+- **源自** — theoretical lineage or derivation
+- **关联页面** — concepts it organizes, claims that use it, observations it explains
+
+Structure-specific frontmatter:
+
+```yaml
+type: structure
+structure_type: framework | typology | model | schema | taxonomy
+scope: macro | meso | micro   # level of analysis
+```
+
+## Predict Pages
+Prediction or inference nodes — testable implications derived from theory. Include:
+- **预测命题** — one sentence: if X, then Y under conditions Z
+- **理论来源** — which theory or framework generates this prediction
+- **验证状态** — confirmed, disconfirmed, or untested
+- **边界条件** — when the prediction is expected to hold / fail
+- **关联页面**
+
+Predict-specific frontmatter:
+
+```yaml
+type: predict
+predict_status: untested | confirmed | disconfirmed | partial
+derives_from_theory: [page-slug]   # structure or claim page
+conditions: free text              # boundary conditions as one sentence
+```
 
 ## 辨析页（Comparison）
 Side-by-side analysis, distinction, or clarification between concepts/entities. Include:
