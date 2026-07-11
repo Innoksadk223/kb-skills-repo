@@ -14,6 +14,8 @@ Use this skill as the coordinator for a layered social-science knowledge system:
 
 Optional before Step 1: **Discover new papers → source folder** with `academic-search` when the existing corpus is thin or the user asks to broaden coverage beyond local files. Only accepted, legally accessible full texts become source files; search metadata and abstracts are candidate records, not raw evidence.
 
+**Upstream prerequisites (not shipped by this repo):** `academic-search`, `mineru-document-extractor`, MinerU MCP, and `markitdown` must be installed from upstream. See the parent repo `README.md` / `CONFIG.md`, or run `bash setup.sh --list` for install URLs. This skill only coordinates them; it does not vendor their files.
+
 Do not create a separate `资料md/` layer. In this workflow, `wiki/raw/` is the single bottom-layer text store; `reading_dossiers/` is a pre-wiki interpretation layer; `wiki/claims`, `wiki/concepts`, `wiki/entities`, and `wiki/comparisons` are graph-readable knowledge layers, not replacements for raw evidence.
 
 The coordinator's job is to make the workflow executable. Prefer bundled helper scripts over asking each agent to improvise shell commands. If a repeated operation is needed across projects, add or copy a reference helper instead of hand-writing a new local variant.

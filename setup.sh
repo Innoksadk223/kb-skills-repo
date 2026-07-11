@@ -4,10 +4,8 @@ set -e
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_DIR="$REPO_DIR/skills"
 
+# 本仓库维护并安装的技能（上游技能见 print_external_install_hints，不随 setup 复制）
 SKILL_NAMES=(
-    academic-search
-    mineru-document-extractor
-    markitdown
     deep-reading-to-wiki
     karpathy-wiki
     SiliconFlow-rag
@@ -73,6 +71,8 @@ Inno Knowledge Base Skills 安装器
   --help, -h                  显示帮助
 
 说明：
+  - 只会安装本仓库维护的 4 个知识库技能。
+  - academic-search / mineru-document-extractor / markitdown 请从上游安装（安装结束会打印命令）。
   - 不会删除不在本仓库里的技能。
   - 默认安装到 ~/.codex/skills、~/.claude/skills、~/.hermes/skills。
   - Hermes 会按用途分组；Codex/Claude 使用扁平目录。
@@ -116,12 +116,69 @@ detect_agents() {
 
 hermes_relative_path() {
     case "$1" in
-        academic-search) echo "research/$1" ;;
-        mineru-document-extractor) echo "productivity/$1" ;;
         deep-reading-to-wiki|karpathy-wiki|SiliconFlow-rag|social-science-km) echo "research/$1" ;;
-        markitdown) echo "$1" ;;
         *) echo "$1" ;;
     esac
+}
+
+print_external_install_hints() {
+    cat <<'EOF'
+
+────────────────────────────────────────
+上游技能与 MinerU MCP（本仓库不内置，请自行安装）
+────────────────────────────────────────
+
+1) academic-search
+   上游：https://github.com/ustc-ai4science/academic-search
+   Claude / Codex 示例：
+     git clone https://github.com/ustc-ai4science/academic-search.git ~/.claude/skills/academic-search
+     # Codex: 把目标目录换成 ~/.codex/skills/academic-search
+     bash ~/.claude/skills/academic-search/scripts/check-deps.sh
+   Hermes 示例：
+     git clone https://github.com/ustc-ai4science/academic-search.git ~/.hermes/skills/research/academic-search
+
+2) mineru-document-extractor（技能）
+   上游 skill：https://github.com/opendatalab/MinerU-Ecosystem
+   技能文件：https://github.com/opendatalab/MinerU-Ecosystem/blob/main/skills/SKILL.md
+   生态说明：https://mineru.net/ecosystem
+   安装 skill（Claude 示例）：
+     git clone --depth 1 https://github.com/opendatalab/MinerU-Ecosystem.git /tmp/MinerU-Ecosystem
+     mkdir -p ~/.claude/skills/mineru-document-extractor
+     cp /tmp/MinerU-Ecosystem/skills/SKILL.md ~/.claude/skills/mineru-document-extractor/SKILL.md
+     # Codex: ~/.codex/skills/mineru-document-extractor
+     # Hermes: ~/.hermes/skills/productivity/mineru-document-extractor
+   可选 CLI：
+     npm install -g mineru-open-api
+     # 或 go install github.com/opendatalab/MinerU-Ecosystem/cli/mineru-open-api@latest
+
+3) MinerU MCP（推荐，知识库工作流优先）
+   上游：https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp
+   README：https://github.com/opendatalab/MinerU-Ecosystem/blob/main/mcp/README.md
+   MCP 客户端配置（stdio / uvx）：
+     {
+       "mcpServers": {
+         "mineru": {
+           "command": "uvx",
+           "args": ["mineru-open-mcp"],
+           "env": {
+             "MINERU_API_TOKEN": "your_token_here",
+             "OUTPUT_DIR": "~/mineru-downloads"
+           }
+         }
+       }
+     }
+   说明：不填 MINERU_API_TOKEN 时走 Flash 免费模式；token 申请见 https://mineru.net/apiManage/token
+   详细配置见 CONFIG.md。
+
+4) markitdown
+   上游工具：https://github.com/microsoft/markitdown
+   安装 CLI（技能本身是对官方工具的轻量封装，以包为准）：
+     python -m pip install 'markitdown[all]'
+     python -m markitdown --version
+   若 agent 需要独立 skill 目录，可让 AI 按官方 CLI 写一份薄 SKILL.md，
+   或从已有 agent skills 生态安装 markitdown skill；不要依赖本仓库内置副本。
+
+EOF
 }
 
 all_skill_names() {
@@ -132,11 +189,17 @@ all_skill_names() {
 }
 
 list_skills() {
-    echo "知识库技能："
+    echo "本仓库安装的技能："
     local name
     for name in "${SKILL_NAMES[@]}"; do
         echo "  - $name"
     done
+    echo ""
+    echo "上游技能（不随 setup 安装）："
+    echo "  - academic-search          https://github.com/ustc-ai4science/academic-search"
+    echo "  - mineru-document-extractor https://github.com/opendatalab/MinerU-Ecosystem"
+    echo "  - markitdown               https://github.com/microsoft/markitdown"
+    echo "  - MinerU MCP               https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp"
 }
 
 parse_skills() {
@@ -532,8 +595,11 @@ main() {
     echo ""
     if [ "$DRY_RUN" -eq 1 ]; then
         echo "预览完成。确认无误后去掉 --dry-run 重新运行。"
+        print_external_install_hints
     else
-        echo "完成。现在请按 START.md 给用户做 3 分钟上手介绍。"
+        echo "完成。本仓库 4 个技能已安装。"
+        print_external_install_hints
+        echo "现在请按 START.md 给用户做 3 分钟上手介绍。"
         echo "更新命令: cd $REPO_DIR && git pull && bash setup.sh --update-only"
     fi
 }

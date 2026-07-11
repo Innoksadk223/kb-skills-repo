@@ -21,7 +21,7 @@
 4. 结尾问用户想重点了解哪一块；如果用户明确说不用介绍，就收住。
 5. 用户问 Obsidian 时，教他打开知识库文件夹并按 `Ctrl/Cmd + G` 看图谱。
 6. 用户问 API Key 时，说明 SiliconFlow 用来做向量索引；不配置也可以先做 Markdown/wiki，配置后检索效果更好。
-7. 用户处理 PDF、扫描件、表格或公式时，提醒 MinerU MCP 可能需要单独安装。
+7. 用户处理 PDF、扫描件、表格或公式时，提醒 **MinerU skill 与 MinerU MCP 需从上游安装**（见 README / CONFIG.md），本仓库不再内置副本。
 8. 用户想深入了解图谱、问答、颜色配置或常见问题时，再阅读 `KB-GUIDE.md`。
 9. 用户问 MinerU、SiliconFlow、嵌入模型、rerank、API Key 或隐私边界时，再阅读 `CONFIG.md`。
 
@@ -76,17 +76,19 @@ AI 应先查 wiki 结构，再回到 raw 原文证据，不要只凭记忆回答
 
 ---
 
-## 这 7 个技能怎么分工？
+## 这 7 个能力怎么分工？
 
-| 技能 | 什么时候会用 |
-|---|---|
-| `academic-search` | 本地资料不够时，搜索相关论文、筛候选来源、判断开放获取 PDF |
-| `mineru-document-extractor` | PDF、扫描件、复杂表格、公式、版式复杂的资料 |
-| `markitdown` | Word、PPT、Excel、网页、普通文档的轻量转换 |
-| `deep-reading-to-wiki` | 长书、章节、理论文献、需要认真吃透的材料 |
-| `karpathy-wiki` | 把资料编译成 Obsidian 可读的图谱 wiki |
-| `SiliconFlow-rag` | 建索引，让提问能先找图谱再回到原文证据 |
-| `social-science-km` | 一句话建库、补库、问答时的总入口 |
+| 能力 | 什么时候会用 | 安装来源 |
+|---|---|---|
+| `academic-search` | 本地资料不够时，搜索相关论文、筛候选来源、判断开放获取 PDF | 上游：https://github.com/ustc-ai4science/academic-search |
+| `mineru-document-extractor` / MinerU MCP | PDF、扫描件、复杂表格、公式、版式复杂的资料 | 上游：https://github.com/opendatalab/MinerU-Ecosystem ；MCP：https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp |
+| `markitdown` | Word、PPT、Excel、网页、普通文档的轻量转换 | 上游：https://github.com/microsoft/markitdown |
+| `deep-reading-to-wiki` | 长书、章节、理论文献、需要认真吃透的材料 | 本仓库 `setup.sh` |
+| `karpathy-wiki` | 把资料编译成 Obsidian 可读的图谱 wiki | 本仓库 `setup.sh` |
+| `SiliconFlow-rag` | 建索引，让提问能先找图谱再回到原文证据 | 本仓库 `setup.sh` |
+| `social-science-km` | 一句话建库、补库、问答时的总入口 | 本仓库 `setup.sh` |
+
+`setup.sh` 只安装后 4 个本仓库技能。装完后请按 README「上游技能安装」补齐学术搜索、MinerU 和 markitdown。
 
 ---
 

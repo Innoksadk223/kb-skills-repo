@@ -43,7 +43,13 @@ AI 会自动：
 4. 生成可以在 Obsidian 图谱中看到的 claims / concepts / entities / comparisons 页面
 5. 建立 raw 原文索引 + wiki 结构索引，后续提问先定位论证路径，再回到原文证据
 
-说明：这个流程需要 MinerU 的 skill 和 MCP。skill 已经在本仓库中；MinerU MCP 需要按 https://mineru.net/ecosystem 或 [`CONFIG.md`](CONFIG.md) 的说明安装/配置。
+说明：PDF 解析依赖 **MinerU skill + MinerU MCP（推荐）**，二者均从上游安装，不在本仓库内置：
+
+- 生态：https://mineru.net/ecosystem
+- 技能：https://github.com/opendatalab/MinerU-Ecosystem/blob/main/skills/SKILL.md
+- **MCP**：https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp  
+  README：https://github.com/opendatalab/MinerU-Ecosystem/blob/main/mcp/README.md
+- 配置细节：[`CONFIG.md`](CONFIG.md)
 
 建好后 AI 会告诉你知识库在哪个文件夹。
 

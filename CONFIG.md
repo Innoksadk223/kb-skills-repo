@@ -1,26 +1,41 @@
 # 配置指南
 
-这份指南只讲安装技能之后还需要配置什么。技能安装完成不代表外部服务都可用：MinerU 负责解析复杂文档，SiliconFlow 负责 RAG 向量索引和可选 rerank。
+这份指南只讲安装技能之后还需要配置什么。  
+`setup.sh` 只安装本仓库 4 个知识库技能；`academic-search`、`mineru-document-extractor`、`markitdown` 与 **MinerU MCP** 请从上游安装（见 README「上游技能安装」）。
+
+技能装好后，外部服务仍需单独配置：MinerU 负责解析复杂文档，SiliconFlow 负责 RAG 向量索引和可选 rerank。
 
 ## 最小可用配置
 
 | 能力 | 是否必需 | 需要配置什么 | 不配置会怎样 |
 |---|---:|---|---|
-| 普通文档转 Markdown | 否 | `markitdown` Python 包，按需安装 | 只能处理已经是 Markdown/文本的资料 |
-| MinerU Flash 解析 | 否 | MinerU MCP 或 CLI | 小 PDF/图片/Office 仍可走 flash 模式，但需要工具本身可用 |
+| 普通文档转 Markdown | 否 | 上游安装 Microsoft `markitdown` Python 包 | 只能处理已经是 Markdown/文本的资料 |
+| MinerU Flash 解析 | 否 | 上游安装 MinerU MCP 或 CLI | 小 PDF/图片/Office 仍可走 flash 模式，但需要工具本身可用 |
 | MinerU 高级解析 | 可选 | `MINERU_API_TOKEN`（MCP）或 `MINERU_TOKEN`（CLI） | 无法用更高额度、多格式输出和高级解析 |
 | RAG 向量索引 | 是 | `SILICONFLOW_API_KEY` | 只能做 Markdown/wiki，不能建真实语义检索索引 |
 | Rerank 精排 | 可选 | 同一个 `SILICONFLOW_API_KEY` | 查询仍可用，只是不做二次精排 |
 
+## 上游组件安装入口
+
+| 组件 | 上游地址 |
+|---|---|
+| academic-search | https://github.com/ustc-ai4science/academic-search |
+| mineru-document-extractor skill | https://github.com/opendatalab/MinerU-Ecosystem/blob/main/skills/SKILL.md |
+| **MinerU MCP** | https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp |
+| MinerU 生态总入口 | https://mineru.net/ecosystem |
+| markitdown | https://github.com/microsoft/markitdown |
+
 ## MinerU 配置
 
-MinerU 有两条路：MCP 和 CLI。知识库工作流优先用 MCP；MCP 不可用时再用 CLI。
+MinerU 有两条路：MCP 和 CLI。知识库工作流优先用 MCP；MCP 不可用时再用 CLI。  
+**本仓库不内置 MinerU skill 副本**——请从上游安装 skill，并按下方配置 MCP。
 
 ### 推荐：MinerU MCP
 
 官方说明：
 
 - MinerU ecosystem：https://mineru.net/ecosystem
+- MinerU MCP 目录：https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp
 - MinerU MCP README：https://github.com/opendatalab/MinerU-Ecosystem/blob/main/mcp/README.md
 
 安装 `uv` 后，MCP 客户端可以用 `uvx` 直接启动最新版：
@@ -43,7 +58,7 @@ MinerU 有两条路：MCP 和 CLI。知识库工作流优先用 MCP；MCP 不可
 说明：
 
 - `MINERU_API_TOKEN` 可不填；不填时走 Flash mode，免费、免注册，但额度和输出能力较低。
-- 填 token 后可用更高额度、更多输出格式和更完整的解析能力。
+- 填 token 后可用更高额度、更多输出格式和更完整的解析能力。Token：https://mineru.net/apiManage/token
 - `OUTPUT_DIR` 是批量解析或内容过长时保存结果的目录。
 - 有些 MCP 客户端会把拖入的文件放进临时沙盒；让用户尽量给出文件的完整路径。
 
@@ -105,6 +120,35 @@ mineru-open-api extract paper.pdf -o ./out/ -f md --model vlm
 - `pipeline`：更稳，适合要求不幻觉的解析。
 - `vlm`：版式理解更强，适合复杂排版，但极少数情况下可能生成幻觉文本。
 - `html` / MinerU-HTML：适合需要 HTML 结构的场景。
+
+### MinerU skill 安装（上游）
+
+```bash
+git clone --depth 1 https://github.com/opendatalab/MinerU-Ecosystem.git /tmp/MinerU-Ecosystem
+mkdir -p ~/.claude/skills/mineru-document-extractor
+cp /tmp/MinerU-Ecosystem/skills/SKILL.md ~/.claude/skills/mineru-document-extractor/SKILL.md
+# Codex: ~/.codex/skills/mineru-document-extractor
+# Hermes: ~/.hermes/skills/productivity/mineru-document-extractor
+```
+
+## markitdown 配置
+
+```bash
+python -m pip install 'markitdown[all]'
+python -m markitdown --version
+```
+
+上游：https://github.com/microsoft/markitdown
+
+## academic-search 配置
+
+```bash
+git clone https://github.com/ustc-ai4science/academic-search.git ~/.claude/skills/academic-search
+bash ~/.claude/skills/academic-search/scripts/check-deps.sh
+```
+
+上游：https://github.com/ustc-ai4science/academic-search  
+建议申请 Semantic Scholar API Key 以提高配额：https://www.semanticscholar.org/product/api#api-key-form
 
 ## SiliconFlow RAG 配置
 
@@ -235,11 +279,12 @@ python skills/SiliconFlow-rag/scripts/query_index.py \
 
 安装完成后，AI 不要把配置一次性全塞给用户。按这个顺序讲：
 
-1. 先告诉用户：不配 API Key 也能整理 Markdown/wiki，但真实语义检索需要 SiliconFlow。
-2. 处理 PDF、扫描件、表格、公式时，先问是否已经有 MinerU MCP；没有就给 MCP 的 `uvx` 配置。
-3. 用户要建 RAG 索引时，再指导配置 `SILICONFLOW_API_KEY`。
-4. 解释默认嵌入模型是 `BAAI/bge-m3`，适合中英文资料；换模型会导致已有索引需要重建。
-5. 强调密钥只放环境变量或本地私有 config，不要写进仓库。
+1. 先告诉用户：`setup.sh` 只装本仓库 4 个技能；academic-search / MinerU / markitdown 要从上游装。
+2. 先告诉用户：不配 API Key 也能整理 Markdown/wiki，但真实语义检索需要 SiliconFlow。
+3. 处理 PDF、扫描件、表格、公式时，先问是否已有 MinerU skill + MCP；没有就给上游 skill 安装命令和 MCP 的 `uvx` 配置（见上文）。
+4. 用户要建 RAG 索引时，再指导配置 `SILICONFLOW_API_KEY`。
+5. 解释默认嵌入模型是 `BAAI/bge-m3`，适合中英文资料；换模型会导致已有索引需要重建。
+6. 强调密钥只放环境变量或本地私有 config，不要写进仓库。
 
 ## 快速体检
 
