@@ -15,6 +15,8 @@ Endpoint: `POST https://api.siliconflow.cn/v1/embeddings`
 }
 ```
 
+For `Qwen/Qwen3-Embedding-*`, `dimensions` is supported. `encoding_format` may be `float` or `base64`; base64 responses contain packed float32 values and reduce transfer size.
+
 ## Rerank
 
 Endpoint: `POST https://api.siliconflow.cn/v1/rerank`

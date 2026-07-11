@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import math
 import os
+import re
 import stat
+import struct
 import sys
 import urllib.error
 import urllib.request
@@ -36,6 +39,8 @@ QUERY_DEFAULTS = {
     "wiki_top_k": 5,
     "wiki_first": False,
     "multi_query": False,
+    "source_discovery": False,
+    "dimensions": None,
 }
 CONFIG_SECTIONS = {"build", "query"}
 BUILD_CONFIG_FIELDS = {"md_dir", "model", "chunk_size", "overlap", "batch_size", "sleep"}
@@ -109,6 +114,10 @@ def apply_query_config(args: argparse.Namespace) -> argparse.Namespace:
 
     for key in QUERY_INT_FIELDS:
         setattr(args, key, coerce_int(getattr(args, key), key))
+    if args.dimensions is not None:
+        args.dimensions = coerce_int(args.dimensions, "dimensions")
+        if args.dimensions <= 0:
+            raise SystemExit("dimensions must be greater than 0")
 
     return args
 
@@ -194,13 +203,33 @@ def compute_rrf(rank1: int, rank2: int, k: int = 60) -> float:
     return score
 
 
-def siliconflow_embedding(text: str, model: str, api_key: str, timeout: int) -> list[float]:
-    payload = json.dumps({
+def decode_embedding(value: object) -> list[float]:
+    if isinstance(value, list):
+        return [float(item) for item in value]
+    if isinstance(value, str):
+        raw = base64.b64decode(value)
+        if len(raw) % 4:
+            raise RuntimeError("Base64 embedding byte length is not divisible by 4")
+        return list(struct.unpack(f"<{len(raw) // 4}f", raw))
+    raise RuntimeError(f"Unexpected embedding value type: {type(value).__name__}")
+
+
+def siliconflow_embedding(
+    text: str,
+    model: str,
+    api_key: str,
+    timeout: int,
+    dimensions: int | None = None,
+) -> list[float]:
+    payload_data = {
         "model": model,
         "input": [text],
         "encoding_format": "float",
         "truncate": "right",
-    }, ensure_ascii=False).encode("utf-8")
+    }
+    if dimensions is not None:
+        payload_data["dimensions"] = dimensions
+    payload = json.dumps(payload_data, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         EMBEDDING_API_URL,
         data=payload,
@@ -219,7 +248,7 @@ def siliconflow_embedding(text: str, model: str, api_key: str, timeout: int) -> 
     data = body.get("data")
     if not isinstance(data, list) or not data:
         raise RuntimeError(f"Unexpected embedding response: {body}")
-    return sorted(data, key=lambda item: item.get("index", 0))[0]["embedding"]
+    return decode_embedding(sorted(data, key=lambda item: item.get("index", 0))[0]["embedding"])
 
 
 def siliconflow_rerank(query: str, documents: list[str], model: str, api_key: str, timeout: int, top_n: int | None = None) -> list[dict]:
@@ -313,6 +342,8 @@ def row_page_type(row: dict) -> str:
         return "comparison"
     if source.startswith("entities/"):
         return "entity"
+    if source.startswith("debates/"):
+        return "debate"
     if source.startswith("synthesis/"):
         return "synthesis"
     text = str(row.get("text", ""))
@@ -324,10 +355,10 @@ def row_page_type(row: dict) -> str:
 
 def semantic_type_boost(intent: str, page_type: str) -> float:
     table = {
-        "comparison": {"comparison": 0.18, "claim": 0.08, "concept": 0.06},
-        "claim": {"claim": 0.18, "comparison": 0.06, "concept": 0.04},
+        "comparison": {"comparison": 0.18, "claim": 0.08, "concept": 0.06, "debate": 0.05},
+        "claim": {"claim": 0.18, "comparison": 0.06, "concept": 0.04, "debate": 0.08},
         "concept": {"concept": 0.18, "comparison": 0.06, "claim": 0.04},
-        "synthesis": {"claim": 0.10, "comparison": 0.08, "concept": 0.08, "synthesis": 0.04},
+        "synthesis": {"claim": 0.10, "comparison": 0.08, "concept": 0.08, "debate": 0.08, "synthesis": 0.04},
     }
     return table.get(intent, {}).get(page_type, 0.0)
 
@@ -400,7 +431,8 @@ def load_index(index_dir: Path) -> tuple[dict, list[dict]]:
 
 
 def retrieve(args: argparse.Namespace) -> tuple[dict, list[dict], str | None]:
-    return retrieve_from_index(args, args.index_dir, args.question, args.top_k, args.candidates)
+    top_k = args.candidates if args.source_discovery else args.top_k
+    return retrieve_from_index(args, args.index_dir, args.question, top_k, max(args.candidates, top_k))
 
 
 def retrieve_from_index(args: argparse.Namespace, index_dir_value: str, question: str, top_k: int, candidates_count: int, rerank: bool | None = None) -> tuple[dict, list[dict], str | None]:
@@ -426,7 +458,17 @@ def retrieve_from_index(args: argparse.Namespace, index_dir_value: str, question
             expanded = siliconflow_multi_query(question, api_key, args.timeout)
             if expanded:
                 queries.extend([q for q in expanded if q != question])
-        query_vectors = [siliconflow_embedding(q, manifest.get("embedding_model") or args.embedding_model, api_key, args.timeout) for q in queries]
+        dimensions = manifest.get("dimensions") or args.dimensions
+        query_vectors = [
+            siliconflow_embedding(
+                q,
+                manifest.get("embedding_model") or args.embedding_model,
+                api_key,
+                args.timeout,
+                dimensions=dimensions,
+            )
+            for q in queries
+        ]
 
     intent = infer_query_intent(question)
     is_wiki_index = manifest.get("metadata_mode") == "wiki"
@@ -470,7 +512,7 @@ def retrieve_from_index(args: argparse.Namespace, index_dir_value: str, question
     
     for rank, score_dict in enumerate(vec_ranked, start=1):
         score_dict["vec_rank"] = rank
-    for rank, score_dict in enumerate(bm25_ranked, start=1):
+    for rank, score_dict in enumerate((item for item in bm25_ranked if item["bm25"] > 0), start=1):
         score_dict["bm25_rank"] = rank
         
     scored = []
@@ -582,6 +624,12 @@ def extract_raw_evidence_paths(wiki_hits: list[dict]) -> list[str]:
     paths: list[str] = []
     for item in wiki_hits:
         text = item.get("text", "")
+        for line in text.splitlines():
+            if line.startswith("来源："):
+                for source in line[len("来源："):].split("、"):
+                    source = source.strip()
+                    if source and source not in paths:
+                        paths.append(source)
         for marker in ["证据位置：`", "evidence: `"]:
             start = 0
             while True:
@@ -593,6 +641,9 @@ def extract_raw_evidence_paths(wiki_hits: list[dict]) -> list[str]:
                 if raw and raw not in paths:
                     paths.append(raw)
                 start = idx + len(marker)
+        for raw in re.findall(r"`((?:wiki/)?raw/[^`]+?\.md)(?::[^`]*)?`", text):
+            if raw not in paths:
+                paths.append(raw)
     return paths
 
 
@@ -601,25 +652,53 @@ def normalize_evidence_path(path: str) -> str:
     return cleaned.removeprefix("wiki/raw/").removeprefix("raw/")
 
 
-def add_wiki_evidence_hits(raw_hits: list[dict], raw_rows: list[dict], evidence_paths: list[str]) -> list[dict]:
+def add_wiki_evidence_hits(
+    raw_hits: list[dict],
+    raw_rows: list[dict],
+    evidence_paths: list[str],
+    expanded_query: str,
+    max_additions: int = 3,
+) -> list[dict]:
     if not evidence_paths:
         return raw_hits
     targets = {normalize_evidence_path(path) for path in evidence_paths}
     hits = list(raw_hits)
     seen_ids = {item["id"] for item in hits}
-    for row in raw_rows:
-        source_path = str(row.get("source_path", ""))
-        if source_path in targets and row["id"] not in seen_ids:
-            item = dict(row)
-            item.pop("embedding", None)
-            item["wiki_evidence_boost"] = True
-            item.setdefault("similarity", 0.0)
-            hits.append(item)
-            seen_ids.add(item["id"])
+    covered_targets: set[str] = set()
     for item in hits:
         source_path = str(item.get("source_path", ""))
         if source_path in targets:
             item["wiki_evidence_boost"] = True
+            covered_targets.add(source_path)
+
+    additions = 0
+    query_tokens = set(bm25_tokenize(expanded_query))
+    for target in sorted(targets - covered_targets):
+        if additions >= max_additions:
+            break
+        candidates = [
+            candidate for candidate in raw_rows
+            if candidate.get("source_path") == target and candidate.get("id") not in seen_ids
+        ]
+        ranked = sorted(
+            (
+                (len(query_tokens & set(bm25_tokenize(str(candidate.get("text", ""))))), candidate)
+                for candidate in candidates
+            ),
+            key=lambda pair: pair[0],
+            reverse=True,
+        )
+        if not ranked or ranked[0][0] <= 0:
+            continue
+        lexical_score, row = ranked[0]
+        item = dict(row)
+        item.pop("embedding", None)
+        item["wiki_evidence_boost"] = True
+        item["wiki_evidence_lexical_score"] = lexical_score
+        item.setdefault("similarity", 0.0)
+        hits.append(item)
+        seen_ids.add(item["id"])
+        additions += 1
     return hits
 
 
@@ -631,9 +710,21 @@ def retrieve_wiki_first(args: argparse.Namespace) -> tuple[dict, list[dict], dic
     expanded_query = args.question
     if terms:
         expanded_query = args.question + "\n" + "\n".join(terms)
-    raw_manifest, raw_hits, raw_note = retrieve_from_index(args, args.raw_index_dir, expanded_query, args.top_k, args.candidates)
+    raw_top_k = args.candidates if args.source_discovery else args.top_k
+    raw_manifest, raw_hits, raw_note = retrieve_from_index(
+        args,
+        args.raw_index_dir,
+        expanded_query,
+        raw_top_k,
+        max(args.candidates, raw_top_k),
+    )
     _, raw_rows = load_index(Path(args.raw_index_dir).resolve())
-    raw_hits = add_wiki_evidence_hits(raw_hits, raw_rows, extract_raw_evidence_paths(wiki_hits))
+    raw_hits = add_wiki_evidence_hits(
+        raw_hits,
+        raw_rows,
+        extract_raw_evidence_paths(wiki_hits),
+        expanded_query,
+    )
     note = "; ".join(note for note in [wiki_note, raw_note] if note) or None
     return wiki_manifest, wiki_hits, raw_manifest, raw_hits, expanded_query, note
 
@@ -666,6 +757,142 @@ def print_wiki_first_evidence(question: str, wiki_manifest: dict, wiki_hits: lis
     print("# Raw Evidence")
     print()
     print_evidence(question, raw_manifest, raw_hits, None)
+
+
+def result_score(item: dict) -> tuple[str, float | None]:
+    for key in ("rerank_score", "rrf_score", "wiki_evidence_lexical_score", "similarity"):
+        value = item.get(key)
+        if isinstance(value, (int, float)):
+            return key, float(value)
+    return "score", None
+
+
+def raw_source_metrics(manifest: dict, source_path: str) -> tuple[int | None, int | None]:
+    md_dir = manifest.get("md_dir")
+    if not isinstance(md_dir, str) or not md_dir:
+        return None, None
+    source_file = Path(md_dir).expanduser() / source_path
+    try:
+        raw_bytes = source_file.stat().st_size
+        with source_file.open("r", encoding="utf-8", errors="replace") as handle:
+            raw_lines = sum(1 for _ in handle)
+    except OSError:
+        return None, None
+    return raw_bytes, raw_lines
+
+
+def size_gate(raw_bytes: int | None, raw_lines: int | None) -> str:
+    if raw_bytes is None or raw_lines is None:
+        return "unknown; inspect the Raw file before routing"
+    if raw_bytes == 0 or raw_lines == 0:
+        return "blocked; Raw is empty or unreadable"
+    if raw_lines >= 500 or raw_bytes >= 100 * 1024:
+        return "deep-reading candidate (size trigger)"
+    if raw_lines >= 200 or raw_bytes >= 40 * 1024:
+        return "inspect source type and context-loss risk"
+    return "direct-wiki candidate by size only"
+
+
+def matched_terms(question: str, text: str, limit: int = 8) -> list[str]:
+    haystack = text.lower()
+    terms: list[str] = []
+    for token in bm25_tokenize(question):
+        cleaned = token.strip().lower()
+        if len(cleaned) < 2 or cleaned not in haystack or cleaned in terms:
+            continue
+        terms.append(cleaned)
+        if len(terms) >= limit:
+            break
+    return terms
+
+
+def aggregate_source_candidates(question: str, manifest: dict, results: list[dict], limit: int) -> list[dict]:
+    grouped: dict[str, dict] = {}
+    for item in results:
+        if item.get("is_context"):
+            continue
+        source_path = str(item.get("source_path", "")).strip()
+        if not source_path:
+            continue
+        score_name, score = result_score(item)
+        candidate = grouped.get(source_path)
+        if candidate is None:
+            raw_bytes, raw_lines = raw_source_metrics(manifest, source_path)
+            grouped[source_path] = {
+                "source_path": source_path,
+                "matched_chunks": 1,
+                "best_item": item,
+                "score_name": score_name,
+                "best_score": score,
+                "raw_bytes": raw_bytes,
+                "raw_lines": raw_lines,
+            }
+            continue
+        candidate["matched_chunks"] += 1
+        previous = candidate.get("best_score")
+        if score is not None and (previous is None or score > previous):
+            candidate["best_item"] = item
+            candidate["score_name"] = score_name
+            candidate["best_score"] = score
+
+    candidates = list(grouped.values())[:limit]
+    for candidate in candidates:
+        best_text = str(candidate["best_item"].get("text", ""))
+        candidate["key_terms"] = matched_terms(question, best_text)
+        candidate["size_gate"] = size_gate(candidate["raw_bytes"], candidate["raw_lines"])
+    return candidates
+
+
+def print_source_discovery(
+    question: str,
+    raw_manifest: dict,
+    raw_hits: list[dict],
+    note: str | None,
+    top_k: int,
+    wiki_hits: list[dict] | None = None,
+    expanded_query: str | None = None,
+) -> None:
+    print("# Source Discovery Shortlist")
+    print()
+    print(f"Question: {question}")
+    if note:
+        print(f"Note: {note}")
+    if wiki_hits:
+        print()
+        print("## Wiki Recall Path")
+        for item in wiki_hits:
+            print(f"- {item.get('source_path', '?')} (chunk {item.get('chunk_no', '?')})")
+    if expanded_query and expanded_query != question:
+        print()
+        print("## Expanded Query")
+        print(expanded_query)
+
+    candidates = aggregate_source_candidates(question, raw_manifest, raw_hits, top_k)
+    print()
+    print("# Candidate Sources")
+    if not candidates:
+        print("No candidate raw sources found.")
+        return
+
+    for rank, candidate in enumerate(candidates, start=1):
+        raw_bytes = candidate["raw_bytes"]
+        raw_lines = candidate["raw_lines"]
+        size_text = "unavailable" if raw_bytes is None or raw_lines is None else f"{raw_lines} lines, {raw_bytes} bytes"
+        score = candidate["best_score"]
+        score_text = "unavailable" if score is None else f"{score:.4f}"
+        key_terms = "、".join(candidate["key_terms"]) or "no direct lexical overlap; retrieved semantically"
+        excerpt = " ".join(str(candidate["best_item"].get("text", "")).split())[:320]
+        print()
+        print(f"## Candidate Source {rank}")
+        print(f"- Source: {candidate['source_path']}")
+        print(f"- Matched chunks: {candidate['matched_chunks']}")
+        print(f"- Best {candidate['score_name']}: {score_text}")
+        print(f"- Key terms: {key_terms}")
+        print(f"- Raw size: {size_text}")
+        print(f"- Size gate: {candidate['size_gate']}")
+        print("- Next step: apply the social-science-km Raw size/type gate; document type and context-loss risk override size")
+        print("- Limits: this shortlist supports source selection, not final claims or citations")
+        print(f"- Why relevant: {excerpt}")
 
 
 def print_stats(args: argparse.Namespace) -> None:
@@ -815,6 +1042,8 @@ def print_evidence(question: str, manifest: dict, results: list[dict], rerank_no
             print(f"- Chunk: {item['chunk_no']}")
             if item.get("wiki_evidence_boost"):
                 print("- wiki_evidence_boost: true")
+            if item.get("wiki_evidence_lexical_score"):
+                print(f"- wiki_evidence_lexical_score: {item['wiki_evidence_lexical_score']}")
             if item.get("semantic_type_boost"):
                 print(f"- semantic_type_boost: {item['semantic_type_boost']:.4f}")
             if item.get("semantic_metadata"):
@@ -843,6 +1072,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-k", type=int, default=None, help="Number of evidence snippets to output")
     parser.add_argument("--candidates", type=int, default=None, help="Candidate count before optional rerank")
     parser.add_argument("--embedding-model", default=None, help="Fallback embedding model if manifest lacks one")
+    parser.add_argument("--dimensions", type=int, default=None, help="Fallback query embedding dimensions if manifest lacks them")
     parser.add_argument("--rerank", action="store_true", help="Use optional SiliconFlow reranking")
     parser.add_argument("--rerank-model", default=None, help="SiliconFlow rerank model")
     parser.add_argument("--api-key-env", default=None, help="Environment variable containing the API key")
@@ -853,6 +1083,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--context-window", type=int, default=None, help="Number of adjacent chunks on each side (default: 1)")
     parser.add_argument("--multi-query", action="store_true", default=None, help="Use LLM to rewrite question into multiple search queries (default: false)")
     parser.add_argument("--no-multi-query", action="store_false", dest="multi_query", help="Disable LLM query rewrite")
+    parser.add_argument("--source-discovery", action="store_true", default=None, help="Aggregate retrieved chunks into a diverse candidate-source shortlist with Raw size hints")
     parser.add_argument("--stats", action="store_true", help="Print index statistics instead of querying")
     return apply_query_config(parser.parse_args())
 
@@ -864,11 +1095,25 @@ if __name__ == "__main__":
     elif parsed.question and parsed.wiki_first:
         validate_query_args(parsed)
         wiki_manifest_data, wiki_hits, raw_manifest_data, raw_evidence, expanded_query, note = retrieve_wiki_first(parsed)
-        print_wiki_first_evidence(parsed.question, wiki_manifest_data, wiki_hits, raw_manifest_data, raw_evidence, expanded_query, note)
+        if parsed.source_discovery:
+            print_source_discovery(
+                parsed.question,
+                raw_manifest_data,
+                raw_evidence,
+                note,
+                parsed.top_k,
+                wiki_hits=wiki_hits,
+                expanded_query=expanded_query,
+            )
+        else:
+            print_wiki_first_evidence(parsed.question, wiki_manifest_data, wiki_hits, raw_manifest_data, raw_evidence, expanded_query, note)
     elif parsed.question:
         validate_query_args(parsed)
         manifest_data, evidence, note = retrieve(parsed)
-        print_evidence(parsed.question, manifest_data, evidence, note)
+        if parsed.source_discovery:
+            print_source_discovery(parsed.question, manifest_data, evidence, note, parsed.top_k)
+        else:
+            print_evidence(parsed.question, manifest_data, evidence, note)
     else:
         print("Usage: query_index.py --index-dir <dir> --question \"...\" [options]")
         print("       query_index.py --index-dir <dir> --stats")

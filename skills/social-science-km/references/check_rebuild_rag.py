@@ -26,6 +26,7 @@ INDEX_DIR_NAME = "检索索引"
 RAW_INDEX_NAME = "raw"
 WIKI_INDEX_NAME = "wiki"
 WIKI_INDEX_SOURCE_DIRS = ("claims", "concepts", "entities", "comparisons", "debates", "synthesis", "queries")
+RAW_ENRICHMENT_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates")
 SKIP_NAMES = {"_conversion_failures.md", "_conversion_manifest.md", "_主题索引.md"}
 
 
@@ -57,7 +58,7 @@ def compute_hashes(
         return hashes
     for path in sorted(md_dir.rglob("*.md")):
         rel_path = path.relative_to(md_dir)
-        if path.name in SKIP_NAMES:
+        if path.name.startswith("_") or path.name in SKIP_NAMES:
             continue
         if any(part.startswith(".") for part in rel_path.parts):
             continue
@@ -77,6 +78,23 @@ def read_manifest(index_dir: Path) -> dict:
     return json.loads(manifest_path.read_text(encoding="utf-8"))
 
 
+def project_build_settings(project_root: Path) -> dict[str, object]:
+    config_path = project_root / "rag_config.json"
+    if not config_path.is_file():
+        return {}
+    data = json.loads(config_path.read_text(encoding="utf-8"))
+    build = data.get("build") if isinstance(data, dict) else None
+    if not isinstance(build, dict):
+        return {}
+    expected: dict[str, object] = {}
+    if "model" in build:
+        expected["embedding_model"] = build["model"]
+    for key in ("chunk_size", "overlap", "dimensions", "encoding_format"):
+        if key in build:
+            expected[key] = build[key]
+    return expected
+
+
 def describe_delta(label: str, new_or_changed: list[str], deleted: list[str]) -> str:
     parts = []
     if new_or_changed:
@@ -91,6 +109,15 @@ def graph_hashes(project_root: Path) -> dict[str, str]:
     return compute_hashes(
         wiki_dir,
         include_dirs=WIKI_INDEX_SOURCE_DIRS,
+        exclude_dirs=("raw", "_archive"),
+    )
+
+
+def raw_enrichment_hashes(project_root: Path) -> dict[str, str]:
+    wiki_dir = project_root / WIKI_DIR_NAME
+    return compute_hashes(
+        wiki_dir,
+        include_dirs=RAW_ENRICHMENT_SOURCE_DIRS,
         exclude_dirs=("raw", "_archive"),
     )
 
@@ -112,6 +139,10 @@ def check_one(
     allowed_metadata_modes: set[str] | None = None,
     include_dirs: tuple[str, ...] = (),
     exclude_dirs: tuple[str, ...] = (),
+    dependency_hashes: dict[str, str] | None = None,
+    dependency_manifest_key: str | None = None,
+    dependency_message: str | None = None,
+    expected_settings: dict[str, object] | None = None,
 ) -> IndexStatus:
     current = compute_hashes(source_dir, include_dirs=include_dirs, exclude_dirs=exclude_dirs)
     manifest = read_manifest(index_dir)
@@ -138,6 +169,22 @@ def check_one(
             has_sources,
             settings_rebuild=True,
         )
+    settings_mismatch = [
+        key for key, expected in (expected_settings or {}).items()
+        if manifest.get(key) != expected
+    ]
+    if settings_mismatch:
+        return IndexStatus(
+            label,
+            True,
+            f"{label} 索引配置已变化，需要重建: {', '.join(settings_mismatch)}",
+            source_dir,
+            index_dir,
+            metadata_mode,
+            allowed_metadata_modes,
+            has_sources,
+            settings_rebuild=True,
+        )
     stored = manifest.get("file_hashes")
     if not isinstance(stored, dict):
         return IndexStatus(
@@ -151,13 +198,35 @@ def check_one(
             has_sources,
             settings_rebuild=True,
         )
+    if dependency_hashes is not None and dependency_manifest_key:
+        stored_dependencies = manifest.get(dependency_manifest_key)
+        if not isinstance(stored_dependencies, dict):
+            return IndexStatus(
+                label,
+                True,
+                f"{label} manifest 缺少 {dependency_manifest_key}，需要重建以跟踪 Wiki 语义标签",
+                source_dir,
+                index_dir,
+                metadata_mode,
+                allowed_metadata_modes,
+                has_sources,
+                settings_rebuild=True,
+            )
+    else:
+        stored_dependencies = None
     new_or_changed = [rel for rel, digest in current.items() if rel not in stored or stored[rel] != digest]
     deleted = [rel for rel in stored if rel not in current]
-    if new_or_changed or deleted:
+    dependencies_changed = stored_dependencies is not None and stored_dependencies != dependency_hashes
+    if new_or_changed or deleted or dependencies_changed:
+        messages = []
+        if new_or_changed or deleted:
+            messages.append(describe_delta(label, new_or_changed, deleted))
+        if dependencies_changed:
+            messages.append(dependency_message or f"{label} 的依赖内容有改动，需要增量更新索引")
         return IndexStatus(
             label,
             True,
-            describe_delta(label, new_or_changed, deleted),
+            "；".join(messages),
             source_dir,
             index_dir,
             metadata_mode,
@@ -170,14 +239,20 @@ def check_one(
 def check_all(project_root: Path) -> list[IndexStatus]:
     wiki_dir = project_root / WIKI_DIR_NAME
     index_root = project_root / INDEX_DIR_NAME
+    raw_mode = raw_expected_metadata_mode(project_root)
+    expected_settings = project_build_settings(project_root)
     return [
         check_one(
             project_root,
             "raw",
             wiki_dir / "raw",
             index_root / RAW_INDEX_NAME,
-            raw_expected_metadata_mode(project_root),
+            raw_mode,
             allowed_metadata_modes=raw_allowed_metadata_modes(project_root),
+            dependency_hashes=raw_enrichment_hashes(project_root) if raw_mode == "enriched_raw" else None,
+            dependency_manifest_key="semantic_source_hashes" if raw_mode == "enriched_raw" else None,
+            dependency_message="raw 使用的 Wiki 语义标签有改动，需要增量更新索引",
+            expected_settings=expected_settings,
         ),
         check_one(
             project_root,
@@ -187,13 +262,15 @@ def check_all(project_root: Path) -> list[IndexStatus]:
             "wiki",
             include_dirs=WIKI_INDEX_SOURCE_DIRS,
             exclude_dirs=("raw", "_archive"),
+            expected_settings=expected_settings,
         ),
     ]
 
 
 def find_script(project_root: Path, *parts: str) -> Path:
     bases = [project_root, *project_root.parents]
-    candidates: list[Path] = []
+    reference_skills_dir = Path(__file__).resolve().parents[2]
+    candidates: list[Path] = [reference_skills_dir.joinpath(*parts[1:])]
     for base in bases:
         candidates.append(base.joinpath(*parts))
         candidates.append(base / "skills-hermes" / "research" / parts[-3] / parts[-2] / parts[-1] if len(parts) >= 3 else base.joinpath(*parts))
@@ -244,7 +321,7 @@ def run_wiki_lint(project_root: Path) -> None:
         print("[LINT] " + summary[:1200])
 
 
-def build_command(status: IndexStatus, build_script: Path, mock: bool) -> list[str]:
+def build_command(status: IndexStatus, build_script: Path, mock: bool, project_root: Path) -> list[str]:
     cmd = [
         sys.executable,
         str(build_script),
@@ -256,6 +333,9 @@ def build_command(status: IndexStatus, build_script: Path, mock: bool) -> list[s
         status.metadata_mode,
         "--incremental",
     ]
+    config_path = project_root / "rag_config.json"
+    if config_path.is_file():
+        cmd.extend(["--config", str(config_path)])
     if status.label == "wiki":
         cmd.extend([
             "--include-dirs",
@@ -281,7 +361,7 @@ def apply_updates(project_root: Path, statuses: list[IndexStatus], mock: bool, n
             run_wiki_lint(project_root)
         print(f"[UPDATE] {status.message}")
         result = subprocess.run(
-            build_command(status, build_script, mock),
+            build_command(status, build_script, mock, project_root),
             cwd=str(project_root),
             text=True,
             capture_output=True,

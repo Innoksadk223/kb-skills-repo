@@ -5,141 +5,210 @@ description: Use when books, chapters, papers, source-discovery shortlists, or l
 
 # Deep Reading To Wiki
 
-Pre-wiki deep-reading layer. 唯一目的：让 `karpathy-wiki` 能写出丰富、有深度的 wiki 词条。一个只给 karpathy-wiki 留下路径名的档案是失败的——它必须留下具体的素材、边界、关系和风险。
+## Core Idea
 
-Reads a long source with a limited token budget, produces `reading_dossiers/<source-title>-深读档案.md`. Does not write formal wiki pages, does not treat the dossier as raw evidence.
+This skill is a pre-wiki deep-reading layer. It reads a long source with a limited token budget, produces a structured `reading_dossiers/` file, and hands that file to `karpathy-wiki` for graph compilation.
 
-## 反摘要警示
+It does not replace `karpathy-wiki`, does not write formal wiki pages, and does not treat the dossier as raw evidence.
 
-这不是写书评。失败档案三特征：大段复述无逐字摘录和锚点；只列概念名不写边界/反例/上下文；交接清单只有路径名没有内容素材。
+The point of depth is to give future wiki nodes depth and richness: definitions with boundaries, claims with support and limits, relationships to existing pages, and raw anchors that preserve context. A dossier that only lists possible page paths is too thin.
 
-成功档案是精读加工件：结构地图 → 候选池（带锚点） → 深挖点（带上下文胶囊） → 可执行交接清单。
+It may start from an explicit raw file or from a user-directed expansion shortlist produced by `SiliconFlow-rag`, such as "补充儿童教育" -> candidate `wiki/raw/` sources.
 
-摘要 vs 深度判定线：如果一个候选只能写成"X 主张 Y"，却答不出"在原文哪个位置、解决什么问题、压缩成 wiki 节点会误读什么"，那是摘要不是深度——必须补上下文胶囊，否则降级。
+## Output Contract
 
-## 核心规则
+Write one Markdown dossier under the project root:
 
-1. **结构优先**：先 Pass 1 扫描全源结构单元，标注功能、相关度、选/跳理由。
-2. **分层追溯**：每个高价值候选必须有分层路径（全文 → 部分/论证阶段 → 章节 → 候选点），不从孤立段落建候选池。
-3. **三遍递进**：Pass 1 (L0) 结构扫描 → Pass 2 (L1) 稀疏采样建候选池 → Pass 3 (L2/L3) 定向精读高价值候选。不跳级，只在上一遍无法支撑时升级。
-4. **无锚点不入选**：候选 claims/concepts 必须有 raw 锚点（文件路径 + 逐字摘录）和上下文胶囊，否则降级。
-5. **交接可执行**：每个建议目标含核心贡献、边界/微妙之处、互链建议、必查锚点、入库条件。只有路径名 = 失败。
+```text
+reading_dossiers/<source-title>-深读档案.md
+```
 
-## 必读定位
+The dossier must use frontmatter and fixed headings. Load `references/dossier-template.md` before writing.
 
-阅读源文件前先定位 wiki：
+If the source is later compiled into wiki pages, update the dossier frontmatter:
 
-1. 读 `wiki/SCHEMA.md`（域、惯例、分类法）
-2. 读 `wiki/index.md`（现有页面和核心 claims）
-3. 读 `wiki/log.md` 最近条目
-4. 搜索 wiki 中可能重叠的概念、作者、claims、comparisons
+```yaml
+status: compiled
+compiled_to:
+  - wiki/claims/...
+  - wiki/concepts/...
+```
 
-不知道 wiki 里已有什么 = 候选重复或漏掉该连接的节点。深读不只是读懂原文，是读懂原文和现有图谱的关系。
+Do not delete dossiers by default. Treat them as durable audit and handoff records for how raw evidence was selected, compressed, and compiled.
 
-## 角色边界
+## Dossier Retention Policy
 
-| 层 | 职责 |
-|---|---|
-| `wiki/raw/` | 原始/转换后源文本，永不修改 |
-| `reading_dossiers/` | 预编译精读材料、上下文胶囊、候选节点、交接笔记。不是 raw 证据 |
-| `karpathy-wiki` | 正式图谱节点、互链、index.md、log.md、claims、concepts、comparisons |
-| RAG 索引 | 证据召回、上下文扩展、引文检查 |
+Default lifecycle:
 
-## 阅读预算（三遍递进）
+1. Keep new dossiers in `reading_dossiers/` with `status: draft` until they pass the quality gates.
+2. After `karpathy-wiki` compilation, keep the dossier and update frontmatter to `status: compiled` plus `compiled_to:`.
+3. If compiled dossiers become noisy, move them to `reading_dossiers/_archive/` and update frontmatter to `status: archived`.
+4. Hard-delete a dossier only after explicit user approval.
 
-| 遍次 | 级别 | 读什么 | 目的 |
-|---|---|---|---|
-| Pass 1 | L0 结构扫描 | 目录、导论、结论、章节首尾、标题 | 绘制全源结构地图，标注每个单元的选/跳理由 |
-| Pass 2 | L1 稀疏采样 | 定义段、论题段、过渡段、摘要、表格 | 建立候选节点池（concepts / claims / comparisons / entities） |
-| Pass 3 | L2 定向精读 | 高价值候选的上下文段落 | 为每个高价值候选制作完整的上下文胶囊 |
-| Pass 3 | L3 局部通读 | 核心论证章、主要争议段 | 解决高风险压缩，仅在 L2 不足以支撑胶囊时升级 |
+Prefer archiving over deletion. A compiled dossier may still explain why a claim was created, why a candidate was rejected, what context risks were known, and which raw anchors must be rechecked. It is not raw evidence, not a formal wiki node, and not part of the default RAG index.
 
-升级条件：低级别无法支撑候选的上下文胶囊时再升级。Pass 1 必须覆盖所有主要单元，Pass 3 (L2/L3) 是局部例外。
+Ask the user before deleting any dossier unless the project has an explicit written cleanup policy. Only propose deletion when all of these are true:
 
-## 输出契约
+- the dossier has been compiled or deliberately rejected;
+- the relevant raw sources still exist under `wiki/raw/`;
+- any useful wiki outputs are listed in `compiled_to:` or in the dossier handoff section;
+- there is no unresolved context risk, pending RAG follow-up, or user-facing writing task depending on it.
 
-文件：`reading_dossiers/<source-title>-深读档案.md`。加载 `references/dossier-template.md` 获取模板。
+Never delete original source files or `wiki/raw/` materials from this skill.
 
-必填块：阅读地图 → 候选节点池 → 高价值点深挖 → wiki 交接清单 → 硬门禁自检。
+## Input Modes
 
-条件模块（仅触发时增加）：
+Use the smallest input that can support a strong dossier:
 
-| 触发条件 | 模块 |
-|---|---|
-| 概念有冲突定义/翻译/测量方式 | 概念谱系模块 |
-| 源挑战现有 wiki 主张 | 争议/反驳模块 |
-| 某一节是论题核心 | 局部通读模块 |
-| 用户正在写论文 | 写作使用模块 |
-
-## 上下文胶囊（CERIC 结构）
-
-每个高价值候选必须按 CERIC 逻辑链填写 5 组字段。这条链就是 karpathy-wiki 用来写深 wiki 词条的素材：
-
-**Claim（主张）** — 作者主张了什么？
-1. raw 锚点：文件路径 + 章节 + 逐字摘录
-2. 命题类型：main thesis / support / objection / limitation / bridge / definition
-
-**Evidence（证据）** — 作者用什么支撑？
-3. 局部语境：该段前后在解决什么问题，导向什么结论
-4. 全书位置：这一段在全书论证结构中的角色（premise / support / objection / conclusion / method note）
-
-**Reasoning（推理）** — 论证如何展开？
-5. 分层路径：全文 → 部分/论证阶段 → 章节 → 候选点
-6. 论证链条：该候选依赖什么前提，推导出什么结论
-
-**Implications（含义）** — 对 wiki 图谱意味着什么？
-7. 压缩风险：写成 wiki 节点最容易误读什么——这是反摘要的核心字段
-8. wiki 关系：可更新 / 可新建 / 可挑战 / 可忽略的现有 wiki 页面
-
-**Context（边界）** — 什么不是这个主张说的？
-9. 方法边界：normative / empirical / conceptual / interpretive / analogy / AI inference
-10. RAG 回查问题：可恢复源上下文的问题列表
-
-缺少任一字段不是高价值候选，降为普通候选。这 10 个字段就是交给 karpathy-wiki 的"词条深度素材"——每个 wiki 页面应该能从对应的胶囊字段中直接取材。
-
-## 硬门禁
-
-提交档案前机械检查 + 人工判断：
-
-机械检查：`python skills/deep-reading-to-wiki/scripts/validate_dossier.py <档案路径>`。PASS = frontmatter 完整 + 5 个必备块齐全 + 每个 HV 候选有锚点和胶囊 + 自检有勾选项。FAIL 禁止交接。
-
-人工判断（6 项，参考 `references/example-dossier.md` 对照）：
-
-1. **不是摘要**：有放弃清单 + 有逐字摘录锚点 + 区分了作者主张/AI 推论/迁移建议
-2. **足够丰富**：≥ 3 高价值区域 + ≥ 5 候选概念 + ≥ 8 候选 claims + ≥ 2 种 claim 角色（support/objection/limitation/bridge），不达标须解释
-3. **结构可追溯**：每个主要单元有 Pass 1 分类和选/跳理由；每个高价值候选有分层路径
-4. **胶囊完整**：每个高价值候选 10 字段齐全；缺字段 = 浅，不是深
-5. **交接可执行**：每个推荐目标含核心贡献 + 边界 + 互链 + 锚点 + 入库条件；只列路径名 = 不通过
-6. **对抗性自问**：回答"如果我是这份档案最大的批评者，我会说哪里肤浅或断章取义？"——如果答不上来，档案可能太浅；如果答上来了，把最尖锐的批评和改进方向写进自检
-
-任一项不通过 = 不可交接。继续精读或报告阻塞。
-
-## 交接清单
-
-交给 karpathy-wiki 必须回答：
-
-- 哪些现有 wiki 页面需更新（页名 + 深化方向 + 来源候选）
-- 哪些新页面需创建（目标路径 + 核心贡献 + 边界 + 互链 + 必查锚点 + 入库条件）
-- 哪些候选太弱不能入库（原因 + 后续条件）
-- 哪些 raw 锚点编译前必查（必查原因）
-- 哪些上下文风险必须保留在正式 wiki 页中
-
-## 档案生命周期
-
-draft → compiled（karpathy-wiki 编译后） → archived（移入 `_archive/`） → 硬删除（用户明确批准）。优先存档，不默认删除。
-
-## 输入模式
-
-| 模式 | 条件 | 动作 |
+| Mode | Input | What to do |
 |---|---|---|
-| 显式源文件 | 已知 raw 路径 | 直接创建档案 |
-| 源发现短名单 | SiliconFlow-rag 候选 + 用户意图 | 筛选后建档 |
-| 用户定向缺口 | 只有话题无路径 | 先做源发现，找不到报告阻塞 |
+| Explicit source | One or more `wiki/raw/...md` paths | Create source-specific dossier(s). |
+| Source-discovery shortlist | Candidate raw paths from `SiliconFlow-rag` with user intent and key terms | Pick high-value candidates, note weak candidates, then create dossier(s). |
+| User-directed gap | A topic/gap from `social-science-km`, such as "补充儿童教育" | Require source discovery first unless raw paths are already known. |
 
-无 raw 路径不建档。
+Do not deep-read from the user's topic alone. If no raw path is located, stop and report the source-discovery blocker instead of inventing a dossier.
 
-## 必读
+## Multi-Source Merged Dossiers
 
-写档案前加载：`references/dossier-template.md`（模板）、`references/example-dossier.md`（范例）。
+When the user asks to deep-read multiple raw files and produce a **single merged dossier** (e.g., "深读 01-原典材料 中的 9 个文件，产出一份合并深读档案"), adapt the single-source workflow as follows:
 
-提交档案前：运行 `scripts/validate_dossier.py`，对照 6 项硬门禁。
+1. **Filename**: Use a collective title, not one source's name: `reading_dossiers/<collection-name>-深读档案.md` (e.g., `原典材料-深读档案.md`).
+2. **Frontmatter**: List all source files under `source_raw:`. Record each file's hit reason and key terms under `source_discovery:`.
+3. **Structure map**: Organize the map by thematic layer or source group, not by single-file chapters. For each file, assign an L-level (short files get L3 full read; long files get L0 scan -> L1 key paragraphs -> L2 close reads). Cover every file in the map - none may be silently dropped.
+4. **Cross-file candidate synthesis**: Concepts and claims that appear across multiple files should be merged into single candidate rows with multiple raw anchors. Use comparisons to surface divergences between files (e.g., 孝经 "德之本" vs 论语 "仁之本").
+5. **High-value deep dives**: Each HV must cite its specific raw file path + line range. When a claim spans multiple files, list all anchors in the context capsule.
+6. **Reading budget per file**: Short files (< 300 lines) can be fully read (L3). Long files (> 500 lines) should use L0 grep-based structure scan + L1 targeted reads. Batch independent reads across files in parallel.
+7. **Exclusion handling**: When the user explicitly excludes some files (e.g., "排除朱子语类4部"), record the exclusion in the structure map and do not read those files.
+
+See `references/multi-source-dossiers.md` for a worked example and checklist.
+
+## Role Boundaries
+
+| Layer | Responsibility |
+|---|---|
+| `wiki/raw/` | Original or converted source text. Never modify for interpretation. |
+| `reading_dossiers/` | Pre-compiled deep-reading materials, context capsules, candidate nodes, handoff notes. |
+| `karpathy-wiki` | Formal graph nodes, backlinks, `index.md`, `log.md`, claims, concepts, comparisons. |
+| RAG index | Evidence recall, context expansion, citation checking, and local zoom-in. |
+
+## Required Orientation
+
+Before reading the long source, orient to the target wiki when available:
+
+1. Read `wiki/SCHEMA.md`.
+2. Read `wiki/index.md`.
+3. Read the recent part of `wiki/log.md`.
+4. Search existing wiki pages for obvious overlapping concepts, authors, claims, and comparisons.
+
+If using the `social-science-km` workflow, run its RAG staleness check before RAG-assisted reading.
+
+For topic-initiated dossiers, preserve the search context in frontmatter:
+
+```yaml
+trigger: user_directed_expansion
+user_intent: "补充儿童教育"
+source_discovery:
+  - path: wiki/raw/...
+    reason: "命中儿童教育、爱敬、积浸等关键词"
+```
+
+## Reading Budget
+
+Never default to full-book reading. Use the cheapest level that can answer the quality gate:
+
+| Level | Read | Purpose |
+|---|---|---|
+| L0 structure scan | TOC, introduction, conclusion, headings, chapter openings/endings | Map the source and select likely high-value regions. |
+| L1 sparse sampling | Definitions, thesis paragraphs, transitions, summaries, tables, key notes | Build the candidate node pool. |
+| L2 targeted close reading | Surrounding paragraphs or sections for high-value candidates | Build context capsules and evidence anchors. |
+| L3 local full-section/chapter reading | Only for core claims, major disputes, or thesis-critical chapters | Resolve high-stakes context and compression risk. |
+
+Only move upward when the lower level cannot support a candidate with enough context.
+
+## Tooling Pitfall: search_files on Complex Paths
+
+The `search_files` tool may return zero results when the path contains spaces, parentheses, Chinese characters, or iCloud-synced paths (e.g., `/Users/.../Library/Mobile Documents/com~apple~CloudDocs/...`). When `search_files` returns 0 hits on a file you know exists:
+
+1. **Do not assume the file is empty or missing.** Verify with `read_file` first.
+2. **Fall back to `terminal` + `grep -n`** to find keyword line numbers, then use `read_file` with `offset`/`limit` to read the surrounding context.
+3. **Batch independent grep calls** across multiple files in one `terminal` invocation to save round-trips.
+
+This is a path-resolution limitation, not a content problem. The files are readable via `read_file` even when `search_files` cannot index them.
+
+## Structure-First Reading
+
+Read structure-first, value-second. Do not build the candidate pool from isolated passages that only look interesting.
+
+Before selecting high-value candidates:
+
+1. Map the source's major units: chapters, sections, argument phases, or document headings.
+2. Give every major unit an L0 classification: function, likely wiki relevance, selected/skipped reason, and re-trigger condition.
+3. In the structure/problem map, answer for each major unit: what problem it solves, what source-level thread it advances, and which wiki gap it touches.
+4. For each high-value candidate, record a compact layered path: whole source -> part or argument phase -> chapter or section -> candidate point.
+5. Apply L1 sampling to units that define terms, state a thesis, summarize evidence, mark transitions, raise objections, or carry the user's target topic.
+6. Select high-value areas only when they have both wiki relevance and a clear structural role in the source.
+7. Escalate to L2/L3 only for structurally justified candidates, not because a passage is rhetorically attractive.
+
+Structure coverage is not full-source reading. L0 covers the map; L1 samples key points; L2/L3 remain local exceptions.
+
+Do not jump from raw excerpt to wiki claim. A high-value candidate must preserve its compact layered path.
+
+## Minimum Dossier Blocks
+
+Every dossier must include only these default blocks:
+
+1. Reading map.
+2. Candidate node pool.
+3. High-value deep dives.
+4. Wiki handoff checklist.
+5. Anti-slack self-check.
+
+Conditional modules are allowed only when triggered:
+
+| Trigger | Add |
+|---|---|
+| A concept has conflicting meanings, translations, or measurements | Concept lineage module. |
+| The source challenges existing wiki claims or authors | Dispute / objection module. |
+| One section is thesis-critical | Local full-section reading module. |
+| The user is writing prose now | Writing-use module. |
+
+## Context Capsules
+
+Each high-value candidate claim, concept, or comparison must include a context capsule:
+
+- raw anchor: file path, chapter/section if available, and short exact excerpt;
+- local context: what problem the passage addresses and what it leads to;
+- whole-source role: definition, premise, support, bridge, objection, limitation, conclusion, or method note;
+- compression risk: what would be distorted if compressed into a wiki node;
+- method boundary: normative claim, empirical finding, concept definition, interpretation, analogy, or AI inference;
+- RAG follow-up questions: questions that can recover the source context later.
+
+If a candidate lacks a raw anchor and context capsule, do not label it high value.
+
+## Quality Gates
+
+Load `references/quality-gates.md` before finalizing the dossier.
+
+At minimum, the dossier must show:
+
+- high-value areas and skipped areas;
+- candidate concepts and claims;
+- at least two of support, objection, limitation, or bridge claims when the source supports them;
+- context capsules for high-value candidates;
+- wiki relationship notes: update existing, create new, challenge existing, ignore as duplicate;
+- clear separation between author claims, raw evidence, AI inference, and wiki migration suggestions.
+
+If the gate fails, do not hand the dossier to `karpathy-wiki`. Continue targeted reading or report the blocker.
+
+## Handoff To Karpathy-Wiki
+
+The final section must tell the next agent:
+
+- which existing wiki pages to update;
+- which new `concepts/`, `claims/`, `comparisons/`, or `entities/` pages may be needed;
+- which candidates are too weak for wiki entry;
+- which raw anchors must be checked before formal compilation;
+- which context risks must be preserved in formal wiki pages;
+- for each recommended wiki target, the node depth packet: core contribution, nuance or boundary, relationship/backlink suggestions, required raw anchors, entry condition, and what would make the node shallow or misleading.
+
+Formal wiki writing remains the job of `karpathy-wiki`.

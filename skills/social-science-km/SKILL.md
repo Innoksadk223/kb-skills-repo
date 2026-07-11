@@ -8,7 +8,7 @@ description: Use when managing social-science knowledge bases that need paper di
 Use this skill as the coordinator for a layered social-science knowledge system:
 
 1. **Convert sources → `wiki/raw/`**: use MinerU first for all PDF files, especially scanned PDFs, 古籍/影印本, papers, tables, formulas, and complex layouts; use MarkItDown only as the lightweight first pass for clean non-PDF sources.
-2. **Deep-read long or important sources → `reading_dossiers/`**: use `deep-reading-to-wiki` when direct raw-to-wiki ingest would be shallow, when the source is long/theoretical, or when the source is thesis-critical.
+2. **Inspect Raw size/type, then deep-read selected sources → `reading_dossiers/`**: after conversion, inventory every content file in `wiki/raw/`; use its converted size, document type, and interpretation risk to decide whether `deep-reading-to-wiki` is required before wiki compilation.
 3. **Compile dossiers/raw → graph-readable `wiki/`**: use `karpathy-wiki` for formal `claims/`, `concepts/`, `entities/`, `comparisons/`, lightweight `synthesis/`, backlinks, `index.md`, and `log.md`.
 4. **Build/query RAG indexes → `检索索引/`**: use `SiliconFlow-rag` for raw evidence recall, source discovery, and wiki-first expansion.
 
@@ -24,11 +24,11 @@ Use the cheapest path that preserves quality:
 
 | User intent / source state | Route |
 |---|---|
-| User starts from zero and asks to search a field and build a new knowledge base | Academic-search acquisition → source folder setup → Step 1 → Step 2 decision → Step 3 → Step 4 initial build |
-| User already has source files and asks to build or expand the wiki | Step 1 for local files → Step 2 decision → Step 3 → Step 4 update; use Gap-driven expansion only for stated gaps |
-| Existing corpus is thin, stale, or missing obvious related-field sources | Academic-search acquisition → Step 1 → Step 2 decision → Step 3 → Step 4 update |
-| New PDFs or documents need conversion | Step 1 → Step 2 decision → Step 3 → Step 4 update |
-| User wants to add related-field papers beyond local sources | Academic-search acquisition → Step 1 → Step 2 decision → Step 3 → Step 4 update |
+| User starts from zero and asks to search a field and build a new knowledge base | Academic-search acquisition → source folder setup → Step 1 → Step 2 Raw sizing/type gate → Step 3 → Step 4 initial build |
+| User already has source files and asks to build or expand the wiki | Step 1 for local files → Step 2 Raw sizing/type gate → Step 3 → Step 4 update; use Gap-driven expansion only for stated gaps |
+| Existing corpus is thin, stale, or missing obvious related-field sources | Academic-search acquisition → Step 1 → Step 2 Raw sizing/type gate → Step 3 → Step 4 update |
+| New PDFs or documents need conversion | Step 1 → Step 2 Raw sizing/type gate → Step 3 → Step 4 update |
+| User wants to add related-field papers beyond local sources | Academic-search acquisition → Step 1 → Step 2 Raw sizing/type gate → Step 3 → Step 4 update |
 | Source is a book, long chapter, theory-heavy paper, or thesis-critical text | Step 2 is required before Step 3 |
 | Source is short, narrow, and low-risk | Step 3 may compile directly from `wiki/raw/` |
 | Existing wiki question or citation lookup | Step 4 query; do not re-ingest |
@@ -134,7 +134,7 @@ Procedure:
 8. When MinerU is available through MCP, prefer the MinerU MCP tools. Use the MinerU CLI only when MCP is unavailable, the user explicitly asks for CLI usage, or the MCP tool cannot satisfy the workflow.
 9. Detect unusable MarkItDown output before accepting it. Treat these as fallback triggers: empty output, only boilerplate/page markers, widespread replacement characters (`�`), mojibake patterns, or mostly unreadable text compared with the source language.
 10. If both primary conversion and MinerU fallback fail, record the source path, target path, attempted tools, and errors in `wiki/raw/_conversion_failures.md` and tell the user.
-11. Generate or update `wiki/raw/_conversion_manifest.md` with a durable conversion ledger. At minimum record source path, output path, converter, status, source size or hash when cheap, language/OCR mode when known, and failure reason if any. Markdown table format is acceptable; JSONL is also acceptable if the project already uses JSONL manifests.
+11. Generate or update `wiki/raw/_conversion_manifest.md` with a durable conversion ledger. At minimum record source path, output path, converter, status, source size or hash when cheap, language/OCR mode when known, and failure reason if any. After conversion, Step 2 must add or update `raw_bytes`, `raw_lines`, `source_type`, `wiki_route`, and `route_reason` for every successfully converted content source. Markdown table format is acceptable; JSONL is also acceptable if the project already uses JSONL manifests.
 12. Generate or update `wiki/raw/_主题索引.md` with a concise file list and rough topic grouping when enough filenames or headings are available.
 
 ### Batch Source Conversion With Subagents
@@ -160,27 +160,40 @@ Validation:
 - `wiki/raw/_conversion_manifest.md` exists after batch conversion or any conversion involving more than a few files.
 - `wiki/raw/_conversion_failures.md` exists when any file failed after all fallback attempts.
 
-## Step 2: Create Deep-Reading Dossiers
+## Step 2: Inspect Raw Size And Route Deep Reading
 
-Use `deep-reading-to-wiki` before formal wiki compilation when a source is long, theory-heavy, argument-rich, book-length, thesis-critical, or likely to produce shallow wiki nodes if read only through ordinary raw ingest.
+Run this gate after Step 1 has finished and before any Step 3 wiki compilation. Do not decide from the original PDF/DOCX byte size: inspect the converted Markdown under `wiki/raw/`, because that is what downstream agents will read.
 
-Skip this step only when the source is short, narrow, low-risk, and the user explicitly wants quick ingest.
+Load and follow [references/raw-routing-gate.md](references/raw-routing-gate.md). Its required sequence is:
+
+1. Inventory each converted content Markdown file by line and byte count; exclude operational `_*.md` files.
+2. Classify source type and group files belonging to the same book, anthology, proceedings volume, or deliberate collection.
+3. Apply the size bands plus semantic overrides; size is a signal, while source type and context-loss risk are decisive.
+4. Record `raw_bytes`, `raw_lines`, `source_type`, `wiki_route`, and `route_reason` in `_conversion_manifest.md` using `deep-reading`, `direct-wiki`, or `blocked`.
+5. Do not start Step 3 until every converted content source has a route and every `deep-reading` source has an accepted dossier.
+
+### Create Dossiers For The Selected Sources
+
+Use `deep-reading-to-wiki` for every source or source group routed to `deep-reading` before formal wiki compilation.
 
 Procedure:
 
 1. Read the installed `deep-reading-to-wiki/SKILL.md` if not already loaded in the conversation.
 2. Work from the project root (`<知识库>/`), not inside `wiki/`.
 3. Orient to the target wiki first: read `wiki/SCHEMA.md`, `wiki/index.md`, and recent `wiki/log.md`.
-4. Use L0-L3 reading budget from `deep-reading-to-wiki`; do not default to full-book reading.
-5. If invoked from Gap-Driven Expansion, include `trigger: user_directed_expansion`, `user_intent`, and the `source_discovery` shortlist in the dossier frontmatter.
-6. Write the dossier to `reading_dossiers/<source-title>-深读档案.md`.
-7. Require raw anchors, context capsules, skipped-area notes, candidate nodes, and a wiki handoff checklist.
-8. Do not write `wiki/claims`, `wiki/concepts`, `wiki/entities`, `wiki/comparisons`, `wiki/synthesis`, `index.md`, or `log.md` in this step.
+4. Pass the selected raw path(s), source type, size measurements, route reason, and collection grouping into the deep-reading task. For a collection, use the multi-source merged-dossier workflow when one collective argument map is more useful than isolated dossiers.
+5. Use the L0-L3 reading budget from `deep-reading-to-wiki`; do not default to full-book reading.
+6. If invoked from Gap-Driven Expansion, include `trigger: user_directed_expansion`, `user_intent`, and the `source_discovery` shortlist in the dossier frontmatter.
+7. Write the dossier to `reading_dossiers/<source-title>-深读档案.md`.
+8. Require raw anchors, context capsules, skipped-area notes, candidate nodes, and a wiki handoff checklist.
+9. Do not write `wiki/claims`, `wiki/concepts`, `wiki/entities`, `wiki/comparisons`, `wiki/synthesis`, `index.md`, or `log.md` in this step.
 
 Validation:
 
-- `reading_dossiers/` exists when Step 2 is used.
-- Each long/high-value source has a corresponding dossier or a written reason for skipping.
+- `reading_dossiers/` exists when any source is routed to `deep-reading`.
+- Every successfully converted Raw content source has `raw_bytes`, `raw_lines`, `source_type`, `wiki_route`, and `route_reason` in `_conversion_manifest.md` before Step 3.
+- Every book, monograph, thesis/dissertation, collection, and long/high-risk source routed to `deep-reading` has a corresponding dossier; a missing dossier blocks that source from Step 3.
+- Every `direct-wiki` source satisfies the short, narrow, self-contained, low-risk conditions, with collection membership checked.
 - Each high-value candidate in the dossier has a raw anchor and context capsule.
 - The dossier passes its anti-slack self-check before Step 3.
 
@@ -210,7 +223,10 @@ Procedure:
    - `wiki/debates/` when the wiki contains mature multi-position social-science controversies
    - `wiki/queries/`
    - `wiki/synthesis/`
-4. If a relevant dossier exists, compile from `reading_dossiers/` plus raw anchors. If no dossier is needed, compile directly from `wiki/raw/`.
+4. Check the Step 2 manifest route before compiling each source:
+   - `deep-reading` → require the corresponding accepted dossier, then compile from `reading_dossiers/` plus its raw anchors;
+   - `direct-wiki` → compile directly from `wiki/raw/`;
+   - `blocked` or missing route → do not compile.
 5. Compile content into `wiki/claims/`, `wiki/concepts/`, `wiki/entities/`, `wiki/comparisons/`, optional `wiki/debates/`, and lightweight `wiki/synthesis/` per karpathy-wiki's workflow.
    - Use `claims/` for theses, support propositions, objections, limitations, and bridge claims.
    - Use `debates/` only for durable multi-position disputes with recurring authors, schools, objections, or method conflicts. Do not use it for a simple two-term distinction; use `comparisons/` for that.
@@ -228,6 +244,8 @@ When the raw corpus is large and spans multiple disciplines, split work by stage
 
 - **Step 2 deep reading**: subagents may create non-overlapping dossiers under `reading_dossiers/`.
 - **Step 3 formal wiki compilation**: subagents return structured analysis only; the parent writes all wiki pages and navigation files.
+
+The parent must complete the Raw size/type inventory and assign non-overlapping source groups before dispatching Step 2 work. For collections, group by the logical work or volume rather than arbitrary equal file counts.
 
 **Grouping strategy**: split by source directory domain — e.g. classical texts, secondary scholarship, empirical psychology. Keep groups under ~30 files each.
 
@@ -296,6 +314,9 @@ cd "<知识库>"
 python check_rebuild_rag.py --check
 ```
 
+If `<知识库>/rag_config.json` exists, both `check_rebuild_rag.py` updates and `km_query.py` queries must pass it through to SiliconFlow-rag so project-specific models and chunk/query settings are preserved.
+The staleness check must also compare explicit build settings (`model`, `chunk_size`, `overlap`, `dimensions`, and `encoding_format`) with both manifests; a mismatch is a settings change that requires a full rebuild.
+
 3. **If stale**: tell the user which index needs updating, and distinguish the operation precisely:
    - `new/changed` files → say "新增/改动，需要增量更新索引" or "补入索引".
    - `deleted` files → say "有删除，需要从索引移除对应条目".
@@ -311,7 +332,7 @@ python check_rebuild_rag.py
 
 **Staleness logic**:
 
-- Raw index checks `wiki/raw/` against `检索索引/raw/manifest.json`.
+- Raw index checks `wiki/raw/` against `检索索引/raw/manifest.json`; in `enriched_raw` mode it also compares the Wiki semantic-label sources recorded in `semantic_source_hashes`, because changed claims/concepts/comparisons/entities/debates can change Raw embedding text even when Raw files are unchanged.
 - Wiki index checks `wiki/claims`, `wiki/concepts`, `wiki/entities`, `wiki/comparisons`, `wiki/debates`, `wiki/synthesis`, and `wiki/queries` against `检索索引/wiki/manifest.json`.
 - Content hashes are SHA256, not mtime.
 - The helper runs `SiliconFlow-rag/scripts/build_index.py --incremental` with the correct raw/wiki paths and metadata modes. For ordinary new/changed files, describe the result as "增量更新 / 新增到索引". `SiliconFlow-rag` falls back to a full rebuild only if index settings changed; reserve "重建" for that case.
@@ -387,6 +408,7 @@ Behaviour:
 - `--rerank`: enable SiliconFlow rerank for raw evidence candidates.
 - `--multi-query`: enable LLM query rewriting when recall is weak.
 - `--deep`: use the high-quality writing mode: wiki-first + multi-query + rerank + context, with `candidates=20`.
+- `--source-discovery`: aggregate chunks into candidate Raw sources and show local line/byte size hints for the Step 2 Raw size/type gate.
 
 This is the recommended query entry point for agents and daily use — it prevents stale-index answers while using wiki structure for recall.
 
@@ -509,7 +531,8 @@ Use this for index status, conversion coverage, helper failures, API-key blocker
 - **Proactive RAG check**: every session where the knowledge base is involved, run `check_rebuild_rag.py --check` before any query or wiki work. If either raw or wiki index is stale, ask the user before updating the index. Say "新增到索引" or "增量更新" for ordinary new/changed files; say "重建" only for full rebuilds. Do NOT wait for the user to tell you to check.
 - **Optional paper acquisition**: when local sources are thin or the user asks to add related papers, use `academic-search` first for a candidate shortlist, then acquire only user-accepted legal full texts and route them through Step 1 into `wiki/raw/`.
 - **Source-discovery routing**: when the user wants to supplement a topic, first return candidate `wiki/raw/` sources and gaps; do not jump straight to wiki page creation.
-- **Deep-reading routing**: when the user asks to ingest, process, or wiki-compile a book, long chapter, theory-heavy paper, or thesis-critical source, route through `deep-reading-to-wiki` before `karpathy-wiki` unless the user explicitly asks for a quick/rough ingest.
+- **Deep-reading routing**: after the Raw sizing/type gate, route books, collections, long chapters, theory-heavy papers, thesis-critical sources, and other context-loss risks through `deep-reading-to-wiki` before `karpathy-wiki`. A quick/rough request may relax only a documented borderline case, not silently bypass a mandatory semantic override.
+- **Raw sizing gate**: after conversion, inspect and record converted Raw line/byte size plus source type for every content source. Do not start `karpathy-wiki` until each source is marked `deep-reading`, `direct-wiki`, or `blocked` and all `deep-reading` routes have accepted dossiers.
 - **Prefer `km_query.py`** for queries: it auto-checks both indexes, routes source lookups to raw-only, and uses wiki-first for conceptual/cross-source questions — one command instead of several.
 - If any source file cannot be converted, explicitly list it or point to `wiki/raw/_conversion_failures.md`.
 - If `SILICONFLOW_API_KEY` and the local private key config are both missing, stop before real RAG indexing/querying and ask the user for the key; do not fake a real index.

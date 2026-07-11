@@ -35,8 +35,11 @@ Use `python3` in examples because macOS and many Linux systems no longer provide
 ```bash
 python3 skills/SiliconFlow-rag/scripts/build_index.py \
   --md-dir wiki/raw \
-  --index-dir 检索索引/raw
+  --index-dir 检索索引/raw \
+  --metadata-mode enriched_raw
 ```
+
+Use `enriched_raw` once graph-readable wiki pages exist; use `plain` only for the initial Raw-only stage. Enriched Raw manifests track both Raw file hashes and the wiki semantic-label dependencies that shaped embedding text.
 
 ### Build or update wiki index
 
@@ -46,7 +49,7 @@ Use when `karpathy-wiki` pages exist and the question is conceptual, argumentati
 python3 skills/SiliconFlow-rag/scripts/build_index.py \
   --md-dir wiki \
   --index-dir 检索索引/wiki \
-  --include-dirs claims,concepts,entities,comparisons,synthesis,queries \
+  --include-dirs claims,concepts,entities,comparisons,debates,synthesis,queries \
   --exclude-dirs raw,_archive \
   --metadata-mode wiki
 ```
@@ -80,7 +83,8 @@ python3 skills/SiliconFlow-rag/scripts/query_index.py \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
-  --question "哪些原始资料可以补充儿童教育在孝、亲亲、修身中的作用？"
+  --question "哪些原始资料可以补充儿童教育在孝、亲亲、修身中的作用？" \
+  --source-discovery
 ```
 
 Then broaden with raw-only when source wording may differ from the wiki wording:
@@ -89,6 +93,7 @@ Then broaden with raw-only when source wording may differ from the wiki wording:
 python3 skills/SiliconFlow-rag/scripts/query_index.py \
   --index-dir 检索索引/raw \
   --question "儿童教育 家庭教育 爱敬 积浸 身教 保傅 内则 小学" \
+  --source-discovery \
   --multi-query \
   --expand-context \
   --context-window 1
@@ -101,10 +106,14 @@ Return a shortlist, not a final wiki answer:
 | source path | Candidate `wiki/raw/...md` file. |
 | why relevant | Which user intent or wiki gap it may address. |
 | key terms | Terms that made the source retrievable. |
-| next step | `deep-reading-to-wiki`, direct `karpathy-wiki`, or ignore for weak evidence. |
+| Raw size | Converted line/byte count when the source file is locally available. |
+| size gate | Size-only `deep-reading` candidate, inspect band, `direct-wiki` candidate, or blocked. |
+| next step | Apply `social-science-km` source-type/context-risk overrides, then use `deep-reading-to-wiki`, direct `karpathy-wiki`, or ignore weak evidence. |
 | limits | Missing context, weak hit, stale index, or needs broader query. |
 
 If fewer than three usable raw sources appear, report that limitation and broaden the query or check index freshness before sending anything to deep reading.
+
+`--source-discovery` aggregates multiple retrieved chunks from the same file into one candidate source. Its size gate is not a final routing decision: books, theses, collections, theory-heavy sources, and thesis-critical texts still require the semantic overrides in `social-science-km`.
 
 ### Optional query modes
 
@@ -162,4 +171,6 @@ python3 skills/SiliconFlow-rag/scripts/query_index.py --index-dir 检索索引/w
 - Treating wiki hits as proof. Wiki pages guide recall; raw snippets provide evidence.
 - Sending a user's topic directly to wiki writing before locating raw sources.
 - Forgetting `--exclude-dirs raw,_archive` when building the wiki index.
+- Treating Raw file hashes as the only dependency of `enriched_raw`. Wiki labels also shape enriched embedding text; keep `semantic_source_hashes` and `semantic_hint_hashes` in the manifest and refresh affected Raw chunks when those labels change.
+- Returning six chunks from one file as six "candidate sources". Use `--source-discovery` to aggregate by source before selecting deep-reading inputs.
 - Relying on rerank for recall. Rerank only reorders candidates; retrieval and wiki expansion decide what enters the candidate pool.

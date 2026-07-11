@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+import importlib.util
+import json
 import shutil
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -35,6 +38,34 @@ def run_expect_failure(command: list[str], cwd: Path) -> subprocess.CompletedPro
 def main() -> None:
     temp_dir = Path(tempfile.mkdtemp(prefix="SiliconFlow-rag-test-"))
     try:
+        spec = importlib.util.spec_from_file_location("rag_build_checkpoint_test", BUILD)
+        if spec is None or spec.loader is None:
+            raise SystemExit(f"Cannot import {BUILD}")
+        build_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build_module)
+        checkpoint_path = temp_dir / "checkpoint.jsonl"
+        checkpoint_args = SimpleNamespace(
+            model="test-model",
+            mock=False,
+            dimensions=1024,
+            encoding_format="base64",
+        )
+        build_module.append_embedding_checkpoint(
+            checkpoint_path,
+            [{"id": "chunk-1", "embedding": [0.1, 0.2]}],
+            checkpoint_args,
+        )
+        if build_module.load_embedding_checkpoint(checkpoint_path, checkpoint_args) != {"chunk-1": [0.1, 0.2]}:
+            raise SystemExit("Embedding checkpoint resume test failed")
+        changed_model_args = SimpleNamespace(
+            model="changed-model",
+            mock=False,
+            dimensions=1024,
+            encoding_format="base64",
+        )
+        if build_module.load_embedding_checkpoint(checkpoint_path, changed_model_args) or checkpoint_path.exists():
+            raise SystemExit("Embedding checkpoint invalidation test failed")
+
         md_dir = temp_dir / "资料md"
         index_dir = temp_dir / "检索索引"
         (md_dir / "urban-studies").mkdir(parents=True)
@@ -45,6 +76,10 @@ def main() -> None:
         )
         (md_dir / "methods" / "interview.md").write_text(
             "# Interview Methods\n\nSemi-structured interviews help explain how residents interpret policy and daily life.\n",
+            encoding="utf-8",
+        )
+        (md_dir / "_routing.md").write_text(
+            "# Operational routing file\n\nSHOULD_NOT_BE_INDEXED\n",
             encoding="utf-8",
         )
         config_path = temp_dir / "rag_config.json"
@@ -76,6 +111,12 @@ def main() -> None:
             "--mock",
         ], ROOT)
 
+        initial_manifest = json.loads((index_dir / "manifest.json").read_text(encoding="utf-8"))
+        if initial_manifest.get("file_count") != 2:
+            raise SystemExit(f"Operational-file filter failed: {initial_manifest}")
+        if "SHOULD_NOT_BE_INDEXED" in (index_dir / "chunks.jsonl").read_text(encoding="utf-8"):
+            raise SystemExit("Operational-file filter failed: _*.md content entered the index")
+
         result = run([
             sys.executable,
             str(QUERY),
@@ -94,6 +135,27 @@ def main() -> None:
         if missing:
             print(output)
             raise SystemExit(f"Self-test failed; missing output markers: {missing}")
+
+        # --- Source discovery should aggregate chunks by source and expose Raw size hints ---
+        result = run([
+            sys.executable,
+            str(QUERY),
+            "--config",
+            str(config_path),
+            "--index-dir",
+            str(index_dir),
+            "--question",
+            "What shapes housing inequality?",
+            "--source-discovery",
+            "--candidates",
+            "4",
+            "--mock",
+        ], ROOT)
+        discovery_output = result.stdout
+        for marker in ["# Source Discovery Shortlist", "# Candidate Sources", "housing.md", "Raw size:", "Size gate:", "Next step:"]:
+            if marker not in discovery_output:
+                print(discovery_output)
+                raise SystemExit(f"Source-discovery test failed: missing '{marker}'")
 
         # --- Query config default: multi-query should stay off unless explicitly enabled ---
         defaults_config_path = temp_dir / "rag_defaults_config.json"
@@ -170,11 +232,10 @@ def main() -> None:
             print(inc_output)
             raise SystemExit("Incremental test failed: expected 'Index updated' in output")
 
-        # Verify manifest has file_hashes and format_version 2
-        import json
+        # Verify manifest has file_hashes and the current format version
         manifest = json.loads((index_dir / "manifest.json").read_text(encoding="utf-8"))
-        if manifest.get("format_version") != 2:
-            raise SystemExit(f"Incremental test failed: expected format_version 2, got {manifest.get('format_version')}")
+        if manifest.get("format_version") != 3:
+            raise SystemExit(f"Incremental test failed: expected format_version 3, got {manifest.get('format_version')}")
         if "file_hashes" not in manifest:
             raise SystemExit("Incremental test failed: manifest missing file_hashes")
         if len(manifest["file_hashes"]) != 3:
@@ -269,9 +330,11 @@ def main() -> None:
         raw_dir = wiki_root / "raw"
         claims_dir = wiki_root / "claims"
         concepts_dir = wiki_root / "concepts"
+        debates_dir = wiki_root / "debates"
         raw_dir.mkdir(parents=True)
         claims_dir.mkdir(parents=True)
         concepts_dir.mkdir(parents=True)
+        debates_dir.mkdir(parents=True)
         (raw_dir / "care.md").write_text(
             "# Care Evidence\n\nLong-term parental care, love, and responsive support explain why filial duties are not based only on biological birth.\n",
             encoding="utf-8",
@@ -295,7 +358,8 @@ depends_on: []
 related_concepts: [孝, 照料]
 related_entities: [Cline]
 related_comparisons: []
-sources: [Cline]
+sources:
+  - wiki/raw/care.md
 ---
 # 孝的道德基础是良好照料
 
@@ -319,6 +383,20 @@ sources: [Cline]
             "# 孝\n\n[[孝的道德基础是良好照料]] 说明孝与照料相关。\n",
             encoding="utf-8",
         )
+        (debates_dir / "孝的基础争议.md").write_text(
+            """---
+title: 孝的基础争议
+type: debate
+related_concepts: [孝, 照料]
+---
+# 孝的基础争议
+
+争议涉及生育事实与长期照料何者构成孝的基础。
+
+证据位置：`raw/care.md:1-2`
+""",
+            encoding="utf-8",
+        )
 
         raw_index = temp_dir / "检索索引" / "raw"
         wiki_index = temp_dir / "检索索引" / "wiki"
@@ -330,7 +408,7 @@ sources: [Cline]
             "--index-dir",
             str(wiki_index),
             "--include-dirs",
-            "claims,concepts",
+            "claims,concepts,debates",
             "--exclude-dirs",
             "raw,_archive",
             "--metadata-mode",
@@ -349,13 +427,15 @@ sources: [Cline]
             "--mock",
         ], ROOT)
         manifest = json.loads((wiki_index / "manifest.json").read_text(encoding="utf-8"))
-        if manifest.get("include_dirs") != ["claims", "concepts"]:
+        if manifest.get("include_dirs") != ["claims", "concepts", "debates"]:
             raise SystemExit(f"Wiki index manifest missing include_dirs: {manifest}")
         if manifest.get("metadata_mode") != "wiki":
             raise SystemExit(f"Wiki index manifest missing metadata_mode wiki: {manifest}")
         raw_manifest = json.loads((raw_index / "manifest.json").read_text(encoding="utf-8"))
         if raw_manifest.get("metadata_mode") != "enriched_raw":
             raise SystemExit(f"Raw index manifest missing metadata_mode enriched_raw: {raw_manifest}")
+        if not raw_manifest.get("semantic_hint_hashes") or not raw_manifest.get("semantic_source_hashes"):
+            raise SystemExit(f"Raw index manifest missing semantic dependency hashes: {raw_manifest}")
         raw_chunks_text = (raw_index / "chunks.jsonl").read_text(encoding="utf-8")
         if "semantic_metadata" not in raw_chunks_text or "孝的道德基础是良好照料" not in raw_chunks_text:
             print(raw_chunks_text)
@@ -364,16 +444,45 @@ sources: [Cline]
             print(raw_chunks_text)
             raise SystemExit("Enriched raw test failed: raw chunks missing retrieval-only embedding text")
         chunks_text = (wiki_index / "chunks.jsonl").read_text(encoding="utf-8")
-        if "页面类型：claim" not in chunks_text or "相关概念：孝、照料" not in chunks_text:
+        if "页面类型：claim" not in chunks_text or "页面类型：debate" not in chunks_text or "相关概念：孝、照料" not in chunks_text or "来源：wiki/raw/care.md" not in chunks_text:
             print(chunks_text)
             raise SystemExit("Wiki metadata-mode test failed: retrieval text missing claim metadata")
         if "Transit" in chunks_text:
             print(chunks_text)
             raise SystemExit("Wiki include/exclude test failed: raw content appeared in wiki index")
 
+        # --- Wiki label changes must invalidate and refresh affected enriched-raw chunks ---
+        claim_path = claims_dir / "孝的道德基础是良好照料.md"
+        claim_path.write_text(
+            claim_path.read_text(encoding="utf-8").replace(
+                "related_concepts: [孝, 照料]",
+                "related_concepts: [孝, 照料, 亲情]",
+            ),
+            encoding="utf-8",
+        )
+        result = run([
+            sys.executable,
+            str(BUILD),
+            "--md-dir",
+            str(raw_dir),
+            "--index-dir",
+            str(raw_index),
+            "--metadata-mode",
+            "enriched_raw",
+            "--mock",
+            "--incremental",
+        ], ROOT)
+        if "semantic labels new or changed" not in result.stdout:
+            print(result.stdout)
+            raise SystemExit("Semantic dependency update test failed: affected Raw source was not refreshed")
+        raw_chunks_text = (raw_index / "chunks.jsonl").read_text(encoding="utf-8")
+        if "亲情" not in raw_chunks_text:
+            print(raw_chunks_text)
+            raise SystemExit("Semantic dependency update test failed: refreshed labels missing from Raw chunks")
+
         # --- Evidence path normalization should handle raw/, ./raw/, and wiki/raw/ forms ---
-        (claims_dir / "孝的道德基础是良好照料.md").write_text(
-            (claims_dir / "孝的道德基础是良好照料.md").read_text(encoding="utf-8").replace(
+        claim_path.write_text(
+            claim_path.read_text(encoding="utf-8").replace(
                 "证据位置：`raw/care.md:1-2`",
                 "证据位置：`wiki/raw/care.md:1-2`",
             ),
@@ -387,13 +496,29 @@ sources: [Cline]
             "--index-dir",
             str(wiki_index),
             "--include-dirs",
-            "claims,concepts",
+            "claims,concepts,debates",
             "--exclude-dirs",
             "raw,_archive",
             "--metadata-mode",
             "wiki",
             "--mock",
         ], ROOT)
+
+        result = run([
+            sys.executable,
+            str(BUILD),
+            "--md-dir",
+            str(raw_dir),
+            "--index-dir",
+            str(raw_index),
+            "--metadata-mode",
+            "enriched_raw",
+            "--mock",
+            "--incremental",
+        ], ROOT)
+        if "refreshed manifest without re-embedding" not in result.stdout:
+            print(result.stdout)
+            raise SystemExit("Semantic dependency metadata-only refresh test failed")
 
         result = run([
             sys.executable,

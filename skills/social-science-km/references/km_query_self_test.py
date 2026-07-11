@@ -27,10 +27,20 @@ def load_module():
     return module
 
 
-def write_manifest(index_dir: Path, file_hashes: dict[str, str], metadata_mode: str) -> None:
+def write_manifest(
+    index_dir: Path,
+    file_hashes: dict[str, str],
+    metadata_mode: str,
+    semantic_source_hashes: dict[str, str] | None = None,
+) -> None:
     index_dir.mkdir(parents=True, exist_ok=True)
     (index_dir / "manifest.json").write_text(
-        json.dumps({"file_hashes": file_hashes, "format_version": 2, "metadata_mode": metadata_mode}, ensure_ascii=False),
+        json.dumps({
+            "file_hashes": file_hashes,
+            "format_version": 2,
+            "metadata_mode": metadata_mode,
+            "semantic_source_hashes": semantic_source_hashes or {},
+        }, ensure_ascii=False),
         encoding="utf-8",
     )
     (index_dir / "chunks.jsonl").write_text("", encoding="utf-8")
@@ -56,6 +66,7 @@ def main() -> None:
         debates.mkdir(parents=True)
 
         (raw / "care.md").write_text("# Care\n\nraw evidence", encoding="utf-8")
+        (temp_dir / "rag_config.json").write_text('{"query": {"top_k": 4}}', encoding="utf-8")
 
         raw_hashes = km.compute_hashes(raw)
         write_manifest(temp_dir / "检索索引" / "raw", raw_hashes, "plain")
@@ -64,7 +75,12 @@ def main() -> None:
         if status.stale:
             raise SystemExit(f"Expected plain raw to be accepted before graph pages exist, got: {status.message}")
 
-        write_manifest(temp_dir / "检索索引" / "raw", raw_hashes, "enriched_raw")
+        write_manifest(
+            temp_dir / "检索索引" / "raw",
+            raw_hashes,
+            "enriched_raw",
+            semantic_source_hashes=km.raw_enrichment_hashes(temp_dir),
+        )
         status = km.check_staleness(temp_dir)
         if status.stale:
             raise SystemExit(f"Expected enriched_raw to be accepted before graph pages exist, got: {status.message}")
@@ -78,7 +94,12 @@ def main() -> None:
         if not status.stale or "metadata_mode=plain" not in status.message or "enriched_raw" not in status.message:
             raise SystemExit(f"Expected plain raw to become stale after graph pages exist, got: {status}")
 
-        write_manifest(temp_dir / "检索索引" / "raw", raw_hashes, "enriched_raw")
+        write_manifest(
+            temp_dir / "检索索引" / "raw",
+            raw_hashes,
+            "enriched_raw",
+            semantic_source_hashes=km.raw_enrichment_hashes(temp_dir),
+        )
         wiki_hashes = km.compute_hashes(wiki, include_dirs=km.WIKI_INDEX_SOURCE_DIRS, exclude_dirs={"raw", "_archive"})
         if "debates/debate.md" not in wiki_hashes:
             raise SystemExit("Expected debates/ pages to be included in wiki index hashes")
@@ -87,6 +108,21 @@ def main() -> None:
         status = km.check_staleness(temp_dir)
         if status.stale:
             raise SystemExit(f"Expected fresh indexes, got stale: {status.message}")
+
+        (temp_dir / "rag_config.json").write_text(
+            '{"build": {"dimensions": 512}, "query": {"top_k": 4}}',
+            encoding="utf-8",
+        )
+        status = km.check_staleness(temp_dir)
+        if not status.raw_stale or not status.wiki_stale or "dimensions" not in status.message:
+            raise SystemExit(f"Expected config dimension change to stale both indexes, got: {status}")
+        (temp_dir / "rag_config.json").write_text('{"query": {"top_k": 4}}', encoding="utf-8")
+
+        (claims / "claim.md").write_text("---\ntype: claim\n---\n# Changed Claim", encoding="utf-8")
+        status = km.check_staleness(temp_dir)
+        if not status.raw_stale or "Wiki 语义标签" not in status.message:
+            raise SystemExit(f"Expected wiki label changes to stale the enriched raw index, got: {status}")
+        (claims / "claim.md").write_text("---\ntype: claim\n---\n# Claim", encoding="utf-8")
 
         (raw / "new.md").write_text("# New\n\nnew raw evidence", encoding="utf-8")
         status = km.check_staleness(temp_dir)
@@ -110,14 +146,15 @@ def main() -> None:
             rerank=False,
             multi_query=False,
             candidates=None,
+            source_discovery=True,
         )
         joined = " ".join(cmd)
-        for marker in ["--wiki-first", "--wiki-index-dir", "检索索引/wiki", "--raw-index-dir", "检索索引/raw", "--expand-context"]:
+        for marker in ["--config", "rag_config.json", "--wiki-first", "--wiki-index-dir", "检索索引/wiki", "--raw-index-dir", "检索索引/raw", "--expand-context", "--source-discovery"]:
             if marker not in joined:
                 raise SystemExit(f"Wiki command missing {marker}: {joined}")
 
         result = run_py([sys.executable, str(KM_QUERY), "--help"], SCRIPT_DIR)
-        if result.returncode != 0 or "--deep" not in result.stdout or "--raw-only" not in result.stdout:
+        if result.returncode != 0 or "--deep" not in result.stdout or "--raw-only" not in result.stdout or "--source-discovery" not in result.stdout:
             print(result.stdout)
             print(result.stderr, file=sys.stderr)
             raise SystemExit("CLI help test failed")
@@ -148,8 +185,23 @@ def main() -> None:
             wiki_manifest = json.loads((check_project / "检索索引" / "wiki" / "manifest.json").read_text(encoding="utf-8"))
             if raw_manifest.get("metadata_mode") != "enriched_raw":
                 raise SystemExit(f"Expected graph-stage raw metadata_mode enriched_raw, got: {raw_manifest.get('metadata_mode')}")
+            if not isinstance(raw_manifest.get("semantic_source_hashes"), dict):
+                raise SystemExit("Expected graph-stage raw manifest to track semantic_source_hashes")
             if wiki_manifest.get("metadata_mode") != "wiki":
                 raise SystemExit(f"Expected wiki metadata_mode wiki, got: {wiki_manifest.get('metadata_mode')}")
+
+            (check_claims / "claim.md").write_text("---\ntype: claim\n---\n# Changed Claim", encoding="utf-8")
+            result = run_py([
+                sys.executable,
+                str(CHECK_REBUILD),
+                "--project-root",
+                str(check_project),
+                "--check",
+            ], SCRIPT_DIR)
+            if result.returncode == 0 or "raw 使用的 Wiki 语义标签有改动" not in result.stdout:
+                print(result.stdout)
+                print(result.stderr, file=sys.stderr)
+                raise SystemExit("Expected check_rebuild_rag to detect stale enriched-raw semantic labels")
         finally:
             shutil.rmtree(check_project, ignore_errors=True)
 

@@ -25,6 +25,7 @@ INDEX_DIR_NAME = "检索索引"
 RAW_INDEX_NAME = "raw"
 WIKI_INDEX_NAME = "wiki"
 WIKI_INDEX_SOURCE_DIRS = ("claims", "concepts", "entities", "comparisons", "debates", "synthesis", "queries")
+RAW_ENRICHMENT_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates")
 SKIP_NAMES = {"_conversion_failures.md", "_conversion_manifest.md", "_主题索引.md"}
 
 
@@ -58,7 +59,7 @@ def compute_hashes(
         return hashes
     for path in sorted(md_dir.rglob("*.md")):
         rel_path = path.relative_to(md_dir)
-        if path.name in SKIP_NAMES:
+        if path.name.startswith("_") or path.name in SKIP_NAMES:
             continue
         if any(part.startswith(".") for part in rel_path.parts):
             continue
@@ -76,6 +77,23 @@ def index_manifest(index_dir: Path) -> dict:
     if not manifest_path.exists():
         return {}
     return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def project_build_settings(project_root: Path) -> dict[str, object]:
+    config_path = project_path(project_root, "rag_config.json")
+    if not config_path.is_file():
+        return {}
+    data = json.loads(config_path.read_text(encoding="utf-8"))
+    build = data.get("build") if isinstance(data, dict) else None
+    if not isinstance(build, dict):
+        return {}
+    expected: dict[str, object] = {}
+    if "model" in build:
+        expected["embedding_model"] = build["model"]
+    for key in ("chunk_size", "overlap", "dimensions", "encoding_format"):
+        if key in build:
+            expected[key] = build[key]
+    return expected
 
 
 def compare_hashes(current: dict[str, str], stored: dict[str, str]) -> tuple[list[str], list[str]]:
@@ -104,6 +122,10 @@ def check_one_index(
     exclude_dirs: tuple[str, ...] | None = None,
     expected_metadata_mode: str | None = None,
     allowed_metadata_modes: set[str] | None = None,
+    dependency_hashes: dict[str, str] | None = None,
+    dependency_manifest_key: str | None = None,
+    dependency_message: str | None = None,
+    expected_settings: dict[str, object] | None = None,
 ) -> tuple[bool, str]:
     current = compute_hashes(source_dir, include_dirs=include_dirs, exclude_dirs=exclude_dirs)
     manifest = index_manifest(index_dir)
@@ -119,12 +141,30 @@ def check_one_index(
         return True, f"{label} 索引 metadata_mode={manifest_mode}，需要按 {modes} 重建"
     if expected_metadata_mode and manifest_mode != expected_metadata_mode:
         return True, f"{label} 索引 metadata_mode={manifest.get('metadata_mode')}，需要按 {expected_metadata_mode} 重建"
+    settings_mismatch = [
+        key for key, expected in (expected_settings or {}).items()
+        if manifest.get(key) != expected
+    ]
+    if settings_mismatch:
+        return True, f"{label} 索引配置已变化，需要重建: {', '.join(settings_mismatch)}"
     stored = manifest.get("file_hashes")
     if not isinstance(stored, dict):
         return True, f"{label} manifest 缺少 file_hashes，需要重建以支持增量检查"
+    if dependency_hashes is not None and dependency_manifest_key:
+        stored_dependencies = manifest.get(dependency_manifest_key)
+        if not isinstance(stored_dependencies, dict):
+            return True, f"{label} manifest 缺少 {dependency_manifest_key}，需要重建以跟踪 Wiki 语义标签"
+    else:
+        stored_dependencies = None
     new_or_changed, deleted = compare_hashes(current, stored)
-    if new_or_changed or deleted:
-        return True, describe_delta(label, new_or_changed, deleted)
+    dependencies_changed = stored_dependencies is not None and stored_dependencies != dependency_hashes
+    if new_or_changed or deleted or dependencies_changed:
+        messages = []
+        if new_or_changed or deleted:
+            messages.append(describe_delta(label, new_or_changed, deleted))
+        if dependencies_changed:
+            messages.append(dependency_message or f"{label} 的依赖内容有改动")
+        return True, "；".join(messages)
     return False, ""
 
 
@@ -133,6 +173,15 @@ def graph_hashes(project_root: Path) -> dict[str, str]:
     return compute_hashes(
         wiki_dir,
         include_dirs=WIKI_INDEX_SOURCE_DIRS,
+        exclude_dirs=("raw", "_archive"),
+    )
+
+
+def raw_enrichment_hashes(project_root: Path) -> dict[str, str]:
+    wiki_dir = project_path(project_root, WIKI_DIR_NAME)
+    return compute_hashes(
+        wiki_dir,
+        include_dirs=RAW_ENRICHMENT_SOURCE_DIRS,
         exclude_dirs=("raw", "_archive"),
     )
 
@@ -151,11 +200,17 @@ def check_staleness(project_root: Path) -> StalenessStatus:
     wiki_dir = project_path(project_root, WIKI_DIR_NAME)
     index_root = project_path(project_root, INDEX_DIR_NAME)
 
+    raw_mode = raw_expected_metadata_mode(project_root)
+    expected_settings = project_build_settings(project_root)
     raw_stale, raw_msg = check_one_index(
         source_dir=wiki_dir / "raw",
         index_dir=index_root / RAW_INDEX_NAME,
         label="raw",
         allowed_metadata_modes=raw_allowed_metadata_modes(project_root),
+        dependency_hashes=raw_enrichment_hashes(project_root) if raw_mode == "enriched_raw" else None,
+        dependency_manifest_key="semantic_source_hashes" if raw_mode == "enriched_raw" else None,
+        dependency_message="raw 使用的 Wiki 语义标签有改动",
+        expected_settings=expected_settings,
     )
     wiki_stale, wiki_msg = check_one_index(
         source_dir=wiki_dir,
@@ -164,6 +219,7 @@ def check_staleness(project_root: Path) -> StalenessStatus:
         include_dirs=WIKI_INDEX_SOURCE_DIRS,
         exclude_dirs=("raw", "_archive"),
         expected_metadata_mode="wiki",
+        expected_settings=expected_settings,
     )
 
     messages = [msg for msg in [raw_msg, wiki_msg] if msg]
@@ -177,7 +233,8 @@ def check_staleness(project_root: Path) -> StalenessStatus:
 
 def find_query_script(project_root: Path) -> Path:
     bases = [project_root, *project_root.parents]
-    candidates: list[Path] = []
+    reference_skills_dir = Path(__file__).resolve().parents[2]
+    candidates: list[Path] = [reference_skills_dir / "SiliconFlow-rag" / "scripts" / "query_index.py"]
     for base in bases:
         candidates.extend([
             base / "skills" / "SiliconFlow-rag" / "scripts" / "query_index.py",
@@ -243,9 +300,13 @@ def build_query_command(
     rerank: bool,
     multi_query: bool,
     candidates: int | None,
+    source_discovery: bool = False,
 ) -> list[str]:
     index_root = project_path(project_root, INDEX_DIR_NAME)
     cmd = [sys.executable, str(query_script)]
+    config_path = project_path(project_root, "rag_config.json")
+    if config_path.is_file():
+        cmd.extend(["--config", str(config_path)])
     if mode == "wiki":
         cmd.extend([
             "--wiki-first",
@@ -261,6 +322,8 @@ def build_query_command(
         cmd.append("--rerank")
     if multi_query:
         cmd.append("--multi-query")
+    if source_discovery:
+        cmd.append("--source-discovery")
     if candidates:
         cmd.extend(["--candidates", str(candidates)])
     return cmd
@@ -308,6 +371,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rerank", action="store_true", help="启用 rerank 精排")
     parser.add_argument("--multi-query", action="store_true", help="启用多查询改写以提高召回")
     parser.add_argument("--deep", action="store_true", help="精读/写作档：wiki-first + multi-query + rerank + context")
+    parser.add_argument("--source-discovery", action="store_true", help="输出候选 Raw 来源清单、体量提示与深读分流线索")
     parser.add_argument("--candidates", type=int, default=None, help="rerank 前候选数；--deep 默认 20，普通默认由 query_index.py 决定")
     parser.add_argument("--timeout", type=int, default=120, help="查询命令超时时间（秒）")
     parser.add_argument("--no-lint", action="store_true", help="索引过期时不运行 wiki lint 摘要")
@@ -347,8 +411,12 @@ def main() -> None:
         rerank=args.rerank or args.deep,
         multi_query=args.multi_query or args.deep,
         candidates=args.candidates or (20 if args.deep else None),
+        source_discovery=args.source_discovery,
     )
-    print(f"[MODE] {'wiki-first' if mode == 'wiki' else 'raw-only'}")
+    mode_label = "wiki-first" if mode == "wiki" else "raw-only"
+    if args.source_discovery:
+        mode_label += " + source-discovery"
+    print(f"[MODE] {mode_label}")
     result = subprocess.run(
         cmd,
         cwd=str(project_root),

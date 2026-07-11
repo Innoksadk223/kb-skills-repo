@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
+import http.client
 import json
 import math
 import os
 import re
 import stat
+import struct
 import sys
 import time
 import urllib.error
@@ -36,6 +39,8 @@ BUILD_DEFAULTS = {
     "include_dirs": None,
     "exclude_dirs": None,
     "metadata_mode": "plain",
+    "dimensions": None,
+    "encoding_format": "float",
 }
 CONFIG_SECTIONS = {"build", "query"}
 QUERY_CONFIG_FIELDS = {"top_k", "candidates", "embedding_model", "rerank_model"}
@@ -46,6 +51,11 @@ SKIP_NAMES = {
     "_conversion_manifest.md",
     "_主题索引.md",
 }
+RAW_SEMANTIC_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates")
+
+
+class TransientAPIError(RuntimeError):
+    """Retryable transport, rate-limit, or server-side embedding failure."""
 
 
 def normalize_config(data: dict, fields: set[str], label: str) -> dict:
@@ -139,6 +149,12 @@ def apply_build_config(args: argparse.Namespace) -> argparse.Namespace:
         raise SystemExit("timeout must be greater than 0")
     if args.sleep < 0:
         raise SystemExit("sleep must be 0 or greater")
+    if args.dimensions is not None:
+        args.dimensions = coerce_int(args.dimensions, "dimensions")
+        if args.dimensions <= 0:
+            raise SystemExit("dimensions must be greater than 0")
+    if args.encoding_format not in {"float", "base64"}:
+        raise SystemExit("encoding_format must be 'float' or 'base64'")
     args.include_dirs = parse_csv(args.include_dirs)
     args.exclude_dirs = parse_csv(args.exclude_dirs)
     if args.metadata_mode not in {"plain", "wiki", "enriched_raw"}:
@@ -175,7 +191,7 @@ def list_markdown_files(md_dir: Path, include_dirs: list[str] | None = None, exc
     files = []
     for path in md_dir.rglob("*.md"):
         rel_path = path.relative_to(md_dir)
-        if path.name in SKIP_NAMES:
+        if path.name.startswith("_") or path.name in SKIP_NAMES:
             continue
         if any(part.startswith(".") for part in rel_path.parts):
             continue
@@ -196,13 +212,27 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
     block = text[4:end]
     body = text[end + 5:]
     data: dict[str, object] = {}
+    list_key: str | None = None
     for line in block.splitlines():
+        stripped = line.strip()
+        if list_key and stripped.startswith("- "):
+            value = stripped[2:].strip().strip('"').strip("'")
+            if value:
+                current = data.setdefault(list_key, [])
+                if isinstance(current, list):
+                    current.append(value)
+            continue
         if ":" not in line or line.startswith(" "):
             continue
         key, value = line.split(":", 1)
         key = key.strip()
         value = value.strip()
         if not key:
+            continue
+        list_key = None
+        if not value:
+            data[key] = []
+            list_key = key
             continue
         if value.startswith("[") and value.endswith("]"):
             inner = value[1:-1].strip()
@@ -299,11 +329,13 @@ def unique_limited(values: list[str], limit: int) -> list[str]:
 
 
 def extract_raw_evidence_paths(text: str) -> list[str]:
-    paths: list[str] = []
+    frontmatter, _ = parse_frontmatter(text)
+    paths: list[str] = as_list(frontmatter.get("sources"))
     patterns = [
         r"证据位置：`([^`]+)`",
         r"evidence:\s*`([^`]+)`",
         r"sources?:\s*\[([^\]]+)\]",
+        r"`((?:wiki/)?raw/[^`]+?\.md)(?::[^`]*)?`",
     ]
     for pattern in patterns:
         for match in re.findall(pattern, text, flags=re.IGNORECASE):
@@ -311,7 +343,7 @@ def extract_raw_evidence_paths(text: str) -> list[str]:
                 cleaned = part.strip().strip("'\"")
                 if cleaned:
                     paths.append(cleaned)
-    return paths
+    return unique_limited(paths, 200)
 
 
 def normalize_raw_evidence_path(path: str) -> str:
@@ -337,7 +369,7 @@ def collect_raw_semantic_hints(md_dir: Path) -> dict[str, dict]:
         return {}
 
     hints: dict[str, dict] = {}
-    for folder in ["claims", "concepts", "comparisons", "entities"]:
+    for folder in RAW_SEMANTIC_SOURCE_DIRS:
         page_dir = wiki_root / folder
         if not page_dir.is_dir():
             continue
@@ -366,6 +398,34 @@ def collect_raw_semantic_hints(md_dir: Path) -> dict[str, dict]:
                 merge_hint(hint, "comparisons", comparison_titles, 1)
                 hint.setdefault("text_role", "原文依据")
     return hints
+
+
+def semantic_hint_hashes(hints: dict[str, dict]) -> dict[str, str]:
+    return {
+        source: hashlib.sha256(
+            json.dumps(hint, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+        for source, hint in sorted(hints.items())
+    }
+
+
+def semantic_source_hashes(md_dir: Path) -> dict[str, str]:
+    """Hash wiki pages that can contribute labels to an enriched raw index."""
+    if md_dir.name != "raw":
+        return {}
+    wiki_root = md_dir.parent
+    hashes: dict[str, str] = {}
+    for folder in RAW_SEMANTIC_SOURCE_DIRS:
+        page_dir = wiki_root / folder
+        if not page_dir.is_dir():
+            continue
+        for page in sorted(page_dir.rglob("*.md")):
+            rel_path = page.relative_to(wiki_root)
+            if page.name.startswith("_") or any(part.startswith(".") for part in rel_path.parts):
+                continue
+            content = read_text(page)
+            hashes[rel_path.as_posix()] = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    return hashes
 
 
 def enriched_raw_embedding_text(raw_text: str, hint: dict) -> str:
@@ -422,13 +482,34 @@ def mock_embedding(text: str, dimensions: int = 64) -> list[float]:
     return [v / norm for v in vector]
 
 
-def siliconflow_embeddings(texts: list[str], model: str, api_key: str, timeout: int) -> list[list[float]]:
-    payload = json.dumps({
+def decode_embedding(value: object) -> list[float]:
+    if isinstance(value, list):
+        return [float(item) for item in value]
+    if isinstance(value, str):
+        raw = base64.b64decode(value)
+        if len(raw) % 4:
+            raise RuntimeError("Base64 embedding byte length is not divisible by 4")
+        return list(struct.unpack(f"<{len(raw) // 4}f", raw))
+    raise RuntimeError(f"Unexpected embedding value type: {type(value).__name__}")
+
+
+def siliconflow_embeddings(
+    texts: list[str],
+    model: str,
+    api_key: str,
+    timeout: int,
+    dimensions: int | None = None,
+    encoding_format: str = "float",
+) -> list[list[float]]:
+    payload_data = {
         "model": model,
         "input": texts,
-        "encoding_format": "float",
+        "encoding_format": encoding_format,
         "truncate": "right",
-    }, ensure_ascii=False).encode("utf-8")
+    }
+    if dimensions is not None:
+        payload_data["dimensions"] = dimensions
+    payload = json.dumps(payload_data, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         API_URL,
         data=payload,
@@ -443,15 +524,19 @@ def siliconflow_embeddings(texts: list[str], model: str, api_key: str, timeout: 
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
+        if exc.code == 429 or exc.code >= 500:
+            raise TransientAPIError(f"SiliconFlow embedding request failed: HTTP {exc.code} {detail}") from exc
         raise RuntimeError(f"SiliconFlow embedding request failed: HTTP {exc.code} {detail}") from exc
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"SiliconFlow embedding request failed: {exc.reason}") from exc
+        raise TransientAPIError(f"SiliconFlow embedding request failed: {exc.reason}") from exc
+    except (http.client.RemoteDisconnected, http.client.IncompleteRead, TimeoutError, ConnectionError) as exc:
+        raise TransientAPIError(f"SiliconFlow embedding connection failed: {exc}") from exc
 
     data = body.get("data")
     if not isinstance(data, list):
         raise RuntimeError(f"Unexpected embedding response: {body}")
     ordered = sorted(data, key=lambda item: item.get("index", 0))
-    return [item["embedding"] for item in ordered]
+    return [decode_embedding(item["embedding"]) for item in ordered]
 
 
 def warn_if_private_config_too_open(config_path: Path) -> None:
@@ -502,9 +587,57 @@ def load_api_key(api_key_env: str, api_key_file: str | None) -> str:
     raise SystemExit(f"API key config found but no usable key was present: {config_path}")
 
 
-def embed_batches(texts: list[str], args: argparse.Namespace) -> list[list[float]]:
+def checkpoint_metadata(args: argparse.Namespace) -> dict:
+    return {
+        "format_version": 1,
+        "model": args.model,
+        "mock": bool(args.mock),
+        "dimensions": args.dimensions,
+        "encoding_format": args.encoding_format,
+    }
+
+
+def load_embedding_checkpoint(path: Path, args: argparse.Namespace) -> dict[str, list[float]]:
+    if not path.exists():
+        return {}
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            rows = [json.loads(line) for line in handle if line.strip()]
+    except (OSError, json.JSONDecodeError):
+        path.unlink(missing_ok=True)
+        return {}
+    if not rows or rows[0].get("_meta") != checkpoint_metadata(args):
+        path.unlink(missing_ok=True)
+        return {}
+    return {
+        str(row["id"]): row["embedding"]
+        for row in rows[1:]
+        if isinstance(row, dict) and row.get("id") and isinstance(row.get("embedding"), list)
+    }
+
+
+def append_embedding_checkpoint(path: Path, rows: list[dict], args: argparse.Namespace) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text(
+            json.dumps({"_meta": checkpoint_metadata(args)}, ensure_ascii=False, separators=(",", ":")) + "\n",
+            encoding="utf-8",
+        )
+    with path.open("a", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+
+def embed_batches(chunks: list[dict], args: argparse.Namespace, checkpoint_path: Path) -> list[list[float]]:
+    cached = load_embedding_checkpoint(checkpoint_path, args)
+    pending = [chunk for chunk in chunks if chunk["id"] not in cached]
+    if cached:
+        print(f"Resuming embeddings: {len(cached)} cached, {len(pending)} remaining.", flush=True)
+
     if args.mock:
-        return [mock_embedding(text) for text in texts]
+        for chunk in pending:
+            cached[chunk["id"]] = mock_embedding(chunk.get("embedding_text") or chunk["text"])
+        return [cached[chunk["id"]] for chunk in chunks]
 
     api_key = load_api_key(args.api_key_env, args.api_key_file)
     if not api_key:
@@ -513,14 +646,51 @@ def embed_batches(texts: list[str], args: argparse.Namespace) -> list[list[float
             f"{HERMES_CONFIG_PATH} (preferred) or {LEGACY_CONFIG_PATH} (legacy), or use --mock for tests."
         )
 
-    embeddings: list[list[float]] = []
-    total = len(texts)
+    total = len(pending)
+    total_batches = max(1, math.ceil(total / args.batch_size))
+    progress_every = max(1, total_batches // 20)
     for start in range(0, total, args.batch_size):
-        batch = texts[start:start + args.batch_size]
-        embeddings.extend(siliconflow_embeddings(batch, args.model, api_key, args.timeout))
+        batch_chunks = pending[start:start + args.batch_size]
+        batch = [chunk.get("embedding_text") or chunk["text"] for chunk in batch_chunks]
+        batch_vectors: list[list[float]] = []
+        for attempt in range(1, 4):
+            try:
+                batch_vectors = siliconflow_embeddings(
+                    batch,
+                    args.model,
+                    api_key,
+                    args.timeout,
+                    dimensions=args.dimensions,
+                    encoding_format=args.encoding_format,
+                )
+                break
+            except TransientAPIError as exc:
+                if attempt == 3:
+                    raise RuntimeError(f"Embedding batch failed after {attempt} attempts: {exc}") from exc
+                delay = 2 ** (attempt - 1)
+                print(
+                    f"Transient embedding failure for batch {start // args.batch_size + 1}; "
+                    f"retrying in {delay}s ({attempt}/3): {exc}",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
+        checkpoint_rows = [
+            {"id": chunk["id"], "embedding": vector}
+            for chunk, vector in zip(batch_chunks, batch_vectors)
+        ]
+        append_embedding_checkpoint(checkpoint_path, checkpoint_rows, args)
+        for row in checkpoint_rows:
+            cached[row["id"]] = row["embedding"]
+        batch_no = start // args.batch_size + 1
+        if batch_no == 1 or batch_no == total_batches or batch_no % progress_every == 0:
+            print(
+                f"Embedding progress: {min(start + len(batch_chunks), total)}/{total} "
+                f"({batch_no}/{total_batches} batches).",
+                flush=True,
+            )
         if args.sleep and start + args.batch_size < total:
             time.sleep(args.sleep)
-    return embeddings
+    return [cached[chunk["id"]] for chunk in chunks]
 
 
 def write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -556,10 +726,12 @@ def manifest_settings(args: argparse.Namespace, md_dir: Path, index_dir: Path) -
         "mock": bool(args.mock),
         "chunk_size": args.chunk_size,
         "overlap": args.overlap,
-        "format_version": 2,
+        "format_version": 3,
         "include_dirs": args.include_dirs,
         "exclude_dirs": args.exclude_dirs,
         "metadata_mode": args.metadata_mode,
+        "dimensions": args.dimensions,
+        "encoding_format": args.encoding_format,
     }
 
 
@@ -576,6 +748,13 @@ def build_index(args: argparse.Namespace) -> None:
     files = list_markdown_files(md_dir, args.include_dirs, args.exclude_dirs)
     current_hashes = compute_file_hashes(md_dir, files)
     current_settings = manifest_settings(args, md_dir, index_dir)
+    raw_semantic_hints = collect_raw_semantic_hints(md_dir) if args.metadata_mode == "enriched_raw" else {}
+    raw_semantic_hints = {
+        source: hint for source, hint in raw_semantic_hints.items()
+        if source in current_hashes
+    }
+    current_hint_hashes = semantic_hint_hashes(raw_semantic_hints)
+    current_semantic_source_hashes = semantic_source_hashes(md_dir) if args.metadata_mode == "enriched_raw" else {}
 
     # --- Incremental: diff against previous index ---
     old_chunks: list[dict] = []
@@ -592,6 +771,11 @@ def build_index(args: argparse.Namespace) -> None:
             changed_settings = changed_index_settings(old_manifest, current_settings)
             if changed_settings:
                 print("Incremental settings changed; falling back to full build: " + ", ".join(changed_settings))
+            elif args.metadata_mode == "enriched_raw" and (
+                not isinstance(old_manifest.get("semantic_hint_hashes"), dict)
+                or not isinstance(old_manifest.get("semantic_source_hashes"), dict)
+            ):
+                print("Incremental semantic dependency metadata missing; falling back to full build.")
             else:
                 old_hashes = old_manifest.get("file_hashes", {})
                 new_or_changed = [
@@ -600,7 +784,19 @@ def build_index(args: argparse.Namespace) -> None:
                 ]
                 deleted = [rel for rel in old_hashes if rel not in current_hashes]
 
-                if not new_or_changed and not deleted:
+                semantic_dependencies_changed = False
+                if args.metadata_mode == "enriched_raw":
+                    old_hint_hashes = old_manifest.get("semantic_hint_hashes", {})
+                    changed_hints = {
+                        rel for rel in set(old_hint_hashes) | set(current_hint_hashes)
+                        if old_hint_hashes.get(rel) != current_hint_hashes.get(rel)
+                    }
+                    new_or_changed = sorted(set(new_or_changed) | (changed_hints & set(current_hashes)))
+                    semantic_dependencies_changed = (
+                        old_manifest.get("semantic_source_hashes", {}) != current_semantic_source_hashes
+                    )
+
+                if not new_or_changed and not deleted and not semantic_dependencies_changed:
                     print(f"Index is up to date ({len(files)} files, no changes).")
                     return
 
@@ -618,9 +814,12 @@ def build_index(args: argparse.Namespace) -> None:
                 process_files = [fp for fp in files if fp.relative_to(md_dir).as_posix() in new_or_changed]
                 if not process_files:
                     skip_embed = True
-                    print(f"Removed {len(deleted)} stale file(s), no new content to embed.")
+                    if deleted:
+                        print(f"Removed {len(deleted)} stale file(s), no new content to embed.")
+                    else:
+                        print("Semantic dependencies changed; refreshed manifest without re-embedding raw chunks.")
                 else:
-                    print(f"Incremental: {len(new_or_changed)} file(s) new/changed, "
+                    print(f"Incremental: {len(new_or_changed)} file(s) content/semantic labels new or changed, "
                           f"{len(deleted)} removed, "
                           f"{len(files) - len(new_or_changed)} unchanged.")
         else:
@@ -628,7 +827,6 @@ def build_index(args: argparse.Namespace) -> None:
 
     # --- Chunk new/changed files ---
     chunks: list[dict] = list(old_chunks)
-    raw_semantic_hints = collect_raw_semantic_hints(md_dir) if args.metadata_mode == "enriched_raw" else {}
     for file_path in process_files:
         rel_path = file_path.relative_to(md_dir).as_posix()
         source_text = read_text(file_path)
@@ -655,6 +853,7 @@ def build_index(args: argparse.Namespace) -> None:
         raise SystemExit(f"No Markdown content found under {md_dir}")
 
     # --- Embed ---
+    checkpoint_path = index_dir / ".embedding_checkpoint.jsonl"
     if skip_embed:
         vectors = [e["embedding"] for e in old_embeddings]
         if len(vectors) != len(chunks):
@@ -662,7 +861,7 @@ def build_index(args: argparse.Namespace) -> None:
     else:
         new_chunks = chunks[len(old_chunks):]
         if new_chunks:
-            new_vectors = embed_batches([c.get("embedding_text") or c["text"] for c in new_chunks], args)
+            new_vectors = embed_batches(new_chunks, args, checkpoint_path)
         else:
             new_vectors = []
         vectors = [e["embedding"] for e in old_embeddings] + new_vectors
@@ -683,8 +882,11 @@ def build_index(args: argparse.Namespace) -> None:
         "file_count": len(files),
         "chunk_count": len(chunks),
         "file_hashes": current_hashes,
+        "semantic_hint_hashes": current_hint_hashes,
+        "semantic_source_hashes": current_semantic_source_hashes,
     })
     (index_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    checkpoint_path.unlink(missing_ok=True)
 
     new_count = len(chunks) - len(old_chunks)
     kept_count = len(old_chunks)
@@ -713,6 +915,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--include-dirs", default=None, help="Comma-separated directories under md-dir to include")
     parser.add_argument("--exclude-dirs", default=None, help="Comma-separated directories under md-dir to exclude")
     parser.add_argument("--metadata-mode", default=None, choices=["plain", "wiki", "enriched_raw"], help="Metadata strategy: plain raw chunks, wiki retrieval text, or minimal wiki-label enriched raw chunks")
+    parser.add_argument("--dimensions", type=int, default=None, help="Optional output embedding dimensions for models that support Matryoshka dimensions")
+    parser.add_argument("--encoding-format", default=None, choices=["float", "base64"], help="Embedding response encoding; base64 reduces response size")
     return apply_build_config(parser.parse_args())
 
 

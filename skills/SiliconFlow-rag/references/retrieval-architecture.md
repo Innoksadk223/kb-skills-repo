@@ -27,7 +27,7 @@ question
 Recommended layout:
 
 ```text
-检索索引/wiki    # claims/concepts/entities/comparisons/synthesis/queries
+检索索引/wiki    # claims/concepts/entities/comparisons/debates/synthesis/queries
 检索索引/raw     # wiki/raw original evidence
 ```
 
@@ -43,3 +43,13 @@ Recommended layout:
 - Wiki hits are recall guides, not proof.
 - Raw evidence is the citation basis.
 - Do not claim a paper says something unless raw evidence supports it.
+
+## Source-discovery mode
+
+```text
+question → optional wiki expansion → retrieve Raw candidates
+→ aggregate chunks by source_path → attach local Raw line/byte counts
+→ shortlist for social-science-km size/type routing
+```
+
+Source aggregation prevents one long document from occupying every shortlist row. The emitted size band is advisory; document type and context-loss risk decide whether `deep-reading-to-wiki` is required.

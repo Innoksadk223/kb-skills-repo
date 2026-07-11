@@ -18,6 +18,11 @@ The self-test uses mock embeddings and validates:
 - default multi-query behavior;
 - unknown config key failure;
 - evidence path normalization.
+- `_*.md` operational-file exclusion;
+- source-discovery aggregation and Raw size hints;
+- enriched-Raw semantic dependency invalidation and metadata-only refresh;
+- resumable embedding checkpoints and successful checkpoint cleanup;
+- `debates/` wiki routing.
 
 Also run syntax checks after script edits:
 
