@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>从一堆 PDF 到一篇论文大纲 — kb-skills-repo 全流程图解</title>
+<style>
+  :root {
+    --ink: #1a1a2e;
+    --sub: #5a5a72;
+    --accent: #4a5fc1;
+    --accent-soft: #eef0fb;
+    --warn: #b45309;
+    --warn-soft: #fef3e2;
+    --ok: #15803d;
+    --ok-soft: #ecfdf3;
+    --purple: #7c3aed;
+    --purple-soft: #f3eefe;
+    --line: #e6e6ef;
+    --bg: #fafafc;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink); background: var(--bg); line-height: 1.75;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+  header { padding: 72px 0 44px; text-align: center; }
+  .badge {
+    display: inline-block; font-size: 13px; letter-spacing: 1px;
+    background: var(--accent-soft); color: var(--accent);
+    padding: 4px 14px; border-radius: 99px; margin-bottom: 20px;
+    font-family: ui-monospace, monospace;
+  }
+  h1 { font-size: 33px; line-height: 1.35; margin-bottom: 14px; }
+  .lead { font-size: 17.5px; color: var(--sub); max-width: 600px; margin: 0 auto; }
+
+  section { padding: 40px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 22px; margin-bottom: 8px; }
+  h2 .num {
+    display: inline-block; width: 30px; height: 30px; line-height: 30px;
+    text-align: center; border-radius: 8px; background: var(--accent);
+    color: #fff; font-size: 15px; margin-right: 10px; vertical-align: 2px;
+  }
+  .sub { color: var(--sub); margin-bottom: 24px; }
+
+  /* 总览横向流程 */
+  .flow {
+    display: flex; align-items: stretch; gap: 0; overflow-x: auto;
+    padding: 10px 2px 16px;
+  }
+  .flow .node {
+    flex: 1; min-width: 118px; background: #fff; border: 1.5px solid var(--line);
+    border-radius: 12px; padding: 14px 10px; text-align: center; position: relative;
+  }
+  .flow .node + .node { margin-left: 26px; }
+  .flow .node + .node::before {
+    content: "→"; position: absolute; left: -22px; top: 50%;
+    transform: translateY(-50%); color: var(--accent); font-weight: bold;
+  }
+  .flow .node .em { font-size: 24px; display: block; margin-bottom: 4px; }
+  .flow .node b { font-size: 13.5px; display: block; }
+  .flow .node span { font-size: 11.5px; color: var(--sub); display: block; margin-top: 2px; font-family: ui-monospace, monospace; }
+  .flow .node.hl { border-color: var(--accent); background: var(--accent-soft); }
+
+  /* 环节大卡 */
+  .stage {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 24px 28px; position: relative;
+  }
+  .stage + .stage { margin-top: 30px; }
+  .stage + .stage::before {
+    content: "↓"; position: absolute; top: -28px; left: 44px;
+    color: var(--accent); font-size: 17px; font-weight: bold;
+  }
+  .stage .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .stage .head .icon { font-size: 24px; }
+  .stage h3 { font-size: 17px; }
+  .skillchip {
+    font-size: 12px; padding: 2px 10px; border-radius: 99px;
+    background: var(--purple-soft); color: var(--purple);
+    font-family: ui-monospace, monospace;
+  }
+  .skillchip.ext { background: var(--warn-soft); color: var(--warn); }
+  .stage p { font-size: 14.5px; color: var(--sub); }
+  .stage .io {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    margin-top: 12px; font-size: 13px; font-family: ui-monospace, monospace;
+  }
+  .stage .io .box { background: var(--accent-soft); color: var(--accent); padding: 2px 10px; border-radius: 6px; }
+  .stage .io .arr { color: var(--sub); }
+  .stage .note {
+    margin-top: 12px; padding: 10px 14px; border-radius: 10px;
+    background: var(--warn-soft); color: var(--warn); font-size: 13.5px;
+  }
+  .stage .note.good { background: var(--ok-soft); color: var(--ok); }
+  .stage ul.pts { margin: 10px 0 0 2px; list-style: none; }
+  .stage ul.pts li { font-size: 14px; color: var(--sub); padding: 3px 0 3px 20px; position: relative; }
+  .stage ul.pts li::before { content: "·"; position: absolute; left: 6px; color: var(--accent); font-weight: bold; }
+
+  /* 目录树 */
+  .tree {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px 26px; font-family: ui-monospace, monospace; font-size: 13.5px;
+    line-height: 2; overflow-x: auto; margin-top: 8px;
+  }
+  .tree .c { color: var(--sub); font-family: -apple-system, "PingFang SC", sans-serif; font-size: 12.5px; }
+  .tree .hl { color: var(--accent); font-weight: 600; }
+
+  /* 场景表 */
+  .routes { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-top: 8px; font-size: 14px; }
+  .routes th, .routes td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .routes th { background: var(--accent-soft); color: var(--accent); font-size: 13.5px; }
+  .routes tr:last-child td { border-bottom: none; }
+  .routes td:first-child { font-weight: 600; width: 42%; }
+  .routes td:last-child { color: var(--sub); }
+
+  /* 技能名册 */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } .flow { flex-direction: column; } .flow .node + .node { margin-left: 0; margin-top: 24px; } .flow .node + .node::before { content: "↓"; left: 50%; top: -22px; transform: translateX(-50%); } }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .card h3 { font-size: 15px; margin-bottom: 6px; font-family: ui-monospace, monospace; color: var(--purple); }
+  .card h3 small { color: var(--sub); font-family: -apple-system, "PingFang SC", sans-serif; font-weight: normal; margin-left: 6px; }
+  .card p { font-size: 13.5px; color: var(--sub); }
+  .card.ext h3 { color: var(--warn); }
+
+  footer { padding: 40px 0 60px; text-align: center; color: var(--sub); font-size: 13px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="badge">kb-skills-repo 全流程</div>
+  <h1>从一堆 PDF，<br>到一篇有底气的论文大纲</h1>
+  <p class="lead">这套技能生态把"读文献 → 建知识库 → 查证据 → 构思论文"拆成一条流水线。每个环节由一个专门的技能负责，各管一段，互不越界。</p>
+</header>
+
+<section class="wrap">
+  <h2><span class="num">1</span>先看全景：六个环节一条线</h2>
+  <p class="sub">上游三个环节负责"把文献变成知识"，下游三个环节负责"把知识用起来"。</p>
+  <div class="flow">
+    <div class="node"><span class="em">🔎</span><b>找文献</b><span>academic-search</span></div>
+    <div class="node"><span class="em">📄</span><b>转 Markdown</b><span>MinerU 等</span></div>
+    <div class="node"><span class="em">📖</span><b>深度精读</b><span>deep-reading</span></div>
+    <div class="node hl"><span class="em">🕸️</span><b>编成 wiki</b><span>karpathy-wiki</span></div>
+    <div class="node"><span class="em">🗂️</span><b>建索引查证据</b><span>SiliconFlow-rag</span></div>
+    <div class="node"><span class="em">📝</span><b>论文大纲</b><span>wiki-paper-outline</span></div>
+  </div>
+  <p class="sub" style="margin-top:16px; margin-bottom:0;">这条线不是每次都从头走到尾——中间有个"总调度"技能 <b>social-science-km</b>，它看你的需求和材料状态，决定从哪个环节进、走到哪个环节停（第 4 节详述）。</p>
+</section>
+
+<section class="wrap">
+  <h2><span class="num">2</span>所有东西放在哪？一套固定目录</h2>
+  <p class="sub">整个生态共享一个目录约定：原始文献只读不动，加工产物全部放在旁边的"知识库"文件夹里，一层一层往上叠。</p>
+  <div class="tree">
+你的文献文件夹/                <span class="c">← 原始 PDF、Word…（只读，永远不改）</span><br>
+你的文献文件夹（知识库）/<br>
+├── reading_dossiers/          <span class="c">← 深读档案：精读长书难文后的笔记</span><br>
+├── wiki/<br>
+│   ├── <span class="hl">raw/</span>                   <span class="c">← 文献转成的 Markdown 全文（唯一证据层）</span><br>
+│   ├── <span class="hl">claims/</span> concepts/ debates/ …  <span class="c">← 知识图谱：论点页、概念页、争论页</span><br>
+│   └── index.md · log.md      <span class="c">← 目录和操作日志</span><br>
+├── 检索索引/                  <span class="c">← RAG 索引：raw 一套、wiki 一套</span><br>
+└── <span class="hl">outlines/</span>                  <span class="c">← 论文大纲（最新加入）</span>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2><span class="num">3</span>逐个环节拆开讲</h2>
+  <p class="sub">每张卡片：这个环节干什么、由哪个技能负责、吃进什么、吐出什么。</p>
+
+  <div class="stages">
+    <div class="stage">
+      <div class="head"><span class="icon">🔎</span><h3>环节 0（可选）：找文献</h3><span class="skillchip ext">academic-search（上游安装）</span></div>
+      <p>手头材料不够时才走这一步：按主题搜学术文献，列出候选清单（标题、年份、引用数、是否有合法全文），你点头之后才下载。只收合法可得的全文，绝不绕付费墙。</p>
+      <div class="io"><span class="box">研究方向</span><span class="arr">→</span><span class="box">文献文件夹里的新 PDF</span></div>
+    </div>
+
+    <div class="stage">
+      <div class="head"><span class="icon">📄</span><h3>环节 1：把文献变成机器能读的文本</h3><span class="skillchip ext">mineru-document-extractor</span><span class="skillchip ext">markitdown</span></div>
+      <p>PDF（尤其是扫描版、古籍影印、带表格公式的论文）交给 MinerU 做 OCR 和结构还原；干净的 Word/PPT/网页等交给轻量的 MarkItDown。全部转成 Markdown 存进 <b>wiki/raw/</b>，并记一本转换台账——哪个文件转了、用了什么工具、有没有失败。</p>
+      <div class="io"><span class="box">PDF / Word / PPT…</span><span class="arr">→</span><span class="box">wiki/raw/*.md</span></div>
+    </div>
+
+    <div class="stage">
+      <div class="head"><span class="icon">📖</span><h3>环节 2：该精读的先精读</h3><span class="skillchip">deep-reading-to-wiki</span></div>
+      <p>不是所有材料都能直接进图谱。转完后先"体检"：整本书、长章节、理论很重的文章，如果跳过精读直接总结，很容易变成浅薄的一句话概括。这类材料先走深度精读，逐段读完产出"深读档案"——论证地图、关键引文的位置锚点、语境风险提示。</p>
+      <ul class="pts">
+        <li>短小、低风险的材料可以跳过，直接进下一环节</li>
+        <li>档案只是"读书笔记"，不算正式知识，也不算原始证据</li>
+      </ul>
+      <div class="io"><span class="box">wiki/raw/ 长文</span><span class="arr">→</span><span class="box">reading_dossiers/ 深读档案</span></div>
+    </div>
+
+    <div class="stage">
+      <div class="head"><span class="icon">🕸️</span><h3>环节 3：编成一张知识图谱</h3><span class="skillchip">karpathy-wiki</span></div>
+      <p>把深读档案和原文提炼成互相链接的 wiki 页面：<b>claims/</b>（一条条论点卡片：主张、支持、反对、限定条件）、<b>concepts/</b>（概念）、<b>debates/</b>（多方争论）、<b>comparisons/</b>（辨析）等。页面之间用类型化关系连线——谁支持谁（supports）、谁反驳谁（contradicts）、论证从哪推出（derives_from）、论证顺序怎么展开（follows）。</p>
+      <div class="note good">这张关系网是整个生态的心脏：后面的检索扩展、论文大纲的冲突论点分析，全都是顺着这些线走出来的。</div>
+      <div class="io"><span class="box">raw + 深读档案</span><span class="arr">→</span><span class="box">wiki/claims、concepts、debates…</span></div>
+    </div>
+
+    <div class="stage">
+      <div class="head"><span class="icon">🗂️</span><h3>环节 4：建索引，随问随查</h3><span class="skillchip">SiliconFlow-rag</span></div>
+      <p>给知识库装上"搜索引擎"：raw 全文一套索引，wiki 图谱页一套索引。之后你随时提问，它按问题类型自动选路——</p>
+      <ul class="pts">
+        <li><b>查原文出处</b>（"这段话在哪篇文献？"）→ 直接搜 raw</li>
+        <li><b>概念性问题</b>（"X 和 Y 什么关系？"）→ 先搜 wiki 定位论证路径，再回 raw 拿证据</li>
+        <li><b>高要求写作</b> → deep 档：多查询改写 + 精排 + 上下文扩展全开</li>
+        <li>文件变了会自动提醒你增量更新索引，避免用旧索引答题</li>
+      </ul>
+      <div class="io"><span class="box">你的问题</span><span class="arr">→</span><span class="box">Wiki 路径 + 原文证据</span></div>
+    </div>
+
+    <div class="stage">
+      <div class="head"><span class="icon">📝</span><h3>环节 5：像导师一样陪你定论文大纲</h3><span class="skillchip">wiki-paper-outline</span></div>
+      <p>知识库建好后的"收获环节"。它顺着图谱关系网找到相关论点，用 RAG 检索拿证据，先给你一份<b>骨架</b>（核心论点候选、章节树、冲突论点清单），然后像导师一样逐个追问——论点选哪个？反对意见怎么应对？——方向定了才逐章填成完整大纲，每条要点都带出处，证据不够的地方诚实标缺口。</p>
+      <div class="io"><span class="box">wiki + 检索索引</span><span class="arr">→</span><span class="box">outlines/大纲.md</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2><span class="num">4</span>总调度：social-science-km</h2>
+  <p class="sub">它不亲自干活，而是看你的需求选路线、盯质量关卡。几个典型场景：</p>
+  <table class="routes">
+    <tr><th>你说……</th><th>它安排的路线</th></tr>
+    <tr><td>"帮我把这堆 PDF 建成知识库"</td><td>环节 1 转换 → 环节 2 精读体检 → 环节 3 编 wiki → 环节 4 建索引</td></tr>
+    <tr><td>"XX 的原文出处在哪？"</td><td>直接环节 4 检索，不重新加工任何材料</td></tr>
+    <tr><td>"我想补充一些关于 XX 的内容"</td><td>缺口驱动扩展：先检索现有材料找候选来源 → 不够再找新文献 → 精读 → 补进 wiki → 更新索引</td></tr>
+    <tr><td>"帮我构思一篇关于 XX 的论文"</td><td>路由到环节 5 wiki-paper-outline</td></tr>
+    <tr><td>"这个 wiki 怎么感觉很浅？"</td><td>回炉：给关键材料补做深读档案，再修订 wiki 页面</td></tr>
+  </table>
+  <p class="sub" style="margin-top:16px; margin-bottom:0;">它还守着几道硬规矩：原始文献永远只读；长书难文不精读不许进图谱；每个正式论点必须能追溯到原文；动索引、批量转换、大改 wiki 之前都先问你。</p>
+</section>
+
+<section class="wrap">
+  <h2><span class="num">5</span>技能名册速查</h2>
+  <p class="sub">紫色 = 本仓库自带；橙色 = 需要从上游另行安装。</p>
+  <div class="cols">
+    <div class="card"><h3>social-science-km<small>总调度</small></h3><p>看需求选路线，守质量关卡，管目录约定。一切从它进。</p></div>
+    <div class="card"><h3>deep-reading-to-wiki<small>精读</small></h3><p>长书难文的深度精读，产出带原文锚点的深读档案。</p></div>
+    <div class="card"><h3>karpathy-wiki<small>图谱</small></h3><p>把材料编成互链的 wiki：论点、概念、争论，加类型化关系网。</p></div>
+    <div class="card"><h3>SiliconFlow-rag<small>检索</small></h3><p>建双索引（raw + wiki），按问题类型路由检索，自动查新旧。</p></div>
+    <div class="card"><h3>wiki-paper-outline<small>大纲</small></h3><p>导师式讨论 + 自循环检索，产出带出处、标缺口的论文大纲。</p></div>
+    <div class="card ext"><h3>academic-search<small>找文献</small></h3><p>按主题搜学术文献，合法获取全文。材料不够时用。</p></div>
+    <div class="card ext"><h3>mineru-document-extractor<small>转换</small></h3><p>PDF/扫描件/古籍的 OCR 与结构化转换主力。</p></div>
+    <div class="card ext"><h3>markitdown<small>转换</small></h3><p>Word、PPT、网页等干净格式的轻量转换。</p></div>
+  </div>
+</section>
+
+<footer class="wrap">
+  kb-skills-repo · 社科知识库技能生态全流程<br>
+  找文献 → 转文本 → 精读 → 编图谱 → 建索引 → 出大纲
+</footer>
+
+</body>
+</html>
