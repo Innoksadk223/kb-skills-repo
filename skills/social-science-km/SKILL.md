@@ -37,6 +37,7 @@ Use the cheapest path that preserves quality:
 | User wants to supplement a topic already visible in the wiki | Gap-driven expansion → Step 4 source discovery → Step 2 → Step 3 → Step 4 update |
 | Wiki feels shallow or missing context after ingest | Step 2 retroactively creates a dossier, then Step 3 revises wiki |
 | RAG output is weak | Check index freshness, then escalate query mode before changing wiki |
+| User wants to plan/outline a paper from the built wiki（写论文大纲、构思论文结构） | Route to `wiki-paper-outline`: read-only over `wiki/` + `检索索引/`, two-phase skeleton→discussion→fill, output to `<知识库>/outlines/` |
 
 `deep-reading-to-wiki` exists to prevent shallow raw-to-wiki compilation. It produces `reading_dossiers/` only; formal wiki writing remains `karpathy-wiki`'s job.
 
