@@ -27,6 +27,9 @@ Obsidian Graph can group notes by folder path. Use path-based groups to visually
 | Entities | `path:entities/` | 人物/组织/文本 |
 | Comparisons | `path:comparisons/` | 辨析节点 |
 | Debates | `path:debates/` | 社科争议谱系（可选） |
+| Observations | `path:observations/` | 证据/观察节点 |
+| Structures | `path:structures/` | 理论框架节点 |
+| Predicts | `path:predicts/` | 预测/推论节点 |
 | Queries | `path:queries/` | 查询存档 |
 | Synthesis | `path:synthesis/` | 轻量入口页 |
 
@@ -90,4 +93,4 @@ WHERE contains(file.name, "文献综述矩阵")
 SORT updated DESC
 ```
 
-If using the Obsidian skill alongside this one, set `OBSIDIAN_VAULT_PATH` to the same directory as the wiki path.
+If an Obsidian helper skill is installed alongside this one, point its vault path setting at the same directory as the wiki path.

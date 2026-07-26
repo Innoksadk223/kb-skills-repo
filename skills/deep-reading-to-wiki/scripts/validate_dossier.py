@@ -20,8 +20,25 @@ from pathlib import Path
 REQUIRED_FRONTMATTER = [
     "title", "type", "source_raw", "trigger",
     "status", "target", "created", "updated", "compiled_to",
+    "confidence",
 ]
 ALLOWED_STATUS = {"draft", "compiled", "archived"}
+
+# ponytail: 分档配额是校准旋钮，数值可按语料调；升档逻辑与豁免机制不变
+# (raw_lines 上限, HV 最少, concepts 最少, claims 最少)
+QUOTA_TIERS = [
+    (500, 3, 5, 8),
+    (2000, 5, 8, 14),
+    (8000, 8, 12, 24),
+    (float("inf"), 10, 16, 32),
+]
+
+
+def _tier_for(raw_lines: int) -> tuple[int, int, int]:
+    for cap, hv, concepts, claims in QUOTA_TIERS:
+        if raw_lines <= cap:
+            return hv, concepts, claims
+    raise AssertionError("unreachable")
 
 # (canonical name, keyword that must appear in the "## N. ..." heading)
 REQUIRED_BLOCKS = [
@@ -95,6 +112,7 @@ def validate_dossier(text: str) -> tuple[list[str], list[str]]:
     hv_section = next(
         (v for k, v in sections.items() if "高价值" in k), None
     )
+    hv_blocks: list[str] = []
     if hv_section is not None:
         hv_blocks = re.split(r"^###\s+HV-", hv_section, flags=re.MULTILINE)[1:]
         if not hv_blocks:
@@ -103,20 +121,66 @@ def validate_dossier(text: str) -> tuple[list[str], list[str]]:
             if "上下文胶囊" not in blk:
                 errors.append(f"HV-{i} 缺少上下文胶囊")
             if "wiki/raw/" not in blk:
-                errors.append(f"HV-{i} 缺少 raw 锚点（wiki/raw/...）")
+                if re.search(r"[^\s`()（）]+\.md", blk):
+                    warnings.append(
+                        f"HV-{i} 锚点不在 wiki/raw/ 下（独立深读可接受；"
+                        "social-science-km 流程内应使用 wiki/raw/ 路径）"
+                    )
+                else:
+                    errors.append(f"HV-{i} 缺少文件路径锚点（如 wiki/raw/...md）")
+
+    # Self-check: all checkboxes must be checked ([x]) before handoff —
+    # karpathy-wiki compile-dossier rejects any unchecked box.
+    self_check = next((v for k, v in sections.items() if "自检" in k), None)
+    if self_check is not None:
+        boxes = re.findall(r"-\s*\[([ xX])\]", self_check)
+        if not boxes:
+            errors.append("硬门禁自检区块没有勾选项（- [x]）")
+        else:
+            unchecked = sum(1 for b in boxes if b == " ")
+            if unchecked:
+                errors.append(
+                    f"硬门禁自检有 {unchecked} 项未勾选（- [ ]）——"
+                    "通过必须打 [x]，未勾项会被 karpathy-wiki 编译端拒收"
+                )
+
+    # Tiered richness quotas keyed to converted source size (raw_lines).
+    exempt = bool(self_check and "配额豁免：" in self_check)
+    m = re.search(r"^raw_lines\s*:\s*(\d+)", fm or "", re.MULTILINE)
+    if m:
+        min_hv, min_concepts, min_claims = _tier_for(int(m.group(1)))
+        concepts, claims = _pool_counts(sections)
+        sink = warnings if exempt else errors
+        suffix = "（已声明配额豁免，降级为提示）" if exempt else (
+            "——低于分档配额；如源确实贫瘠，在自检中写「配额豁免：」"
+            "并逐条指认贫瘠行号区间"
+        )
+        if hv_blocks and len(hv_blocks) < min_hv:
+            sink.append(
+                f"HV 候选 {len(hv_blocks)} < {min_hv}"
+                f"（raw_lines={m.group(1)} 档）{suffix}"
+            )
+        if concepts is not None and concepts < min_concepts:
+            sink.append(
+                f"候选 Concepts {concepts} < {min_concepts}"
+                f"（raw_lines={m.group(1)} 档）{suffix}"
+            )
+        if claims is not None and claims < min_claims:
+            sink.append(
+                f"候选 Claims {claims} < {min_claims}"
+                f"（raw_lines={m.group(1)} 档）{suffix}"
+            )
+    else:
+        warnings.append(
+            "frontmatter 缺 raw_lines（Step 2 源转换行数）——"
+            "无法执行分档配额检查，仅按最低档提示"
+        )
         if 0 < len(hv_blocks) < 3:
             warnings.append(
-                f"高价值候选只有 {len(hv_blocks)} 个（Gate 2 建议 >=3，"
+                f"高价值候选只有 {len(hv_blocks)} 个（Gate 2 最低档建议 >=3，"
                 "除非来源短或弱相关——请在档案中说明）"
             )
-
-    # Self-check must contain at least one checkbox.
-    self_check = next((v for k, v in sections.items() if "自检" in k), None)
-    if self_check is not None and not re.search(r"-\s*\[[ xX]\]", self_check):
-        errors.append("反偷懒自检区块没有勾选项（- [ ]）")
-
-    # Soft richness signals from Gate 2.
-    warnings += _richness_warnings(sections)
+        warnings += _richness_warnings(sections)
     return errors, warnings
 
 
@@ -128,16 +192,25 @@ def _count_table_rows(section: str) -> int:
     return max(0, len(data) - 1)
 
 
-def _richness_warnings(sections: dict[str, str]) -> list[str]:
+def _pool_counts(sections: dict[str, str]) -> tuple[int | None, int | None]:
+    """Return (concept_rows, claim_rows); None when the table is absent."""
     pool = next((v for k, v in sections.items() if "候选节点池" in k), None)
     if pool is None:
-        return []
-    out: list[str] = []
+        return None, None
     concepts = re.search(r"候选 Concepts(.*?)(?:###|$)", pool, re.S)
     claims = re.search(r"候选 Claims(.*?)(?:###|$)", pool, re.S)
-    if concepts and _count_table_rows(concepts.group(1)) < 5:
+    return (
+        _count_table_rows(concepts.group(1)) if concepts else None,
+        _count_table_rows(claims.group(1)) if claims else None,
+    )
+
+
+def _richness_warnings(sections: dict[str, str]) -> list[str]:
+    concepts, claims = _pool_counts(sections)
+    out: list[str] = []
+    if concepts is not None and concepts < 5:
         out.append("候选 Concepts < 5（Gate 2 建议，除非来源窄）")
-    if claims and _count_table_rows(claims.group(1)) < 8:
+    if claims is not None and claims < 8:
         out.append("候选 Claims < 8（Gate 2 建议，除非来源短或多为描述性）")
     return out
 

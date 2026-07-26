@@ -55,7 +55,7 @@ relationships:
 
 All four fields are optional; omit empty arrays. Existing claim-specific fields
 (`supports`, `opposes`, `limits`, `depends_on` in claim frontmatter) remain compatible
-but new pages should prefer `relationships:`.
+but new **non-claim** pages should prefer `relationships:`. Claim pages keep the dedicated claim fields (lint requires them).
 
 ### Argument Sequence
 

@@ -16,13 +16,15 @@ When the user wants to enrich an existing area of the wiki (for example, "补充
 
 ## Wiki Location
 
-Set via `WIKI_PATH` environment variable (e.g. in `~/.hermes/.env`). If unset, default to `~/wiki`.
+Set via the `WIKI_PATH` environment variable (export it in your shell or agent config). If unset, default to `~/wiki`.
 
 ```bash
 WIKI="${WIKI_PATH:-$HOME/wiki}"
 ```
 
 The wiki is just a directory of markdown files — open it in Obsidian, VS Code, or any editor. No database required.
+
+Deep-reading dossiers, when present, follow the `social-science-km` directory contract: `$WIKI_PATH/../reading_dossiers/` (a sibling of the wiki directory). If that directory does not exist, skip dossier-related steps — they are optional accelerators, not prerequisites.
 
 ## Architecture: Graph-Readable Layers
 
@@ -73,14 +75,9 @@ When the user has an existing wiki, always orient before editing:
 1. Read `SCHEMA.md` — domain, conventions, taxonomy.
 2. Read `index.md` — existing pages and core claims.
 3. Scan recent `log.md` — last 20-30 entries.
-4. For large wikis (100+ pages), `search_files` for the topic before creating anything new.
+4. For large wikis (100+ pages), search the wiki for the topic before creating anything new.
 
-```bash
-WIKI="${WIKI_PATH:-$HOME/wiki}"
-read_file "$WIKI/SCHEMA.md"
-read_file "$WIKI/index.md"
-read_file "$WIKI/log.md" offset=<last 30 lines>
-```
+Use your file-read tool (or shell) on `$WIKI/SCHEMA.md`, `$WIKI/index.md`, and the tail of `$WIKI/log.md`.
 
 ## Initializing a New Wiki
 
@@ -100,11 +97,12 @@ When creating a wiki:
 | 用户意图 | 加载 | 说明 |
 |---------|------|------|
 | 摄入来源 (ingest) | `references/ingest.md` | 单个来源 → wiki 页面 + 交叉引用 + 导航更新 |
+| 编译深读档案 (compile dossier) | `references/compile-dossier.md` | 把 `reading_dossiers/` 的 CERIC 档案编译为正式 wiki 页面 |
 | 查询知识 (query) | `references/query.md` | 检索 → 综合回答 → 有价值的存档 |
 | 论证节点 (claims) | `references/claims.md` | 将论文/理论论证拆成图谱可见的小型论证卡片 |
-| 证据节点 (observations) | `references/claims.md` | 经验观察/数据发现；与 claims 共用规则，type: observation |
-| 框架节点 (structures) | `references/claims.md` | 理论框架/模型/类型学；与 claims 共用规则，type: structure |
-| 预测节点 (predicts) | `references/claims.md` | 推论/预测命题；与 claims 共用规则，type: predict |
+| 证据节点 (observations) | `references/claims.md`（卡片写法）+ `references/templates/SCHEMA-template.md`（frontmatter 规范） | 经验观察/数据发现，type: observation |
+| 框架节点 (structures) | 同上 | 理论框架/模型/类型学，type: structure |
+| 预测节点 (predicts) | 同上 | 推论/预测命题，type: prediction |
 | 社科增强 (social science) | `references/social-science.md` | 社科论文、理论框架、概念界定、方法边界和证据类型 |
 | 争议谱系 (debates) | `references/debates.md` | 多立场理论争议、反方回应、导师追问和研究缺口 |
 | 文献综述矩阵 | `references/literature-review.md` | 将一批文献整理成 thesis-ready matrix |
@@ -181,18 +179,21 @@ Load only the files needed for the current operation:
 | `references/social-science.md` | Social-science thesis, literature review, theory framework, methods, or evidence boundaries |
 | `references/debates.md` + `references/templates/debate-template.md` | Durable controversies, competing positions, objections, or advisor-defense questions |
 | `references/literature-review.md` + `references/templates/literature-review-template.md` | Turning a source batch into a thesis-ready literature review matrix |
-| `references/templates/SCHEMA-template.md` | Initializing or refreshing wiki conventions |
+| `references/compile-dossier.md` | Compiling a `reading_dossiers/` CERIC dossier into formal wiki pages |
+| `references/templates/SCHEMA-template.md` | Initializing or refreshing wiki conventions; frontmatter rules for observations/structures/predicts |
 | `references/templates/claim-template.md` | Creating or upgrading claim pages |
 | `references/templates/index-template.md`, `references/templates/log-template.md` | Initializing navigation and logs |
 | `scripts/lint.py`, `scripts/lint_self_test.py` | Health checks or script changes |
 
 ## Searching
 
+Use your file-search tool, or the shell equivalents:
+
 ```bash
-search_files "孝" path="$WIKI" file_glob="*.md"
-search_files "*.md" target="files" path="$WIKI"
-search_files "type: claim" path="$WIKI/claims" file_glob="*.md"
-read_file "$WIKI/log.md" offset=<last 20 lines>
+grep -rn "孝" "$WIKI" --include="*.md"
+find "$WIKI" -name "*.md"
+grep -rn "type: claim" "$WIKI/claims" --include="*.md"
+tail -20 "$WIKI/log.md"
 ```
 
 ## User-Directed Expansion
@@ -203,7 +204,7 @@ Use this when the user says they want to add, deepen, rebalance, or supplement a
 2. Identify the graph gap in plain language: missing concept, thin claim, missing objection, weak comparison, missing source, or shallow synthesis.
 3. Find raw evidence before writing: use available RAG/source-discovery workflow from `social-science-km` or `SiliconFlow-rag`; do not rely on wiki pages alone.
 4. If no usable raw source is found, stop and report the source-discovery gap; do not create placeholder claims from general knowledge.
-5. For long, theory-heavy, or thesis-critical raw sources, require a `deep-reading-to-wiki` dossier before formal wiki edits.
+5. For long, theory-heavy, or thesis-critical raw sources: when orchestrated by `social-science-km`, a `deep-reading-to-wiki` dossier is **required** before formal wiki edits (its Step 2 gate enforces this); when running standalone or the skill is not installed, **prefer** a dossier but fall back to normal ingest and tell the user the depth trade-off. This is the single decision rule; `references/ingest.md` follows it too.
 6. When a dossier exists, verify its `source_raw`, `user_intent` when present, high-value context capsules, and raw anchors before compiling it.
 7. Compile only after evidence is located: create/update `concepts/`, `claims/`, `comparisons/`, `entities/`, and lightweight `synthesis/` according to existing rules.
 8. Preserve the user's stated inclination as a research direction, not as evidence. Raw sources support claims; the user's interest only chooses what to investigate.

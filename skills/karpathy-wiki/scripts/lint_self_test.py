@@ -228,6 +228,43 @@ def main() -> None:
             """,
         )
 
+        write(
+            wiki / "claims/序列命题.md",
+            """
+            ---
+            title: 序列命题
+            type: claim
+            claim_type: support
+            core: false
+            status: working
+            confidence: medium
+            supports: [核心命题]
+            opposes: []
+            limits: []
+            depends_on: []
+            related_concepts: []
+            related_entities: []
+            related_comparisons: []
+            sources: [raw/01-访谈材料/访谈A.md]
+            created: 2026-06-12
+            updated: 2026-06-12
+            relationships:
+              contradicts: [核心命题]
+            follows:
+              - 核心命题
+              - 不存在的页面
+            ---
+
+            # 序列命题
+
+            ## 命题
+            x
+
+            ## 关系
+            - 依赖：[[核心命题]]
+            """,
+        )
+
         report = run_lint(wiki)
         findings = report.get("findings", {})
 
@@ -246,6 +283,17 @@ def main() -> None:
         assert any(
             item.get("file") == "raw/01-访谈材料/访谈A.md"
             for item in findings.get("source_drift", [])
+        ), report
+        # follows: dangling target detected + reverse index derived
+        assert any(
+            "不存在的页面" in item.get("issue", "")
+            for item in findings.get("follows", [])
+        ), report
+        assert "序列命题" in report.get("followed_by", {}).get("核心命题", []), report
+        # nested relationships.contradicts reaches the contradictions report
+        assert any(
+            item.get("page") == "claims/序列命题.md"
+            for item in findings.get("contradictions", [])
         ), report
 
     print("karpathy-wiki lint self-test passed")

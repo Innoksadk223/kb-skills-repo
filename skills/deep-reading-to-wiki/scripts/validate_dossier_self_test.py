@@ -32,6 +32,8 @@ target: karpathy-wiki
 created: 2026-06-26
 updated: 2026-06-26
 compiled_to: []
+confidence: medium
+raw_lines: 260
 ---
 
 # 测试材料深读档案
@@ -65,12 +67,12 @@ compiled_to: []
 建议新建与必查锚点。
 
 ## 5. 硬门禁自检
-- [ ] 1. 不是摘要：通过 — 有放弃清单、有逐字摘录锚点
-- [ ] 2. 足够丰富：通过
-- [ ] 3. 结构可追溯：通过
-- [ ] 4. 胶囊完整：通过
-- [ ] 5. 交接可执行：通过
-- [ ] 6. 对抗性自问：最大批评是档案太短，但信息密度足够，无灌水
+- [x] 1. 不是摘要：通过 — 有放弃清单、有逐字摘录锚点
+- [x] 2. 足够丰富：通过 — 配额豁免：测试 fixture，全文仅 260 行且来源窄（行 1-260）
+- [x] 3. 结构可追溯：通过
+- [x] 4. 胶囊完整：通过
+- [x] 5. 交接可执行：通过
+- [x] 6. 对抗性自问：最大批评是档案太短，但信息密度足够，无灌水
 """
 
 # Missing `updated` field; HV-1 has no capsule; self-check has no checkbox.
@@ -105,6 +107,47 @@ z
 - 没有勾选框的普通条目
 """
 
+# raw_lines=3000（第三档：HV>=8/概念>=12/claims>=24），只有 1 个 HV、
+# 无配额豁免、且自检有未勾选项 → 应报分档配额错误 + 未勾选错误。
+BAD_QUOTA = """---
+title: 配额不足档案
+type: reading_dossier
+source_raw:
+  - wiki/raw/test.md
+trigger: explicit_source
+status: draft
+target: karpathy-wiki
+created: 2026-06-26
+updated: 2026-06-26
+compiled_to: []
+confidence: low
+raw_lines: 3000
+---
+
+# 配额不足档案
+
+## 1. 阅读地图
+x
+
+## 2. 候选节点池
+### 候选 Claims
+| 命题 | 类型 | 支撑 | raw 锚点 | 价值 |
+|---|---|---|---|---|
+| c1 | main | z | wiki/raw/test.md | 高 |
+
+## 3. 高价值点深挖
+### HV-1: 唯一候选
+#### 上下文胶囊
+- raw 锚点：wiki/raw/test.md
+
+## 4. wiki 交接清单
+z
+
+## 5. 硬门禁自检
+- [x] 1. 不是摘要：通过
+- [ ] 2. 足够丰富：不通过 — 且没有写豁免声明
+"""
+
 
 def run() -> int:
     mod = _load()
@@ -115,13 +158,23 @@ def run() -> int:
         failures.append(f"good fixture 本应通过，却报错: {g_err}")
 
     b_err, _ = mod.validate_dossier(BAD)
-    expected = {"frontmatter 缺字段: updated", "HV-1 缺少上下文胶囊"}
+    expected = {
+        "frontmatter 缺字段: updated",
+        "frontmatter 缺字段: confidence",
+        "HV-1 缺少上下文胶囊",
+    }
     if not expected.issubset(set(b_err)):
         failures.append(
             f"bad fixture 漏掉预期错误 {expected - set(b_err)}；实得 {b_err}"
         )
     if not any("勾选" in e for e in b_err):
         failures.append(f"bad fixture 未检出自检无勾选框；实得 {b_err}")
+
+    q_err, _ = mod.validate_dossier(BAD_QUOTA)
+    if not any("未勾选" in e for e in q_err):
+        failures.append(f"quota fixture 未检出未勾选项；实得 {q_err}")
+    if not any("分档配额" in e for e in q_err):
+        failures.append(f"quota fixture 未检出分档配额不足；实得 {q_err}")
 
     if failures:
         print("SELF-TEST FAIL")

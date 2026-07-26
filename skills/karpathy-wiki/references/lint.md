@@ -10,7 +10,7 @@ python3 scripts/lint.py <wiki_path>
 
 The script scans all wiki pages and raw files, outputs a JSON report. Parse the JSON and present findings to the user grouped by severity:
 
-**broken_links > orphans > source_drift > contradictions > claim_structure > stale > frontmatter > quality > oversized > tag_issues > stub_upgrades > stub_cleanup**
+**broken_links > follows > supersedes_consistency > orphans > source_drift > contradictions > claim_structure > index > last_verified > stale > frontmatter > quality > oversized > tag_issues > stub_upgrades > stub_cleanup**
 
 ## Report Format
 
@@ -28,16 +28,22 @@ Translate JSON findings into a human-readable report:
 10. **Tag 审计** — tags not in SCHEMA.md taxonomy
 11. **Stub 升级候选** — stubs referenced by 2+ full pages
 12. **Stub 清理** — stubs whose all referrers are archived
+13. **Follows 序列** — `follows:` 指向不存在页面（悬空边）；报告顶层 `followed_by` 为 lint 推导出的反向索引（谁接着我）
+14. **Supersedes 一致性** — `supersedes` 与目标页 `superseded-by` 双向不一致
+15. **Index 完整性** — 应入 index 的页面缺失 / index 条目无对应页面
+16. **Last-verified 过期** — `last-verified` 超过 12 个月的页面
+
+Stub 判定条件：`confidence: low` 且正文含 📝 标记（SCHEMA-template 的 stub 约定；若项目 SCHEMA 移除了该标记，stub 相关检查会静默失效）。
 
 Append to log.md: `## [YYYY-MM-DD] lint | N issues found`
 
 ## What The Script Scans
 
-- Wiki pages under `entities/`, `concepts/`, `comparisons/`, optional `debates/`, `claims/`, `queries/`, and `synthesis/`.
+- Wiki pages under `entities/`, `concepts/`, `comparisons/`, optional `debates/`, `claims/`, `observations/`, `structures/`, `predicts/`, `queries/`, and `synthesis/`.
 - Raw Markdown files recursively under `raw/`, excluding hidden directories and `raw/assets/`.
 - `index.md` entries against real wiki pages.
 
-Index rule: non-claim pages should be listed in `index.md`; only `core: true` claims are required in `index.md`. Ordinary claims are discoverable through `claims/` and graph links.
+Index rule: standard pages should be listed in `index.md`; for claims/observations/structures/predicts only `core: true` pages are required in `index.md` — ordinary ones are discoverable through their folders and graph links.
 
 ## Self-Test
 

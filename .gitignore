@@ -5,3 +5,8 @@ dist/
 node_modules/
 __pycache__/
 *.pyc
+
+# cc-agent-loop 过程文件与本地镜像（不入库）
+state/
+.agents/
+.claude/

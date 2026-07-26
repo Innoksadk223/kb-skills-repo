@@ -33,25 +33,29 @@ Use `python3` in examples because macOS and many Linux systems no longer provide
 ### Build or update raw index
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/build_index.py \
+python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
   --md-dir wiki/raw \
   --index-dir 检索索引/raw \
-  --metadata-mode enriched_raw
+  --metadata-mode enriched_raw \
+  --incremental
 ```
 
-Use `enriched_raw` once graph-readable wiki pages exist; use `plain` only for the initial Raw-only stage. Enriched Raw manifests track both Raw file hashes and the wiki semantic-label dependencies that shaped embedding text.
+`--incremental` re-embeds only new/changed files (falls back to a full rebuild automatically when index settings changed). Omit it only for the very first build or a deliberate full rebuild — without it every run re-embeds the whole corpus at full API cost.
+
+Use `enriched_raw` once graph-readable wiki pages exist; use `plain` only for the initial Raw-only stage. Structural precondition for `enriched_raw`: `--md-dir` must be a directory literally named `raw` whose parent contains the wiki page folders (claims/concepts/...); otherwise the build warns and produces a plain-equivalent index. Enriched Raw manifests track both Raw file hashes and the wiki semantic-label dependencies that shaped embedding text.
 
 ### Build or update wiki index
 
 Use when `karpathy-wiki` pages exist and the question is conceptual, argumentative, cross-source, or thesis-writing oriented.
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/build_index.py \
+python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
   --md-dir wiki \
   --index-dir 检索索引/wiki \
-  --include-dirs claims,concepts,entities,comparisons,debates,synthesis,queries \
+  --include-dirs claims,concepts,entities,comparisons,debates,observations,structures,predicts,synthesis,queries \
   --exclude-dirs raw,_archive \
-  --metadata-mode wiki
+  --metadata-mode wiki \
+  --incremental
 ```
 
 ### Query raw-only mode

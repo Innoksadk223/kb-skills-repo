@@ -6,9 +6,9 @@ When the user asks a question about the wiki's domain:
 
 ① **Read `index.md`** to identify relevant pages.
 
-② **For wikis with 100+ pages**, also `search_files` across all `.md` files for key terms — the index alone may miss relevant content.
+② **For wikis with 100+ pages**, also run a full-text search across all `.md` files for key terms — the index alone may miss relevant content.
 
-③ **Read the relevant pages** using `read_file`.
+③ **Read the relevant pages** with your file-read tool.
 
 ④ **Synthesize an answer** from the compiled knowledge. Cite the wiki pages you drew from: "根据 [[页面A]] 和 [[页面B]]……"
 

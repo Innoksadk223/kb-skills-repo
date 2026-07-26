@@ -33,7 +33,7 @@ The matrix maps sources to research questions, methods, contributions, limits, c
 ## Procedure
 
 1. **Identify scope** — be specific: not “AI”, but “LLM 对齐研究（2023-2024）” or “孝为仁之本的跨学科论证”.
-2. **Gather relevant pages** — search `index.md` and `search_files` for concepts, entities, comparisons, and existing claims.
+2. **Gather relevant pages** — search `index.md` and use your file-search tool for concepts, entities, comparisons, and existing claims.
 3. **Read key pages** — focus on high-confidence pages and graph hubs.
 4. **If argument-oriented, extract claims first** — use `references/claims.md`; move evidence into the relevant claim pages.
 5. **Write a lightweight synthesis page** in `synthesis/`.

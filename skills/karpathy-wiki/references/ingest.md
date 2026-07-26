@@ -6,10 +6,10 @@ When the user provides a source (URL, file, paste), integrate it into the wiki.
 
 ### ① Capture the raw source
 
-- **URL** → use `web_extract` to get markdown, save to `raw/articles/`
-- **PDF (remote URL)** → use `web_extract` (handles PDFs), save to `raw/papers/`
-- **PDF (local file)** → use pymupdf (see `ocr-and-documents` skill) to extract text, save to `raw/papers/` as `.md`. Note: `web_extract(file://...)` is blocked for local files. For scanned/image PDFs, use marker-pdf (needs ~5GB).
-- **Local file** (MD, DOCX, EPUB, TXT) → copy to `raw/articles/` or `raw/papers/` using `terminal` (cp / shell copy). DOCX/EPUB files may need conversion to markdown first — use `pandoc` if available, or `ocr-and-documents` skill for PDFs. If no conversion tool is available, read what you can with `read_file` and note limitations. Name the file descriptively.
+- **URL** → use your web-fetch/extract tool to get markdown, save to `raw/articles/`
+- **PDF (remote URL)** → prefer MinerU (MCP or the `mineru-document-extractor` skill) when available; otherwise your web-fetch tool. Save to `raw/papers/`
+- **PDF (local file)** → prefer MinerU (MCP / `mineru-document-extractor`) for extraction — strongest for scanned/影印 PDFs, tables, and formulas. Fallback: `pymupdf`. Save to `raw/papers/` as `.md`.
+- **Local file** (MD, DOCX, EPUB, TXT) → copy to `raw/articles/` or `raw/papers/` via shell (`cp`). DOCX/EPUB may need markdown conversion first — use MarkItDown or `pandoc` when available. If no conversion tool is available, read what you can directly and note limitations. Name the file descriptively.
 - **Pasted text** → save to appropriate `raw/` subdirectory
 - Name the file descriptively: `raw/articles/karpathy-wiki-2026.md`
 - **Add raw frontmatter** with `ingested`, `sha256` of the body. Compute the hash over the body after the closing `---`, ignoring blank lines immediately after frontmatter. Use `source_url` for web-sourced files only (omit for local files). On re-ingest: recompute sha256, compare to stored value — skip if identical, flag drift if different.
@@ -20,7 +20,7 @@ Before extracting entities/concepts from scratch, check whether a deep-reading d
 
 - Search `reading_dossiers/` for a file matching the source title.
 - **If a dossier exists** with `status: draft` and `target: karpathy-wiki`: you have a choice. The dossier's CERIC capsules and handoff list provide richer, deeper material than extracting from scratch. Load `references/compile-dossier.md` to use them. But you may still use normal ingest if the dossier doesn't cover what the user needs.
-- **If no dossier exists**: proceed with normal ingest. For long/theory-heavy sources (>200 lines), optionally note that `deep-reading-to-wiki` could produce a deeper dossier — but don't block ingest on it.
+- **If no dossier exists**: for long, theory-heavy, or thesis-critical sources follow the single decision rule in SKILL.md User-Directed Expansion step 5 — required under `social-science-km` orchestration, preferred (with a stated depth trade-off) standalone. For other sources proceed with normal ingest.
 - **Short/descriptive sources**: skip this check entirely.
 
 ### ② Discuss takeaways
@@ -29,7 +29,7 @@ Discuss with the user — what's interesting, what matters for the domain. (Skip
 
 ### ③ Check what already exists
 
-Search index.md and use `search_files` to find existing pages for mentioned entities/concepts. This is the difference between a growing wiki and a pile of duplicates.
+Search index.md and use your file-search tool (or `grep -rn`) to find existing pages for mentioned entities/concepts. This is the difference between a growing wiki and a pile of duplicates.
 
 ### ④ Write or update wiki pages
 

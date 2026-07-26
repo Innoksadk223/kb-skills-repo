@@ -15,16 +15,24 @@ Required signals:
 
 ## Gate 2: Enough Richness
 
-For a book or long document, expect at least:
+Quotas scale with converted source size. Read `raw_lines` from the Step 2 manifest (`_conversion_manifest.md`), write it into the dossier frontmatter, and meet the tier:
+
+| raw_lines | 高价值区域 ≥ | 候选概念 ≥ | 候选 claims ≥ |
+|---|---|---|---|
+| ≤ 500 | 3 | 5 | 8 |
+| 501-2000 | 5 | 8 | 14 |
+| 2001-8000 | 8 | 12 | 24 |
+| > 8000 | 10 | 16 | 32 |
+
+<!-- ponytail: 分档数值是校准旋钮，与 validate_dossier.py QUOTA_TIERS 保持同步 -->
+
+Always required regardless of tier:
 
 - 1 reading map;
-- 3 high-value areas, unless the source is short or weakly relevant;
-- 5 candidate concepts, unless the source is narrow;
-- 8 candidate claims, unless the source is short or mostly descriptive;
 - at least two claim roles among support, objection, limitation, and bridge;
 - a skipped-area list.
 
-If the source cannot meet these numbers, explain why instead of padding.
+If the source genuinely cannot meet its tier, do NOT pad. Write a `配额豁免：` line in the self-check that names each barren region by line range and reason (e.g. `配额豁免：行 800-2400 为文献列表，行 3100-3600 为附录数据表`). A bare "来源较窄" without line ranges does not qualify. `validate_dossier.py` enforces the tier mechanically and downgrades shortfalls to warnings only when a `配额豁免：` declaration exists.
 
 ## Gate 2A: Structure-Traceable Selection
 
@@ -88,18 +96,30 @@ Use this language:
 
 For user-directed expansion, the user's inclination is never evidence. It may appear as `user_intent`, but every high-value candidate still needs raw support.
 
-## Gate 6: Token Discipline
+## Gate 6: Reading Discipline (mode-aware)
 
-Fail if the agent reads the full source by default.
+**Thorough mode**（书、专著、论文集、理论重文献的默认模式）:
 
-Fail if the agent treats structure coverage as permission to read every section in full.
+- Fail if any window has neither window notes nor a skipped-area entry with line range — coverage must be complete: 窗口笔记覆盖区间 ∪ 放弃清单区间 ≈ 全文.
+- Fail if HV selection happened before all windows were read — selection comes from the over-complete pool, not from pre-reading judgment.
 
-Allowed escalation:
+**Budget mode**（快速预筛、弱相关源、用户明确要求省时）:
 
-- L0 covers the source map through headings, openings/endings, summaries, and other cheap structural signals.
-- L1 samples structurally relevant units to produce candidates.
-- L2 builds context only for high-value candidates with wiki relevance and structural role.
-- L3 is used only for thesis-critical sections, major disputes, or high compression risk.
+- Fail if the agent reads the full source by default.
+- Fail if the agent treats structure coverage as permission to read every section in full.
+- Allowed escalation:
+  - L0 covers the source map through headings, openings/endings, summaries, and other cheap structural signals.
+  - L1 samples structurally relevant units to produce candidates.
+  - L2 builds context only for high-value candidates with wiki relevance and structural role.
+  - L3 is used only for thesis-critical sections, major disputes, or high compression risk.
+
+## Generic Dossier (degraded gate)
+
+When the user allows a dossier without an identified wiki target (standalone deep reading), Gate 4 degrades:
+
+- the handoff checklist may state 「无 wiki 目标——候选留存，待接入知识库时按交接清单编译」;
+- everything else (anchors, capsules, quotas, self-check) still applies;
+- raw anchors may point to the actual file path instead of `wiki/raw/` (validate_dossier.py treats non-`wiki/raw/` anchors as warnings).
 
 ## Stop Conditions
 
@@ -111,4 +131,12 @@ Stop and ask or report the blocker when:
 - no raw anchor supports a high-value candidate;
 - the source is too malformed for reliable section mapping;
 - all candidates are weak or duplicate existing wiki nodes;
-- a full-book read is required to answer the user but the user has not approved that token cost.
+- (budget mode only) a full-book read is required to answer the user but the user has not approved that token cost — in thorough mode full coverage is the contract, not a blocker.
+
+## Final Check Before Handoff
+
+Run the bundled validator; FAIL blocks the handoff:
+
+```bash
+python3 <本技能目录>/scripts/validate_dossier.py reading_dossiers/<档案>.md
+```

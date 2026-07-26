@@ -7,7 +7,7 @@ description: Use when books, chapters, papers, source-discovery shortlists, or l
 
 ## Core Idea
 
-This skill is a pre-wiki deep-reading layer. It reads a long source with a limited token budget, produces a structured `reading_dossiers/` file, and hands that file to `karpathy-wiki` for graph compilation.
+This skill is a pre-wiki deep-reading layer. It reads a long source in one of two modes — thorough (segmented sequential reading, the default for books and theory-heavy sources) or budget (L0-L3 sampling) — produces a structured `reading_dossiers/` file, and hands that file to `karpathy-wiki` for graph compilation.
 
 It does not replace `karpathy-wiki`, does not write formal wiki pages, and does not treat the dossier as raw evidence.
 
@@ -65,6 +65,9 @@ Use the smallest input that can support a strong dossier:
 | Explicit source | One or more `wiki/raw/...md` paths | Create source-specific dossier(s). |
 | Source-discovery shortlist | Candidate raw paths from `SiliconFlow-rag` with user intent and key terms | Pick high-value candidates, note weak candidates, then create dossier(s). |
 | User-directed gap | A topic/gap from `social-science-km`, such as "补充儿童教育" | Require source discovery first unless raw paths are already known. |
+| Retroactive repair | An already-ingested source whose wiki pages feel shallow (`trigger: retroactive_repair`) | Create the dossier the source should have had, then hand back for wiki revision. |
+
+Standalone use (no wiki project): any readable Markdown/text path is a valid explicit source; anchors then point to the actual file path and `validate_dossier.py` reports the non-`wiki/raw/` prefix as a warning, not an error.
 
 Do not deep-read from the user's topic alone. If no raw path is located, stop and report the source-discovery blocker instead of inventing a dossier.
 
@@ -77,10 +80,9 @@ When the user asks to deep-read multiple raw files and produce a **single merged
 3. **Structure map**: Organize the map by thematic layer or source group, not by single-file chapters. For each file, assign an L-level (short files get L3 full read; long files get L0 scan -> L1 key paragraphs -> L2 close reads). Cover every file in the map - none may be silently dropped.
 4. **Cross-file candidate synthesis**: Concepts and claims that appear across multiple files should be merged into single candidate rows with multiple raw anchors. Use comparisons to surface divergences between files (e.g., 孝经 "德之本" vs 论语 "仁之本").
 5. **High-value deep dives**: Each HV must cite its specific raw file path + line range. When a claim spans multiple files, list all anchors in the context capsule.
-6. **Reading budget per file**: Short files (< 300 lines) can be fully read (L3). Long files (> 500 lines) should use L0 grep-based structure scan + L1 targeted reads. Batch independent reads across files in parallel.
+6. **Reading budget per file**: In thorough mode, every file goes through windowed sequential reading. In budget mode: files < 300 lines are fully read; 300-500 lines are fully read unless weakly relevant (record skipped parts in 放弃清单); > 500 lines use L0 grep-based structure scan + L1 targeted reads. Batch independent reads across files in parallel.
 7. **Exclusion handling**: When the user explicitly excludes some files (e.g., "排除朱子语类4部"), record the exclusion in the structure map and do not read those files.
-
-See `references/multi-source-dossiers.md` for a worked example and checklist.
+8. **raw_lines**: Sum the converted line counts of all included files into the frontmatter `raw_lines` so the tiered quota matches the merged scope.
 
 ## Role Boundaries
 
@@ -112,28 +114,55 @@ source_discovery:
     reason: "命中儿童教育、爱敬、积浸等关键词"
 ```
 
-## Reading Budget
+## Reading Modes And Budget
 
-Never default to full-book reading. Use the cheapest level that can answer the quality gate:
+Pick the mode first, then apply its discipline (enforced by quality-gates.md Gate 6):
+
+| Mode | When | How |
+|---|---|---|
+| **thorough**（默认） | Books, monographs, collections, theory-heavy or thesis-critical sources — depth and claim coverage matter more than token cost | Segmented sequential reading below. |
+| **budget** | Quick pre-screening, weakly relevant sources, or the user explicitly asks to save time | L0-L3 ladder below. |
+
+`social-science-km` Step 2 may pass `mode: thorough|budget` with the dispatch; when unspecified, default by the table above. Thorough mode costs several times more tokens/time — that trade is deliberate: richness and depth take priority.
+
+### Thorough mode: segmented sequential reading
+
+Designed to stay reliable even for weaker models: small steps, one fixed instruction, mechanical checks — no global judgment before reading.
+
+1. Split the source into fixed windows of 200-400 lines, aligned to headings where possible. <!-- ponytail: 窗口大小是校准旋钮，按模型上下文与源密度调 -->
+2. Read windows strictly in order. For every window run the same fixed instruction: extract EVERY claim, concept, entity, and argument relation in this window, each with a line-anchored verbatim excerpt.
+3. Append each window's extractions to the candidate node pool as you go (the dossier draft accumulates; work is resumable at any window boundary).
+4. A window yielding zero candidates must be re-read once; if still empty, record its line range and a one-line reason in 放弃清单.
+5. After all windows, run the merge pass: dedupe candidates, select HV entries from the over-complete pool, build context capsules from the already-read text, and satisfy the quality-gates.md Gate 2 tier for `raw_lines`.
+6. Selection happens AFTER reading, from an over-complete pool — never before.
+
+### Budget mode: L0-L3 ladder
+
+Use the cheapest level that can answer the quality gate:
 
 | Level | Read | Purpose |
 |---|---|---|
 | L0 structure scan | TOC, introduction, conclusion, headings, chapter openings/endings | Map the source and select likely high-value regions. |
 | L1 sparse sampling | Definitions, thesis paragraphs, transitions, summaries, tables, key notes | Build the candidate node pool. |
 | L2 targeted close reading | Surrounding paragraphs or sections for high-value candidates | Build context capsules and evidence anchors. |
-| L3 local full-section/chapter reading | Only for core claims, major disputes, or thesis-critical chapters | Resolve high-stakes context and compression risk. |
+| L3 local full-section/chapter reading | Core claims, major disputes, or thesis-critical chapters | Resolve high-stakes context and compression risk. |
 
-Only move upward when the lower level cannot support a candidate with enough context.
+File-length rules: < 300 lines read fully (counts as L3, a length special case); 300-500 lines read fully unless weakly relevant, recording skipped parts in 放弃清单; > 500 lines start at L0 + L1.
 
-## Tooling Pitfall: search_files on Complex Paths
+Escalation is mechanical, not a judgment call:
 
-The `search_files` tool may return zero results when the path contains spaces, parentheses, Chinese characters, or iCloud-synced paths (e.g., `/Users/.../Library/Mobile Documents/com~apple~CloudDocs/...`). When `search_files` returns 0 hits on a file you know exists:
+- any structure-map unit with zero candidates after L1 → sample it once more at L1 before accepting zero;
+- any HV candidate whose capsule cannot be filled from what was read → escalate that region to L2/L3.
 
-1. **Do not assume the file is empty or missing.** Verify with `read_file` first.
-2. **Fall back to `terminal` + `grep -n`** to find keyword line numbers, then use `read_file` with `offset`/`limit` to read the surrounding context.
-3. **Batch independent grep calls** across multiple files in one `terminal` invocation to save round-trips.
+## Tooling Pitfall: file search on Complex Paths
 
-This is a path-resolution limitation, not a content problem. The files are readable via `read_file` even when `search_files` cannot index them.
+File-search tools may return zero results when the path contains spaces, parentheses, Chinese characters, or iCloud-synced paths (e.g., `/Users/.../Library/Mobile Documents/com~apple~CloudDocs/...`). When a search returns 0 hits on a file you know exists:
+
+1. **Do not assume the file is empty or missing.** Verify by reading the file directly first.
+2. **Fall back to shell `grep -n`** to find keyword line numbers, then read the file with an offset/limit around those lines.
+3. **Batch independent grep calls** across multiple files in one shell invocation to save round-trips.
+
+This is a path-resolution limitation, not a content problem. The files are readable directly even when search tools cannot index them.
 
 ## Structure-First Reading
 
@@ -174,7 +203,7 @@ Conditional modules are allowed only when triggered:
 
 ## Context Capsules
 
-Each high-value candidate claim, concept, or comparison must include a context capsule:
+The capsule's canonical layout is the **CERIC 10-field structure** in `references/dossier-template.md` — that template is the single authority for field names and numbering. The list below is only the semantic summary. Each high-value candidate claim, concept, or comparison must include a context capsule:
 
 - raw anchor: file path, chapter/section if available, and short exact excerpt;
 - local context: what problem the passage addresses and what it leads to;

@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -24,8 +25,8 @@ WIKI_DIR_NAME = "wiki"
 INDEX_DIR_NAME = "检索索引"
 RAW_INDEX_NAME = "raw"
 WIKI_INDEX_NAME = "wiki"
-WIKI_INDEX_SOURCE_DIRS = ("claims", "concepts", "entities", "comparisons", "debates", "synthesis", "queries")
-RAW_ENRICHMENT_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates")
+WIKI_INDEX_SOURCE_DIRS = ("claims", "concepts", "entities", "comparisons", "debates", "observations", "structures", "predicts", "synthesis", "queries")
+RAW_ENRICHMENT_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates", "observations", "structures", "predicts")
 SKIP_NAMES = {"_conversion_failures.md", "_conversion_manifest.md", "_主题索引.md"}
 
 
@@ -240,17 +241,20 @@ def find_query_script(project_root: Path) -> Path:
             base / "skills" / "SiliconFlow-rag" / "scripts" / "query_index.py",
             base / "skills-hermes" / "research" / "SiliconFlow-rag" / "scripts" / "query_index.py",
         ])
+    env_dir = os.environ.get("KB_SKILLS_DIR")
+    if env_dir:
+        candidates.insert(0, Path(env_dir) / "SiliconFlow-rag" / "scripts" / "query_index.py")
     candidates.extend([
+        Path.home() / ".claude" / "skills" / "SiliconFlow-rag" / "scripts" / "query_index.py",
         Path.home() / ".agents" / "skills" / "SiliconFlow-rag" / "scripts" / "query_index.py",
         Path.home() / ".codex" / "skills" / "SiliconFlow-rag" / "scripts" / "query_index.py",
         Path.home() / ".hermes" / "skills" / "SiliconFlow-rag" / "scripts" / "query_index.py",
         Path.home() / ".hermes" / "skills" / "research" / "SiliconFlow-rag" / "scripts" / "query_index.py",
-        Path("D:/hermes/skills/research/SiliconFlow-rag/scripts/query_index.py"),
     ])
     for candidate in candidates:
         if candidate.exists():
             return candidate
-    raise SystemExit("Cannot find SiliconFlow-rag query_index.py; install/update the skill first.")
+    raise SystemExit("Cannot find SiliconFlow-rag query_index.py; install the skill or set KB_SKILLS_DIR=<skills 根目录>.")
 
 
 def find_lint_script(project_root: Path) -> Path | None:
@@ -261,7 +265,11 @@ def find_lint_script(project_root: Path) -> Path | None:
             base / "skills" / "karpathy-wiki" / "scripts" / "lint.py",
             base / "skills-hermes" / "research" / "karpathy-wiki" / "scripts" / "lint.py",
         ])
+    env_dir = os.environ.get("KB_SKILLS_DIR")
+    if env_dir:
+        candidates.insert(0, Path(env_dir) / "karpathy-wiki" / "scripts" / "lint.py")
     candidates.extend([
+        Path.home() / ".claude" / "skills" / "karpathy-wiki" / "scripts" / "lint.py",
         Path.home() / ".agents" / "skills" / "karpathy-wiki" / "scripts" / "lint.py",
         Path.home() / ".codex" / "skills" / "karpathy-wiki" / "scripts" / "lint.py",
         Path.home() / ".hermes" / "skills" / "karpathy-wiki" / "scripts" / "lint.py",
@@ -388,7 +396,10 @@ def main() -> None:
     status = StalenessStatus(False, "")
     if not args.skip_check:
         status = check_staleness(project_root)
-        if status.stale:
+        blocking = status.raw_stale if args.raw_only else status.stale
+        if status.stale and not blocking:
+            print(f"[NOTE] wiki 索引过期（{status.message}）；--raw-only 查询不受影响，继续。")
+        if blocking:
             print(f"[WARN] RAG 索引过期：{status.message}")
             if status.wiki_stale and not args.no_lint:
                 print("[LINT] " + run_wiki_lint(project_root))

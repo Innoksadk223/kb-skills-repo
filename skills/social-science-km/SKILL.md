@@ -183,8 +183,8 @@ Procedure:
 1. Read the installed `deep-reading-to-wiki/SKILL.md` if not already loaded in the conversation.
 2. Work from the project root (`<知识库>/`), not inside `wiki/`.
 3. Orient to the target wiki first: read `wiki/SCHEMA.md`, `wiki/index.md`, and recent `wiki/log.md`.
-4. Pass the selected raw path(s), source type, size measurements, route reason, and collection grouping into the deep-reading task. For a collection, use the multi-source merged-dossier workflow when one collective argument map is more useful than isolated dossiers.
-5. Use the L0-L3 reading budget from `deep-reading-to-wiki`; do not default to full-book reading.
+4. Pass the selected raw path(s), source type, size measurements (including manifest `raw_lines`, which the dossier frontmatter must carry for tiered quotas), route reason, collection grouping, and a reading mode into the deep-reading task: `mode: thorough`（默认——书、专著、合集、理论重或 thesis-critical 源；分段顺序精读）or `mode: budget`（快速预筛或用户明确要求省时；L0-L3 采样）. For a collection, use the multi-source merged-dossier workflow when one collective argument map is more useful than isolated dossiers.
+5. Follow the `deep-reading-to-wiki` reading-mode contract: thorough mode reads the source window-by-window in full and selects from the over-complete pool; budget mode uses the L0-L3 ladder.
 6. If invoked from Gap-Driven Expansion, include `trigger: user_directed_expansion`, `user_intent`, and the `source_discovery` shortlist in the dossier frontmatter.
 7. Write the dossier to `reading_dossiers/<source-title>-深读档案.md`.
 8. Require raw anchors, context capsules, skipped-area notes, candidate nodes, and a wiki handoff checklist.
@@ -198,6 +198,7 @@ Validation:
 - Every `direct-wiki` source satisfies the short, narrow, self-contained, low-risk conditions, with collection membership checked.
 - Each high-value candidate in the dossier has a raw anchor and context capsule.
 - The dossier passes its anti-slack self-check before Step 3.
+- `python3 <skills-repo>/skills/deep-reading-to-wiki/scripts/validate_dossier.py reading_dossiers/<档案>.md` reports PASS for every `deep-reading` dossier; FAIL blocks that source from Step 3.
 
 ### Batch Deep Reading
 
@@ -282,18 +283,18 @@ Before the first real RAG build or query, make sure `SILICONFLOW_API_KEY` is con
 
 ### Initial Build
 
-Build both indexes after `wiki/raw/` and graph-readable wiki pages are populated, running from the project root (`<知识库>/`):
+Build both indexes after `wiki/raw/` and graph-readable wiki pages are populated, running from the project root (`<知识库>/`). `<skills-repo>` 指技能安装根（如 `~/.claude/skills` 的上级仓库或克隆目录）——知识库根目录下没有 `skills/`，不要逐字照抄相对路径；也可 `export KB_SKILLS_DIR=<skills-repo>/skills` 让 `km_query.py`/`check_rebuild_rag.py` 自动定位脚本:
 
 ```bash
-python skills/SiliconFlow-rag/scripts/build_index.py \
+python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
   --md-dir wiki/raw \
   --index-dir 检索索引/raw \
   --metadata-mode enriched_raw
 
-python skills/SiliconFlow-rag/scripts/build_index.py \
+python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
   --md-dir wiki \
   --index-dir 检索索引/wiki \
-  --include-dirs claims,concepts,entities,comparisons,debates,synthesis,queries \
+  --include-dirs claims,concepts,entities,comparisons,debates,observations,structures,predicts,synthesis,queries \
   --exclude-dirs raw,_archive \
   --metadata-mode wiki
 ```
@@ -308,7 +309,7 @@ Stage gate: before graph-readable wiki pages exist, raw index `metadata_mode: pl
 
 **Every session** where the knowledge base is mentioned, proactively check whether either RAG index is stale before doing any query or wiki work. Do NOT wait for the user to ask.
 
-1. Copy `skills/social-science-km/references/check_rebuild_rag.py` into `<知识库>/check_rebuild_rag.py` if it doesn't exist. Do not improvise a new local helper unless the bundled helper is unavailable.
+1. Copy `<skills-repo>/skills/social-science-km/references/check_rebuild_rag.py` into `<知识库>/check_rebuild_rag.py` if it doesn't exist. Do not improvise a new local helper unless the bundled helper is unavailable.
 2. Run a check-only scan:
 
 ```bash
@@ -357,7 +358,7 @@ Default to routed querying rather than one expensive mode for every question. Us
 Raw-only:
 
 ```bash
-python skills/SiliconFlow-rag/scripts/query_index.py \
+python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
   --index-dir 检索索引/raw \
   --question "用户的问题"
 ```
@@ -365,7 +366,7 @@ python skills/SiliconFlow-rag/scripts/query_index.py \
 Wiki-first:
 
 ```bash
-python skills/SiliconFlow-rag/scripts/query_index.py \
+python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
@@ -375,7 +376,7 @@ python skills/SiliconFlow-rag/scripts/query_index.py \
 Deep / writing mode:
 
 ```bash
-python skills/SiliconFlow-rag/scripts/query_index.py \
+python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
@@ -420,7 +421,7 @@ This is the recommended query entry point for agents and daily use — it preven
 
 When changing `metadata_mode`, chunk size, overlap, include/exclude dirs, wiki structure rules, or query routing, run a small retrieval regression set before trusting the new behavior. Do not run a full evaluation for every new file; ordinary new/changed raw files only require stale-index checks and incremental updates.
 
-Start from `skills/social-science-km/references/rag_eval_set.example.jsonl`, then create `eval/rag_eval_set.jsonl` in the knowledge-base root with 10-20 high-value questions:
+Start from `<skills-repo>/skills/social-science-km/references/rag_eval_set.example.jsonl`, then create `eval/rag_eval_set.jsonl` in the knowledge-base root with 10-20 high-value questions:
 
 ```jsonl
 {"question":"孝为什么不能只基于生育事实？","mode":"wiki","expected_sources":["wiki/raw/...md"],"expected_terms":["照料","生育事实"],"notes":"核心论证召回"}
@@ -436,7 +437,7 @@ Validation:
 - Raw index manifest uses `metadata_mode: enriched_raw` after the wiki layer exists.
 - Wiki index manifest uses `metadata_mode: wiki`.
 - Wiki-first query output contains `# Wiki Hits`, `# Expanded Query`, `# Raw Evidence`, source paths, and evidence snippets.
-- `python skills/social-science-km/references/km_query_self_test.py` passes in the skills repo after changing `km_query.py` or `check_rebuild_rag.py`.
+- `python3 <skills-repo>/skills/social-science-km/references/km_query_self_test.py` passes in the skills repo after changing `km_query.py` or `check_rebuild_rag.py`.
 
 ## Answering Templates
 

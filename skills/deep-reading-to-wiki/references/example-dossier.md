@@ -12,6 +12,7 @@ created: 2026-07-08
 updated: 2026-07-08
 compiled_to: []
 confidence: high
+raw_lines: 120
 ---
 
 # Andrej Karpathy Wiki Pattern 深读档案
@@ -75,7 +76,6 @@ confidence: high
 ### HV-1: graph-readable 作为第一性原则
 
 - 候选类型：concept
-- 分层路径：Karpathy wiki gist → 核心原则段 → "graph-readable" 定义 → 候选概念
 - 价值判断：本库所有设计决策（claims/ 拆分、互链要求、raw/ 排除）都回溯到这个原则
 
 #### 上下文胶囊（CERIC 结构）
@@ -103,14 +103,9 @@ confidence: high
    - "graph-readable 的具体标准是什么？（wikilink 够吗？标题要写成什么样？）"
    - "Karpathy 用 graph-readable 论证了哪些设计决策？拒绝了哪些替代方案？"
 
-#### wiki 关系
-- 可新建：`wiki/concepts/图谱可读性（Graph-Readable）.md`
-- 可支撑：已有 claims/ 下关于"为什么分层"的页面——HV-1 是直接前提
-
 ### HV-2: wiki 复利 vs 传统笔记
 
 - 候选类型：claim + comparison
-- 分层路径：Karpathy wiki gist → 引言：why wiki → 批判传统笔记段 → 复利论证
 - 价值判断：这个对比解释了"为什么是 wiki 而不是别的"——支撑本库存在理由
 
 #### 上下文胶囊（CERIC 结构）
@@ -138,14 +133,9 @@ confidence: high
    - "传统笔记失败的具体机制是什么？（只说'不好用'不够）"
    - "复利机制的前提条件——什么情况下 wiki 的复利会失效？"
 
-#### wiki 关系
-- 可新建：`wiki/comparisons/wiki-vs-传统笔记.md`
-- 可支撑：`wiki/claims/图谱可读性是Wiki组织的第一性原则.md`
-
 ### HV-3: AI agent 消费 wiki 的可能性
 
 - 候选类型：claim
-- 分层路径：Karpathy wiki gist → 总结段 → Gemini 1.5 Pro 上下文窗口 → 候选 claim
 - 价值判断：连接 wiki 设计和本库 AI agent 工作流的关键论据
 
 #### 上下文胶囊（CERIC 结构）
@@ -172,11 +162,6 @@ confidence: high
 10. RAG 回查问题：
    - "AI agent 消费 wiki 和人类消费 wiki 对结构有什么不同要求？"
    - "本知识库的 token 总量估计是多少？1M 够吗？"
-
-#### wiki 关系
-- 可新建：wiki/claims/AI-Agent可以通过Wiki图谱结构消费知识库.md
-- 可支撑：HV-1（graph-readable 的消费者不只有人类）
-- 注意：推测性论述，confidence 应为 medium
 
 ## 4. wiki 交接清单
 
@@ -207,9 +192,9 @@ confidence: high
 
 ## 5. 硬门禁自检
 
-- [ ] 1. 不是摘要：通过 — □ 有放弃清单（3 个未深读区域） □ 有逐字摘录锚点（HV1-3 均有 > 引用） □ 区分了作者主张/AI推论/迁移建议（方法边界明确标注）
-- [ ] 2. 足够丰富：通过 — 3 高价值区域 + 5 概念 + 8 claims + 3 种 claim 角色（main/support/bridge/limitation）
-- [ ] 3. 结构可追溯：通过 — □ Pass 1 结构地图覆盖全部 5 部分 □ 每个 HV 有分层路径
-- [ ] 4. 胶囊完整：通过 — □ HV1-3 全部 10 字段（CERIC 五组）齐全
-- [ ] 5. 交接可执行：通过 — □ 3 个新建 + 1 个更新目标含核心贡献/边界/互链/锚点/入库条件
-- [ ] 6. 对抗性自问：最大的批评是——三个 HV 候选都来自一篇不到 2000 词的博客文章，不是书或长论文。Claim 密度是否被高估了？回答：这篇 gist 虽然短，但信息密度极高——每个段落都在定义或论证一个新概念。5 概念 + 8 claims 是从原文结构地图中按 L0→L1 逐级筛选出来的，没有灌水。但如果用这套方法处理真正的书，claim 密度会自然稀释到每章 3-5 个而不是全文 8 个。
+- [x] 1. 不是摘要：通过 — □ 有放弃清单（3 个未深读区域） □ 有逐字摘录锚点（HV1-3 均有 > 引用） □ 区分了作者主张/AI推论/迁移建议（方法边界明确标注）
+- [x] 2. 足够丰富：通过 — 3 高价值区域 + 5 概念 + 8 claims + 3 种 claim 角色（main/support/bridge/limitation）
+- [x] 3. 结构可追溯：通过 — □ Pass 1 结构地图覆盖全部 5 部分 □ 每个 HV 有分层路径
+- [x] 4. 胶囊完整：通过 — □ HV1-3 全部 10 字段（CERIC 五组）齐全
+- [x] 5. 交接可执行：通过 — □ 3 个新建 + 1 个更新目标含核心贡献/边界/互链/锚点/入库条件
+- [x] 6. 对抗性自问：最大的批评是——三个 HV 候选都来自一篇不到 2000 词的博客文章，不是书或长论文。Claim 密度是否被高估了？回答：这篇 gist 虽然短，但信息密度极高——每个段落都在定义或论证一个新概念。5 概念 + 8 claims 是从原文结构地图中按 L0→L1 逐级筛选出来的，没有灌水。但如果用这套方法处理真正的书，claim 密度会自然稀释到每章 3-5 个而不是全文 8 个。

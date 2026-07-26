@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -25,8 +26,8 @@ WIKI_DIR_NAME = "wiki"
 INDEX_DIR_NAME = "检索索引"
 RAW_INDEX_NAME = "raw"
 WIKI_INDEX_NAME = "wiki"
-WIKI_INDEX_SOURCE_DIRS = ("claims", "concepts", "entities", "comparisons", "debates", "synthesis", "queries")
-RAW_ENRICHMENT_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates")
+WIKI_INDEX_SOURCE_DIRS = ("claims", "concepts", "entities", "comparisons", "debates", "observations", "structures", "predicts", "synthesis", "queries")
+RAW_ENRICHMENT_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates", "observations", "structures", "predicts")
 SKIP_NAMES = {"_conversion_failures.md", "_conversion_manifest.md", "_主题索引.md"}
 
 
@@ -274,7 +275,11 @@ def find_script(project_root: Path, *parts: str) -> Path:
     for base in bases:
         candidates.append(base.joinpath(*parts))
         candidates.append(base / "skills-hermes" / "research" / parts[-3] / parts[-2] / parts[-1] if len(parts) >= 3 else base.joinpath(*parts))
+    env_dir = os.environ.get("KB_SKILLS_DIR")
+    if env_dir and len(parts) >= 2:
+        candidates.insert(0, Path(env_dir).joinpath(*parts[1:]))
     candidates.extend([
+        Path.home().joinpath(".claude", *parts),
         Path.home().joinpath(".agents", *parts),
         Path.home().joinpath(".codex", *parts),
         Path.home().joinpath(".hermes", *parts),

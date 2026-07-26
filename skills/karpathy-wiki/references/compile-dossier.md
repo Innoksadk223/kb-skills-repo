@@ -14,7 +14,7 @@ Before compilation, verify the dossier is ready:
 
 1. Check frontmatter: `target: karpathy-wiki` and `status: draft`
 2. Check 硬门禁自检 section: all 6 checkboxes must be `[x]` (checked). If any are `[ ]` (unchecked), stop and report which gate failed.
-3. Run `python skills/deep-reading-to-wiki/scripts/validate_dossier.py <dossier-path>` — FAIL = stop.
+3. If `deep-reading-to-wiki` is installed, run its validator (`python3 <deep-reading-to-wiki 安装目录>/scripts/validate_dossier.py <dossier-path>`, 任意 cwd 均可) — FAIL = stop. If the skill is not installed, verify step 2 manually and continue.
 4. Read dossier frontmatter for `source_raw`, `user_intent`, `confidence`, `source_discovery`.
 
 ## ② Orient to Wiki
@@ -41,7 +41,7 @@ Every high-value candidate in the dossier has a CERIC context capsule (10 fields
 | 5. layered path | `## 论证位置` — "分层路径" subsection |
 | 6. reasoning chain | `## 前提与推理` — numbered premises + reasoning bridge |
 | 7. compression risk | `## 方法边界` — CRITICAL: this is the anti-shallow field; always include. What the wiki node is most likely to misrepresent. |
-| 8. wiki relationships | `## 关系` (body wikilinks) + `supports`/`opposes`/`limits`/`depends_on` frontmatter. Look up the `## wiki 关系` subsection in the dossier HV block for specific page names. |
+| 8. wiki relationships | `## 关系` (body wikilinks) + `supports`/`opposes`/`limits`/`depends_on` frontmatter. Read CERIC field 8（wiki 关系）in the dossier HV capsule for specific page names. |
 | 9. method boundary | `## 方法边界` — what the evidence can and cannot prove |
 | 10. RAG recall questions | `## 待补证据` or comment in `## 方法边界` — questions to verify later |
 

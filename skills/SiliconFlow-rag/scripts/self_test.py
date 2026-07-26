@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT = SCRIPT_DIR.parents[3]
+ROOT = SCRIPT_DIR  # cwd for subprocesses; all paths passed are absolute
 BUILD = SCRIPT_DIR / "build_index.py"
 QUERY = SCRIPT_DIR / "query_index.py"
 

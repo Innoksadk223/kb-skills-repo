@@ -15,7 +15,7 @@ Use when the user asks a conceptual question and the answer depends on how conce
 
 1. Search wiki for pages mentioning the concept:
    ```bash
-   grep -rl "概念名" wiki/claims/ wiki/concepts/ wiki/entities/ wiki/comparisons/
+   grep -rl "概念名" wiki/claims/ wiki/concepts/ wiki/entities/ wiki/comparisons/ wiki/debates/ wiki/observations/ wiki/structures/ wiki/predicts/
    ```
 2. Read matching pages; for each neighbor concept found, extract:
    - Wikilinks (`[[...]]`) the page links to
@@ -62,7 +62,7 @@ Three-step retrieval using the existing `query_index.py`:
 **Step 1 — Broad recall:** Run the consolidated expanded query to cast a wide net.
 
 ```bash
-python skills/SiliconFlow-rag/scripts/query_index.py \
+python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
   --index-dir 检索索引/raw \
   --question "<扩展 query>" \
   --multi-query \
@@ -74,7 +74,7 @@ python skills/SiliconFlow-rag/scripts/query_index.py \
 **Step 2 — Precision retrieval:** For each sub-question, run a targeted query with rerank to surface the most relevant evidence for that specific relationship.
 
 ```bash
-python skills/SiliconFlow-rag/scripts/query_index.py \
+python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
   --index-dir 检索索引/raw \
   --question "<子问题 N>" \
   --rerank \

@@ -30,8 +30,18 @@ LOG = os.path.join(WIKI, "log.md")
 
 WIKI_DIRS = [ENTITIES, CONCEPTS, COMPARISONS, DEBATES, CLAIMS, OBSERVATIONS, STRUCTURES, PREDICTS, QUERIES, SYNTHESIS]
 
+def _parse_scalar(val):
+    val = val.strip().strip('"').strip("'")
+    if val.startswith("[") and val.endswith("]"):
+        return [v.strip().strip("'").strip('"') for v in val[1:-1].split(",") if v.strip()]
+    return val
+
 def read_frontmatter(filepath):
-    """Extract YAML frontmatter as dict. Returns (dict, body_start_line)."""
+    """Extract YAML frontmatter as dict. Returns (dict, body_start_line).
+
+    Supports one level of nesting (e.g. the `relationships:` block) and
+    block lists (`- item` lines) under top-level or nested keys.
+    """
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
@@ -46,17 +56,52 @@ def read_frontmatter(filepath):
     body = parts[2]
     body_start = content[:content.index(body)].count("\n") + 1
     fm = {}
-    for line in fm_text.strip().split("\n"):
-        line = line.strip()
-        if ":" in line:
-            key, _, val = line.partition(":")
-            key = key.strip()
-            val = val.strip().strip('"').strip("'")
-            # Handle lists like [a, b]
-            if val.startswith("[") and val.endswith("]"):
-                val = [v.strip().strip("'").strip('"') for v in val[1:-1].split(",") if v.strip()]
-            fm[key] = val
+    top_key = None   # last top-level key (for nesting / block lists)
+    sub_key = None   # last second-level key inside a nested block
+    fm_lines = [l for l in fm_text.split("\n") if l.strip()]
+    # Tolerate uniformly indented frontmatter: nesting is judged by
+    # indentation relative to the block's minimum indent.
+    base_indent = min(len(l) - len(l.lstrip(" ")) for l in fm_lines) if fm_lines else 0
+    for rawline in fm_lines:
+        if rawline.strip().startswith("#"):
+            continue
+        indent = len(rawline) - len(rawline.lstrip(" ")) - base_indent
+        line = rawline.strip()
+        if line.startswith("- "):
+            item = _parse_scalar(line[2:])
+            if sub_key is not None and isinstance(fm.get(top_key), dict):
+                bucket = fm[top_key].setdefault(sub_key, [])
+                if isinstance(bucket, list):
+                    bucket.append(item)
+            elif top_key is not None:
+                if not isinstance(fm.get(top_key), list):
+                    fm[top_key] = []
+                fm[top_key].append(item)
+            continue
+        if ":" not in line:
+            continue
+        key, _, val = line.partition(":")
+        key = key.strip()
+        if indent == 0:
+            fm[key] = _parse_scalar(val) if val.strip() else ""
+            top_key, sub_key = key, None
+        else:
+            if not isinstance(fm.get(top_key), dict):
+                if fm.get(top_key) in ("", [], None):
+                    fm[top_key] = {}
+                else:
+                    continue  # deeper nesting unsupported
+            fm[top_key][key] = _parse_scalar(val) if val.strip() else []
+            sub_key = key
     return fm, body_start
+
+def rel_get(fm, key):
+    """Read a relation field from top level or the nested `relationships:` block."""
+    val = fm.get(key)
+    rel = fm.get("relationships")
+    if val in (None, "", []) and isinstance(rel, dict):
+        val = rel.get(key)
+    return val
 
 def scan_wiki_pages():
     """Return list of (relpath, abspath, filename_no_ext, frontmatter)."""
@@ -140,9 +185,13 @@ def check_index_completeness(pages):
     indexed = read_index_entries()
     page_names = {p[2] for p in pages}
     required_names = set()
+    link_discoverable = ("claims/", "observations/", "structures/", "predicts/")
+    link_discoverable_types = {"claim", "observation", "structure", "prediction"}
     for relpath, abspath, name, fm in pages:
-        is_claim = relpath.startswith("claims/") or (fm and fm.get("type") == "claim")
-        if is_claim:
+        exempt = relpath.startswith(link_discoverable) or (
+            fm and fm.get("type") in link_discoverable_types
+        )
+        if exempt:
             if str((fm or {}).get("core", "")).lower() == "true":
                 required_names.add(name)
             continue
@@ -170,22 +219,13 @@ def check_frontmatter(pages, taxonomy_tags):
         missing = [f for f in required if f not in fm]
         if missing:
             issues.append({"page": relpath, "issue": f"missing fields: {missing}"})
-        tags = fm.get("tags", [])
-        if isinstance(tags, str):
-            tags = [t.strip() for t in tags.strip("[]").split(",")]
-        for t in tags:
-            if t.strip() and taxonomy_tags and t.strip() not in taxonomy_tags:
-                issues.append({"page": relpath, "issue": f"tag '{t}' not in taxonomy"})
+        # Tag-taxonomy violations are reported by check_tags() only.
     return issues
 
 def check_stale_content(pages, raw_files):
-    """⑤ Pages with updated >90 days older than most recent source mentioning same entity."""
+    """⑤ Pages whose `updated` date is older than 90 days."""
     stale = []
     cutoff = datetime.now() - timedelta(days=90)
-    # Build name-to-date map from raw
-    raw_dates = {}
-    for relpath, abspath, fm, _ in raw_files:
-        raw_dates[relpath] = fm.get("ingested", "") if fm else ""
     for relpath, abspath, name, fm in pages:
         updated = fm.get("updated", "") if fm else ""
         try:
@@ -204,7 +244,7 @@ def check_contradictions(pages):
             continue
         if fm.get("contested") in [True, "true", "True"] or fm.get("status") == "contested":
             issues.append({"page": relpath, "issue": "marked contested"})
-        contradictions = fm.get("contradictions", [])
+        contradictions = fm.get("contradictions", []) or rel_get(fm, "contradicts") or []
         if isinstance(contradictions, str):
             contradictions = [c.strip() for c in contradictions.strip("[]").split(",")]
         if contradictions and contradictions != [""]:
@@ -339,6 +379,47 @@ def check_stub_cleanup(pages):
             orphan_stubs.append({"page": relpath, "referrers": list(referrers)})
     return orphan_stubs
 
+def check_follows(pages):
+    """`follows:` targets must exist; derive the reverse (followed_by) index.
+
+    This is the lint-side derivation promised by SKILL.md — pages declare only
+    the forward `follows:` edge; who-follows-me comes from this index.
+    """
+    page_set = {p[2] for p in pages}
+    dangling = []
+    followed_by = defaultdict(list)
+    for relpath, abspath, name, fm in pages:
+        if not fm:
+            continue
+        follows = rel_get(fm, "follows")
+        if isinstance(follows, str):
+            follows = [s.strip() for s in follows.strip("[]").split(",") if s.strip()]
+        if not follows:
+            continue
+        for target in follows:
+            if target not in page_set:
+                dangling.append({
+                    "page": relpath,
+                    "issue": f"follows target '{target}' not found in wiki"
+                })
+            else:
+                followed_by[target].append(name)
+    return dangling, {k: sorted(v) for k, v in followed_by.items()}
+
+def check_last_verified(pages):
+    """Pages whose `last-verified` date is older than 12 months."""
+    cutoff = datetime.now() - timedelta(days=365)
+    out = []
+    for relpath, abspath, name, fm in pages:
+        lv = (fm or {}).get("last-verified", "")
+        try:
+            dt = datetime.strptime(str(lv), "%Y-%m-%d")
+        except Exception:
+            continue
+        if dt < cutoff:
+            out.append(relpath)
+    return out
+
 def check_supersedes_consistency(pages):
     """Check supersedes ↔ superseded-by bidirectional consistency."""
     name_to_fm = {p[2]: p[3] for p in pages if p[3]}
@@ -346,7 +427,7 @@ def check_supersedes_consistency(pages):
     for relpath, abspath, name, fm in pages:
         if not fm:
             continue
-        supersedes = fm.get("supersedes", [])
+        supersedes = rel_get(fm, "supersedes") or []
         if isinstance(supersedes, str):
             supersedes = [s.strip() for s in supersedes.strip("[]").split(",") if s.strip()]
         if not supersedes:
@@ -359,7 +440,7 @@ def check_supersedes_consistency(pages):
                     "issue": f"supersedes target '{target}' not found in wiki"
                 })
                 continue
-            superseded_by = target_fm.get("superseded-by", [])
+            superseded_by = rel_get(target_fm, "superseded-by") or []
             if isinstance(superseded_by, str):
                 superseded_by = [s.strip() for s in superseded_by.strip("[]").split(",") if s.strip()]
             if name not in superseded_by:
@@ -539,6 +620,18 @@ def main():
     supersedes_issues = check_supersedes_consistency(pages)
     if supersedes_issues:
         report["findings"]["supersedes_consistency"] = supersedes_issues
+
+    # Follows: dangling targets + derived reverse index
+    follows_issues, followed_by = check_follows(pages)
+    if follows_issues:
+        report["findings"]["follows"] = follows_issues
+    if followed_by:
+        report["followed_by"] = followed_by
+
+    # last-verified staleness (>12 months)
+    unverified = check_last_verified(pages)
+    if unverified:
+        report["findings"]["last_verified"] = unverified
 
     # Summary
     total_issues = sum(len(v) if isinstance(v, (list, dict)) else 1 for v in report["findings"].values())

@@ -51,7 +51,7 @@ SKIP_NAMES = {
     "_conversion_manifest.md",
     "_主题索引.md",
 }
-RAW_SEMANTIC_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates")
+RAW_SEMANTIC_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates", "observations", "structures", "predicts")
 
 
 class TransientAPIError(RuntimeError):
@@ -363,6 +363,12 @@ def collect_raw_semantic_hints(md_dir: Path) -> dict[str, dict]:
     and must not be cited as source evidence.
     """
     if md_dir.name != "raw":
+        print(
+            "[warn] enriched_raw expects --md-dir to be a directory named 'raw' "
+            f"with wiki page folders as siblings; got '{md_dir.name}'. "
+            "No semantic labels will be added (plain-equivalent index).",
+            file=sys.stderr,
+        )
         return {}
     wiki_root = md_dir.parent
     if not wiki_root.is_dir():
@@ -467,7 +473,7 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> list[tuple[int, int,
             chunks.append((start, end, snippet))
         if end >= length:
             break
-        start = max(0, end - overlap)
+        start = max(start + 1, end - overlap)
     return chunks
 
 

@@ -20,6 +20,7 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 compiled_to: []
 confidence: medium
+raw_lines: 0 # Step 2 manifest 的源转换总行数（合并档案填各源之和），分档配额检查用
 ---
 
 # <书名或文献名>深读档案
@@ -65,7 +66,6 @@ Repeat for each high-value candidate.
 ### HV-N: <候选点名称>
 
 - 候选类型：claim / concept / comparison / entity
-- 分层路径：全文 → 部分/论证阶段 → 章节 → 候选点
 - 价值判断：为什么值得进入或更新 wiki
 
 #### 上下文胶囊（CERIC 结构，10 字段）
@@ -77,7 +77,7 @@ Repeat for each high-value candidate.
 
 **Evidence（证据）**
 3. 局部语境：这段前后在解决什么问题，导向什么结论
-4. 全书位置：premise / support / objection / conclusion / method note
+4. 全书位置：definition / premise / support / bridge / objection / limitation / conclusion / method note
 
 **Reasoning（推理）**
 5. 分层路径：全文 → 部分/论证阶段 → 章节 → 候选点
@@ -117,16 +117,20 @@ Repeat for each high-value candidate.
 
 ## 5. 硬门禁自检
 
-对每项写"通过/不通过 + 证据"：
+对每项写"通过/不通过 + 证据"。**通过必须把勾选框打为 `- [x]`**；任何一项保持 `- [ ]` 即视为未通过，`validate_dossier.py` 与 karpathy-wiki 编译端都会拒收。
 
 - [ ] 1. 不是摘要：□ 有放弃清单 □ 有逐字摘录锚点 □ 区分了作者主张/AI推论/迁移建议
-- [ ] 2. 足够丰富：≥ 3 高价值区域 + ≥ 5 概念 + ≥ 8 claims + ≥ 2 种 claim 角色（不达标在此解释）
-- [ ] 3. 结构可追溯：□ 每个主要单元有 Pass 1 选/跳理由 □ 每个高价值候选有分层路径
+- [ ] 2. 足够丰富：达到 raw_lines 分档配额（见 quality-gates.md Gate 2 分档表）+ ≥ 2 种 claim 角色。确实达不到时写「配额豁免：<逐条指认贫瘠行号区间与原因>」后仍可勾选
+- [ ] 3. 结构可追溯：□ 每个主要单元有 Pass 1 选/跳理由 □ 每个高价值候选有分层路径（CERIC 字段 5）
 - [ ] 4. 胶囊完整：□ 每个高价值候选 10 字段（CERIC 五组）齐全
 - [ ] 5. 交接可执行：□ 每个推荐目标含核心贡献、边界、互链、锚点、入库条件
-- [ ] 6. 对抗性自问：如果我是这份档案最大的批评者，我会说哪里肤浅或断章取义？
+- [ ] 6. 对抗性自问：如果我是这份档案最大的批评者，我会说哪里肤浅或断章取义？（回答最尖锐的批评并写出 ≥1 条具体批评+改进方向，然后才可勾选。答不上来 = 档案可能太浅。）
 
-   （回答最尖锐的批评，并记录改进方向。答不上来 = 档案可能太浅。）
+任一项不通过 = 不可交接。继续精读或报告阻塞。交接前运行：
 
-任一项不通过 = 不可交接。继续精读或报告阻塞。
+```bash
+python3 <本技能目录>/scripts/validate_dossier.py reading_dossiers/<档案>.md
+```
+
+FAIL = 不得交接。
 ```
