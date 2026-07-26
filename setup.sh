@@ -73,7 +73,8 @@ Inno Knowledge Base Skills 安装器
 
 说明：
   - 只会安装本仓库维护的知识库技能。
-  - academic-search / mineru-document-extractor / markitdown 请从上游安装（安装结束会打印命令）。
+  - academic-search 与 PaperSpine 都是第三方可选推荐，不随本仓库安装。
+  - MinerU / markitdown 按文档类型从各自上游安装。
   - 不会删除不在本仓库里的技能。
   - 默认安装到 ~/.codex/skills、~/.claude/skills、~/.hermes/skills。
   - Hermes 会按用途分组；Codex/Claude 使用扁平目录。
@@ -126,10 +127,11 @@ print_external_install_hints() {
     cat <<'EOF'
 
 ────────────────────────────────────────
-上游技能与 MinerU MCP（本仓库不内置，请自行安装）
+上游与外围能力（本仓库不内置，请按需安装）
 ────────────────────────────────────────
 
-1) academic-search
+1) academic-search（第三方可选推荐：搜集论文资料）
+   已有足够本地论文时可跳过；需要搜索和筛选候选论文时再安装。
    上游：https://github.com/ustc-ai4science/academic-search
    Claude / Codex 示例：
      git clone https://github.com/ustc-ai4science/academic-search.git ~/.claude/skills/academic-search
@@ -179,6 +181,13 @@ print_external_install_hints() {
    若 agent 需要独立 skill 目录，可让 AI 按官方 CLI 写一份薄 SKILL.md，
    或从已有 agent skills 生态安装 markitdown skill；不要依赖本仓库内置副本。
 
+5) PaperSpine（第三方可选推荐：具体论文写作）
+   本仓库负责建知识库、检索证据和规划大纲；PaperSpine 负责具体写作、改稿、审计与成稿导出。
+   上游：https://github.com/WUBING2023/PaperSpine
+   macOS / Linux：
+     git clone https://github.com/WUBING2023/PaperSpine.git
+     cd PaperSpine && bash install.sh
+
 EOF
 }
 
@@ -196,11 +205,12 @@ list_skills() {
         echo "  - $name"
     done
     echo ""
-    echo "上游技能（不随 setup 安装）："
-    echo "  - academic-search          https://github.com/ustc-ai4science/academic-search"
+    echo "上游与外围能力（不随 setup 安装）："
+    echo "  - academic-search（第三方可选推荐） https://github.com/ustc-ai4science/academic-search"
     echo "  - mineru-document-extractor https://github.com/opendatalab/MinerU-Ecosystem"
     echo "  - markitdown               https://github.com/microsoft/markitdown"
     echo "  - MinerU MCP               https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp"
+    echo "  - PaperSpine（第三方可选推荐） https://github.com/WUBING2023/PaperSpine"
 }
 
 parse_skills() {

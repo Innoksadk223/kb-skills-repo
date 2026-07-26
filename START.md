@@ -66,6 +66,10 @@ AI 应先查 wiki 结构，再回到 raw 原文证据，不要只凭记忆回答
 
 AI 会先检索证据并提出骨架，一次讨论一个关键选择；你确认方向后，它才会填充完整大纲并写入 `outlines/`。
 
+### 把大纲继续写成完整论文
+
+`wiki-paper-outline` 到论文大纲为止。如果要从材料或大纲继续完成论文写作、改稿、审稿审计和 LaTeX / PDF / Word 输出，可选用第三方独立项目 [PaperSpine](https://github.com/WUBING2023/PaperSpine)。
+
 ### 在 Obsidian 里看图谱
 
 1. 安装 Obsidian：https://obsidian.md
@@ -85,11 +89,11 @@ AI 会先检索证据并提出骨架，一次讨论一个关键选择；你确�
 
 ---
 
-## 这 8 个能力怎么分工？
+## 这 9 个能力怎么分工？
 
 | 能力 | 什么时候会用 | 安装来源 |
 |---|---|---|
-| `academic-search` | 本地资料不够时，搜索相关论文、筛候选来源、判断开放获取 PDF | 上游：https://github.com/ustc-ai4science/academic-search |
+| `academic-search`（第三方可选） | 本地资料不够时，搜索相关论文、筛候选来源、判断开放获取 PDF | 推荐：https://github.com/ustc-ai4science/academic-search |
 | `mineru-document-extractor` / MinerU MCP | PDF、扫描件、复杂表格、公式、版式复杂的资料 | 上游：https://github.com/opendatalab/MinerU-Ecosystem ；MCP：https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp |
 | `markitdown` | Word、PPT、Excel、网页、普通文档的轻量转换 | 上游：https://github.com/microsoft/markitdown |
 | `deep-reading-to-wiki` | 长书、章节、理论文献、需要认真吃透的材料 | 本仓库 `setup.sh` |
@@ -97,8 +101,9 @@ AI 会先检索证据并提出骨架，一次讨论一个关键选择；你确�
 | `SiliconFlow-rag` | 建索引，让提问能先找图谱再回到原文证据 | 本仓库 `setup.sh` |
 | `social-science-km` | 一句话建库、补库、问答时的总入口 | 本仓库 `setup.sh` |
 | `wiki-paper-outline` | 基于已有知识库，经导师式讨论规划有证据出处的社科论文大纲 | 本仓库 `setup.sh` |
+| `paper-spine`（第三方可选） | 从材料或大纲进入具体论文写作、改稿、审计与成稿导出 | 推荐：https://github.com/WUBING2023/PaperSpine |
 
-`setup.sh` 只安装后 5 个本仓库技能。装完后请按 README「上游技能安装」补齐学术搜索、MinerU 和 markitdown。
+`setup.sh` 只安装其中 5 个本仓库技能。Academic Search 与 PaperSpine 都是其他项目维护的可选推荐，不会随本仓库安装；MinerU 和 markitdown 按文档类型安装。
 
 ---
 
@@ -112,6 +117,7 @@ AI 会先检索证据并提出骨架，一次讨论一个关键选择；你确�
 | 查证据 | 「回答这个问题，并引用原文证据」 |
 | 做综述 | 「基于这个知识库写一份文献综述」 |
 | 规划论文大纲 | 「基于这个知识库，和我讨论并规划论文大纲」 |
+| 写成完整论文 | 「把这些材料和大纲交给 PaperSpine，继续写成论文」 |
 | 查断链 | 「检查知识库有没有断链或待补页面」 |
 | 配 API Key | 「帮我配置 SiliconFlow API Key，用 BAAI/bge-m3 建索引」 |
 | 处理扫描 PDF | 「这批 PDF 是扫描件，优先用 MinerU」 |

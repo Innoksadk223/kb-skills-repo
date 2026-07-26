@@ -1,7 +1,7 @@
 # 配置指南
 
 这份指南只讲安装技能之后还需要配置什么。  
-`setup.sh` 只安装本仓库 5 个知识库技能；`academic-search`、`mineru-document-extractor`、`markitdown` 与 **MinerU MCP** 请从上游安装（见 README「上游技能安装」）。
+`setup.sh` 只安装本仓库 5 个知识库技能；第三方可选推荐 `academic-search` 以及 `mineru-document-extractor`、`markitdown` 与 **MinerU MCP** 请按需从各自上游安装（见 README「上游与外围能力」）。
 
 技能装好后，外部服务仍需单独配置：MinerU 负责解析复杂文档，SiliconFlow 负责 RAG 向量索引和可选 rerank。
 
@@ -140,7 +140,9 @@ python -m markitdown --version
 
 上游：https://github.com/microsoft/markitdown
 
-## academic-search 配置
+## academic-search 配置（第三方可选推荐）
+
+仅在本地论文资料不足、需要搜索和筛选候选文献时配置；已有完整资料集可跳过。
 
 ```bash
 git clone https://github.com/ustc-ai4science/academic-search.git ~/.claude/skills/academic-search
@@ -279,7 +281,7 @@ python skills/SiliconFlow-rag/scripts/query_index.py \
 
 安装完成后，AI 不要把配置一次性全塞给用户。按这个顺序讲：
 
-1. 先告诉用户：`setup.sh` 只装本仓库 5 个技能；academic-search / MinerU / markitdown 要从上游装。
+1. 先告诉用户：`setup.sh` 只装本仓库 5 个技能；academic-search 是其他项目维护的可选论文搜集入口，MinerU / markitdown 按文档类型从上游安装。
 2. 先告诉用户：不配 API Key 也能整理 Markdown/wiki，但真实语义检索需要 SiliconFlow。
 3. 处理 PDF、扫描件、表格、公式时，先问是否已有 MinerU skill + MCP；没有就给上游 skill 安装命令和 MCP 的 `uvx` 配置（见上文）。
 4. 用户要建 RAG 索引时，再指导配置 `SILICONFLOW_API_KEY`。

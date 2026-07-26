@@ -14,7 +14,7 @@
 1. **先说明目标** —— 这是知识库技能包，适合把资料整理成长期可用的 Markdown/wiki/Obsidian/RAG 知识库
 2. **再确认目标 agent** —— 问用户要装到 Claude Code、Codex、Hermes，还是全部
 3. **再安装本仓库技能** —— `bash setup.sh`
-4. **再安装上游依赖** —— 按下方「上游技能安装」装 `academic-search`、`mineru-document-extractor`、`markitdown`，并配置 **MinerU MCP**
+4. **再按需补外围能力** —— 缺论文资料时可选用第三方 `academic-search`；处理复杂文档时安装 MinerU，普通文档可用 `markitdown`；需要具体论文写作时可选用第三方 PaperSpine
 5. **最后教** —— 安装/更新完成后，不要只说「装好了」，也不要先问要不要介绍；直接读 [START.md](START.md)，给用户一段 3 分钟上手教程
 
 安装后教程示例：
@@ -42,10 +42,13 @@
 
 | 技能 / 工具 | 负责什么 | 上游 |
 |---|---|---|
-| `academic-search` | 搜索相关领域论文、筛选候选文献、判断开放获取 PDF | https://github.com/ustc-ai4science/academic-search |
+| `academic-search`（第三方，可选推荐） | 本地资料不足时，搜索相关领域论文、筛选候选文献、判断开放获取 PDF | https://github.com/ustc-ai4science/academic-search |
 | `mineru-document-extractor` | PDF、扫描件、表格、公式、多格式文档高保真解析 | https://github.com/opendatalab/MinerU-Ecosystem |
 | MinerU MCP | 推荐的文档解析 MCP 服务（知识库工作流优先） | https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp |
 | `markitdown` | Word、PPT、Excel、HTML、图片等文件轻量转 Markdown | https://github.com/microsoft/markitdown |
+| `paper-spine`（第三方，可选推荐） | 需要具体写作时，从材料构筑或改写完整论文，覆盖贡献确认、写作、审计及 LaTeX / PDF / Word 输出 | https://github.com/WUBING2023/PaperSpine |
+
+> **第三方可选推荐：** **Academic-Search Skill** 只在需要搜索、筛选和补充论文资料时使用；已有完整本地资料可直接跳过。**PaperSpine**（[WUBING2023/PaperSpine](https://github.com/WUBING2023/PaperSpine)）只在需要把材料或大纲进一步写成、改成并审计完整论文时使用。两者均由其他项目维护，不属于本仓库，也不会由 `setup.sh` 安装。
 
 ## 典型工作流
 
@@ -67,6 +70,8 @@ AI 应该按场景调度：
 > 「基于这个知识库，和我讨论并规划一篇关于 X 的论文大纲」
 
 此时由 `wiki-paper-outline` 先检索 wiki 和原文索引、提出骨架与质询；用户确认方向后再填充完整大纲，并写入知识库的 `outlines/` 目录。
+
+> **分工边界：**`wiki-paper-outline` 负责基于知识库把论点与证据组织成大纲，不负责直接写成完整论文。完整链路可理解为：`academic-search`（可选搜集论文）→ 本仓库建知识库 → `wiki-paper-outline` 规划大纲 → `paper-spine` 具体写作。
 
 ## 安装
 
@@ -90,11 +95,13 @@ bash setup.sh --list                    # 查看本仓库技能 + 上游地址
 bash setup.sh --help
 ```
 
-### 2. 上游技能安装（新用户必做）
+### 2. 上游与外围能力（按需安装）
 
 `setup.sh` 结束后也会打印同样的提示。
 
-#### academic-search
+#### academic-search（第三方可选推荐：搜集论文资料）
+
+已有足够的本地论文时可以跳过。只有需要按主题搜索、筛选并补充论文资料时，才把它作为工作流的可选开头。
 
 ```bash
 # Claude Code
@@ -159,6 +166,16 @@ python -m markitdown --version
 上游：https://github.com/microsoft/markitdown  
 （官方以 CLI/Python 包为主；agent 需要 skill 目录时，可按官方 CLI 写薄封装，不要依赖本仓库内置副本。）
 
+#### PaperSpine（第三方可选推荐：具体论文写作）
+
+本仓库负责资料知识化、证据检索和论文大纲；[PaperSpine](https://github.com/WUBING2023/PaperSpine) 负责从材料构筑或改写完整论文，并输出 LaTeX / PDF / Word。它是独立项目，不是本仓库建库流程的必需依赖。
+
+```bash
+git clone https://github.com/WUBING2023/PaperSpine.git
+cd PaperSpine
+bash install.sh
+```
+
 ## 更新
 
 当用户要求更新本技能库时，AI 应先找安装路径：
@@ -192,10 +209,11 @@ bash setup.sh --update-only
 | 能力 | 来源 | 是否随 setup 安装 |
 |---|---|---|
 | `deep-reading-to-wiki` / `karpathy-wiki` / `SiliconFlow-rag` / `social-science-km` / `wiki-paper-outline` | 本仓库 | 是 |
-| `academic-search` | https://github.com/ustc-ai4science/academic-search | 否，上游安装 |
+| `academic-search` | https://github.com/ustc-ai4science/academic-search | 否，第三方可选推荐 |
 | `mineru-document-extractor` | https://github.com/opendatalab/MinerU-Ecosystem | 否，上游安装 |
 | MinerU MCP | https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp | 否，上游配置 |
 | `markitdown` | https://github.com/microsoft/markitdown | 否，上游安装 |
+| `paper-spine` | https://github.com/WUBING2023/PaperSpine | 否，第三方可选推荐 |
 
 ## 目录结构
 
