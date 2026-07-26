@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>kb-skills 技能生态 · 小红书卡片版</title>
+<link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet">
 <style>
@@ -100,6 +101,7 @@ h2 { font-size: 26px; }
 }
 .pipe .box { border: 2px solid var(--color-ink); border-radius: 8px; padding: 3px 9px; background: #fff; }
 .pipe .box.out { background: var(--color-blue-soft); }
+.pipe.up .box.out { background: var(--color-amber-soft); }
 .pipe .arr { font-weight: 700; }
 .pts { list-style: none; display: flex; flex-direction: column; gap: 9px; }
 .pts li { font-size: 13.5px; color: var(--color-ink-2); line-height: 1.55; padding-left: 17px; position: relative; }
@@ -111,6 +113,7 @@ h2 { font-size: 26px; }
   background: var(--color-red-soft); padding: 10px 14px; font-size: 13px; line-height: 1.5;
 }
 .edge b { color: var(--color-red); }
+.edge a { color: var(--color-blue); font-weight: 700; text-underline-offset: 2px; }
 
 /* 尾部 CTA */
 .cta {
@@ -129,23 +132,23 @@ h2 { font-size: 26px; }
 
 <!-- 01 封面 -->
 <div class="card cover">
-  <span class="pageno">01 / 09</span>
-  <span class="chip">AI 知识库工作流</span>
+  <span class="pageno">01 / 11</span>
+  <span class="chip">知识库 × 论文工作流</span>
   <div class="big">📚</div>
-  <h1>六个 AI 技能<br>把文献变成<span class="mark-r">论文大纲</span></h1>
-  <p class="sub">每个技能只干一件事，串成一条流水线。<br>先看两张全景图，再逐个认识它们。</p>
+  <h1>从找文献到写论文<br>一条<span class="mark-r">可追溯工作流</span></h1>
+  <p class="sub">5 个本仓库核心技能，前后按需接上 3 组外围能力。<br>先看两张全景图，再逐个认识它们。</p>
   <div class="grow"></div>
-  <div class="foot"><span>kb-skills 技能生态</span><span>逐个拆解 →</span></div>
+  <div class="foot"><span>5 个核心 · 3 组按需</span><span>逐个拆解 →</span></div>
 </div>
 
 <!-- 02 上半场 -->
 <div class="card">
-  <span class="pageno">02 / 09</span>
+  <span class="pageno">02 / 11</span>
   <span class="chip amber">全景 · 上半场</span>
   <h2>把文献<span style="color:var(--color-amber)">变成知识</span></h2>
   <p class="sub" style="margin-bottom:2px">这四步做完，你的 PDF 就成了一张能查、能追溯的知识网。</p>
   <div class="vflow grow">
-    <div class="stop up"><span class="n">0</span><div><b>找文献（可选） <code>academic-search</code></b><p>材料不够时才走：按主题搜，只收合法全文</p></div></div>
+    <div class="stop up"><span class="n">0</span><div><b>找文献（第三方可选） <code>academic-search</code></b><p>材料不够时才走：按主题搜，只收合法全文</p></div></div>
     <div class="stop up"><span class="n">1</span><div><b>转文本 <code>MinerU / markitdown</code></b><p>扫描件、古籍、表格公式，OCR 成 Markdown</p></div></div>
     <div class="stop"><span class="n">2</span><div><b>精读 <code>deep-reading-to-wiki</code></b><p>长书难文逐段读透，先出读书档案</p></div></div>
     <div class="stop"><span class="n">3</span><div><b>编图谱 <code>karpathy-wiki</code></b><p>论点、概念、争论互链成网</p></div></div>
@@ -154,22 +157,23 @@ h2 { font-size: 26px; }
 
 <!-- 03 下半场 -->
 <div class="card">
-  <span class="pageno">03 / 09</span>
+  <span class="pageno">03 / 11</span>
   <span class="chip">全景 · 下半场</span>
   <h2>把知识<span class="mark">用起来</span></h2>
   <p class="sub" style="margin-bottom:2px">知识网建好后，才是这套系统真正开始省你时间的地方。</p>
   <div class="vflow grow">
     <div class="stop"><span class="n">4</span><div><b>建索引 <code>SiliconFlow-rag</code></b><p>问一句话，原文证据自己浮出来</p></div></div>
     <div class="stop"><span class="n">5</span><div><b>出大纲 <code>wiki-paper-outline</code></b><p>AI 当导师跟你讨论，定出带出处的论文大纲</p></div></div>
+    <div class="stop up"><span class="n">6</span><div><b>写论文（第三方可选） <code>paper-spine</code></b><p>需要完整成稿时，再从材料或大纲进入具体写作</p></div></div>
     <div class="stop"><span class="n">★</span><div><b>总调度 <code>social-science-km</code></b><p>它决定你这次从哪一步进、走到哪一步停</p></div></div>
   </div>
-  <p class="sub">下面六张卡，逐个认识它们 →</p>
+  <p class="sub">下面八张卡，逐个认识它们 →</p>
 </div>
 
 <!-- 04 social-science-km -->
 <div class="card">
-  <span class="pageno">04 / 09</span>
-  <span class="chip">技能 1 / 6</span>
+  <span class="pageno">04 / 11</span>
+  <span class="chip">本仓库 · 技能 1 / 5</span>
   <div class="nameplate">social-science-km</div>
   <div class="role">总调度 · 一切从它进</div>
   <div class="pipe"><span class="box">你的需求</span><span class="arr">→</span><span class="box out">该走哪条路线</span></div>
@@ -181,10 +185,25 @@ h2 { font-size: 26px; }
   <div class="edge"><b>它不亲自干活</b>——只安排别的技能干，并在动索引、批量转换前先问你。</div>
 </div>
 
-<!-- 05 上游转换 -->
+<!-- 05 academic-search -->
 <div class="card">
-  <span class="pageno">05 / 09</span>
-  <span class="chip amber">技能 2 / 6</span>
+  <span class="pageno">05 / 11</span>
+  <span class="chip amber">第三方 · 可选推荐</span>
+  <div class="nameplate up">academic-search</div>
+  <div class="role">找论文 · 资料不够时再启用</div>
+  <div class="pipe up"><span class="box">研究主题 / 资料缺口</span><span class="arr">→</span><span class="box out">候选论文</span></div>
+  <ul class="pts up">
+    <li><b>先搜再筛。</b>把研究主题拆成查询词，找到相关论文后再按标题、摘要与年份筛选。</li>
+    <li><b>只收可用资料。</b>优先保留能合法获取全文、适合进入后续知识库的来源。</li>
+    <li><b>不是必经步骤。</b>手头已有完整论文资料，就直接从文档转换或建库开始。</li>
+  </ul>
+  <div class="edge"><b>第三方可选推荐</b>——项目：<a href="https://github.com/ustc-ai4science/academic-search" target="_blank" rel="noopener">ustc-ai4science/academic-search</a>；不随 setup.sh 安装。</div>
+</div>
+
+<!-- 06 上游转换 -->
+<div class="card">
+  <span class="pageno">06 / 11</span>
+  <span class="chip amber">上游工具 · 按需安装</span>
   <div class="nameplate up">MinerU + markitdown</div>
   <div class="role">转文本 · 让机器读得懂</div>
   <div class="pipe"><span class="box">PDF / Word / PPT</span><span class="arr">→</span><span class="box out">Markdown 全文</span></div>
@@ -196,10 +215,10 @@ h2 { font-size: 26px; }
   <div class="edge"><b>需要另外安装</b>——这两个来自上游项目，不是本仓库自带。</div>
 </div>
 
-<!-- 06 deep-reading-to-wiki -->
+<!-- 07 deep-reading-to-wiki -->
 <div class="card">
-  <span class="pageno">06 / 09</span>
-  <span class="chip">技能 3 / 6</span>
+  <span class="pageno">07 / 11</span>
+  <span class="chip">本仓库 · 技能 2 / 5</span>
   <div class="nameplate">deep-reading-to-wiki</div>
   <div class="role">精读 · 防止知识库变浅</div>
   <div class="pipe"><span class="box">整本书 / 长论文</span><span class="arr">→</span><span class="box out">深读档案</span></div>
@@ -211,10 +230,10 @@ h2 { font-size: 26px; }
   <div class="edge"><b>档案不算正式知识</b>——它只是读书笔记，也不能当原始证据引用。</div>
 </div>
 
-<!-- 07 karpathy-wiki -->
+<!-- 08 karpathy-wiki -->
 <div class="card">
-  <span class="pageno">07 / 09</span>
-  <span class="chip">技能 4 / 6</span>
+  <span class="pageno">08 / 11</span>
+  <span class="chip">本仓库 · 技能 3 / 5</span>
   <div class="nameplate">karpathy-wiki</div>
   <div class="role">编图谱 · 整套系统的心脏</div>
   <div class="pipe"><span class="box">原文 + 深读档案</span><span class="arr">→</span><span class="box out">互链的 wiki 页</span></div>
@@ -226,10 +245,10 @@ h2 { font-size: 26px; }
   <div class="edge"><b>这张关系网是后面一切的基础</b>——检索扩展和论文大纲全靠它走线。</div>
 </div>
 
-<!-- 08 SiliconFlow-rag -->
+<!-- 09 SiliconFlow-rag -->
 <div class="card">
-  <span class="pageno">08 / 09</span>
-  <span class="chip">技能 5 / 6</span>
+  <span class="pageno">09 / 11</span>
+  <span class="chip">本仓库 · 技能 4 / 5</span>
   <div class="nameplate">SiliconFlow-rag</div>
   <div class="role">检索 · 随问随查</div>
   <div class="pipe"><span class="box">你的问题</span><span class="arr">→</span><span class="box out">论证路径 + 原文证据</span></div>
@@ -241,10 +260,10 @@ h2 { font-size: 26px; }
   <div class="edge"><b>图谱页不算证据</b>——它只解释检索路径，结论必须落到原文。</div>
 </div>
 
-<!-- 09 wiki-paper-outline -->
+<!-- 10 wiki-paper-outline -->
 <div class="card">
-  <span class="pageno">09 / 09</span>
-  <span class="chip red">技能 6 / 6</span>
+  <span class="pageno">10 / 11</span>
+  <span class="chip red">本仓库 · 技能 5 / 5</span>
   <div class="nameplate">wiki-paper-outline</div>
   <div class="role">出大纲 · AI 当你的导师</div>
   <div class="pipe"><span class="box">图谱 + 检索</span><span class="arr">→</span><span class="box out">论文大纲</span></div>
@@ -254,6 +273,21 @@ h2 { font-size: 26px; }
     <li><b>方向定了才填充。</b>每章要点带出处，还附审稿雷区对照和证据缺口清单。</li>
   </ul>
   <div class="cta">对 AI 说一句话就行：<br><code>"帮我基于知识库做一篇 XX 的论文大纲"</code></div>
+</div>
+
+<!-- 11 PaperSpine -->
+<div class="card">
+  <span class="pageno">11 / 11</span>
+  <span class="chip amber">第三方 · 可选推荐</span>
+  <div class="nameplate up">paper-spine</div>
+  <div class="role">写论文 · 从材料走到完整成稿</div>
+  <div class="pipe up"><span class="box">材料 / 大纲 / 初稿</span><span class="arr">→</span><span class="box out">完整论文</span></div>
+  <ul class="pts up">
+    <li><b>先确认贡献再动笔。</b>不是顺着大纲灌字，而是先把论文真正要贡献什么说清楚。</li>
+    <li><b>分阶段写、审、改。</b>研究、引用、写作、完整性审计和审稿人视角逐关推进。</li>
+    <li><b>交付完整成稿。</b>按任务生成 LaTeX、PDF、Word，以及需要的投稿或审稿回复材料。</li>
+  </ul>
+  <div class="edge"><b>第三方可选推荐</b>——项目：<a href="https://github.com/WUBING2023/PaperSpine" target="_blank" rel="noopener">WUBING2023/PaperSpine</a>；仅在具体写论文时使用。</div>
 </div>
 
 </body>
