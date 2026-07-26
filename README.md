@@ -36,6 +36,7 @@
 | `karpathy-wiki` | 把原文和深读档案编译成 claims / concepts / entities / comparisons 图谱 wiki |
 | `SiliconFlow-rag` | 建 raw 原文索引 + wiki 结构索引，支持 wiki-first 检索 |
 | `social-science-km` | 总调度入口：从资料转换、深读、wiki 到 RAG 索引的一体化流程 |
+| `wiki-paper-outline` | 基于已有 wiki 与检索索引，经导师式讨论生成有证据出处的社科论文大纲 |
 
 ### 上游安装（不随本仓库复制）
 
@@ -60,6 +61,12 @@ AI 应该按场景调度：
 4. `karpathy-wiki` —— 编译 Obsidian 可读的图谱 wiki
 5. `SiliconFlow-rag` —— 建立可查询索引
 6. `social-science-km` —— 负责统筹流程、补库和问答入口
+
+已有知识库后，用户也可以说：
+
+> 「基于这个知识库，和我讨论并规划一篇关于 X 的论文大纲」
+
+此时由 `wiki-paper-outline` 先检索 wiki 和原文索引、提出骨架与质询；用户确认方向后再填充完整大纲，并写入知识库的 `outlines/` 目录。
 
 ## 安装
 
@@ -184,7 +191,7 @@ bash setup.sh --update-only
 
 | 能力 | 来源 | 是否随 setup 安装 |
 |---|---|---|
-| `deep-reading-to-wiki` / `karpathy-wiki` / `SiliconFlow-rag` / `social-science-km` | 本仓库 | 是 |
+| `deep-reading-to-wiki` / `karpathy-wiki` / `SiliconFlow-rag` / `social-science-km` / `wiki-paper-outline` | 本仓库 | 是 |
 | `academic-search` | https://github.com/ustc-ai4science/academic-search | 否，上游安装 |
 | `mineru-document-extractor` | https://github.com/opendatalab/MinerU-Ecosystem | 否，上游安装 |
 | MinerU MCP | https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp | 否，上游配置 |
@@ -198,7 +205,8 @@ kb-skills-repo/
 │   ├── deep-reading-to-wiki/
 │   ├── karpathy-wiki/
 │   ├── SiliconFlow-rag/
-│   └── social-science-km/
+│   ├── social-science-km/
+│   └── wiki-paper-outline/
 ├── KB-GUIDE.md
 ├── CONFIG.md
 ├── START.md

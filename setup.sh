@@ -10,6 +10,7 @@ SKILL_NAMES=(
     karpathy-wiki
     SiliconFlow-rag
     social-science-km
+    wiki-paper-outline
 )
 
 TARGET_ARG=""
@@ -71,7 +72,7 @@ Inno Knowledge Base Skills 安装器
   --help, -h                  显示帮助
 
 说明：
-  - 只会安装本仓库维护的 4 个知识库技能。
+  - 只会安装本仓库维护的知识库技能。
   - academic-search / mineru-document-extractor / markitdown 请从上游安装（安装结束会打印命令）。
   - 不会删除不在本仓库里的技能。
   - 默认安装到 ~/.codex/skills、~/.claude/skills、~/.hermes/skills。
@@ -116,7 +117,7 @@ detect_agents() {
 
 hermes_relative_path() {
     case "$1" in
-        deep-reading-to-wiki|karpathy-wiki|SiliconFlow-rag|social-science-km) echo "research/$1" ;;
+        deep-reading-to-wiki|karpathy-wiki|SiliconFlow-rag|social-science-km|wiki-paper-outline) echo "research/$1" ;;
         *) echo "$1" ;;
     esac
 }
@@ -597,7 +598,7 @@ main() {
         echo "预览完成。确认无误后去掉 --dry-run 重新运行。"
         print_external_install_hints
     else
-        echo "完成。本仓库 4 个技能已安装。"
+        echo "完成。本仓库 ${#SKILL_NAMES[@]} 个技能已安装。"
         print_external_install_hints
         echo "现在请按 START.md 给用户做 3 分钟上手介绍。"
         echo "更新命令: cd $REPO_DIR && git pull && bash setup.sh --update-only"
