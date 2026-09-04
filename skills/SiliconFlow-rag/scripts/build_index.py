@@ -22,8 +22,8 @@ from pathlib import Path
 
 API_URL = "https://api.siliconflow.cn/v1/embeddings"
 DEFAULT_MODEL = "BAAI/bge-m3"
-HERMES_CONFIG_PATH = Path.home() / ".hermes" / "private" / "SiliconFlow-rag" / "config.json"
-LEGACY_CONFIG_PATH = Path.home() / ".codex" / "SiliconFlow-rag" / "config.json"
+HERMES_CONFIG_PATH = Path.home() / ".hermes" / "private" / "siliconflow-rag" / "config.json"
+LEGACY_CONFIG_PATH = Path.home() / ".codex" / "siliconflow-rag" / "config.json"
 DEFAULT_CONFIG_PATH = HERMES_CONFIG_PATH
 BUILD_DEFAULTS = {
     "md_dir": "raw",

@@ -43,7 +43,7 @@ Long builds write `.embedding_checkpoint.jsonl` inside the target index director
 - Recommended raw index: `检索索引/raw`
 - Recommended wiki index: `检索索引/wiki`
 - API key env var: `SILICONFLOW_API_KEY`
-- Private key config: `~/.hermes/private/SiliconFlow-rag/config.json` preferred; `~/.codex/SiliconFlow-rag/config.json` legacy fallback
+- Private key config: `~/.hermes/private/siliconflow-rag/config.json` preferred; `~/.codex/siliconflow-rag/config.json` legacy fallback
 - Embedding model: `BAAI/bge-m3`
 - Optional rerank model: `Qwen/Qwen3-Reranker-8B`
 

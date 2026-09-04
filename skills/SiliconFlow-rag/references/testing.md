@@ -3,7 +3,7 @@
 Run the self-test without a real API key:
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/self_test.py
+python3 skills/siliconflow-rag/scripts/self_test.py
 ```
 
 The self-test uses mock embeddings and validates:
@@ -28,9 +28,9 @@ Also run syntax checks after script edits:
 
 ```bash
 python3 -m py_compile \
-  skills/SiliconFlow-rag/scripts/build_index.py \
-  skills/SiliconFlow-rag/scripts/query_index.py \
-  skills/SiliconFlow-rag/scripts/self_test.py
+  skills/siliconflow-rag/scripts/build_index.py \
+  skills/siliconflow-rag/scripts/query_index.py \
+  skills/siliconflow-rag/scripts/self_test.py
 ```
 
 Do not add dependencies for tests. Keep tests runnable with the Python standard library only.

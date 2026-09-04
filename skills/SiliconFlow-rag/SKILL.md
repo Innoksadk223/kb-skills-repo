@@ -1,5 +1,5 @@
 ---
-name: SiliconFlow-rag
+name: siliconflow-rag
 description: Use when building, updating, inspecting, or querying local JSONL RAG indexes for social-science Markdown collections, including raw evidence retrieval, source discovery for wiki expansion, wiki-first recall from karpathy-wiki pages, and `检索索引/` maintenance.
 ---
 
@@ -21,8 +21,8 @@ For user-directed wiki expansion, this skill's role is **source discovery**: ret
 ## Safety rules
 
 1. Confirm `SILICONFLOW_API_KEY` is available before real indexing or querying.
-2. If the user wants to save the key, prefer `~/.hermes/private/SiliconFlow-rag/config.json` as `{"SILICONFLOW_API_KEY":"..."}`; legacy `~/.codex/SiliconFlow-rag/config.json` remains supported.
-3. Keep private key files owner-only readable on POSIX systems, e.g. `chmod 600 ~/.hermes/private/SiliconFlow-rag/config.json`; scripts warn if group/other permissions are open.
+2. If the user wants to save the key, prefer `~/.hermes/private/siliconflow-rag/config.json` as `{"SILICONFLOW_API_KEY":"..."}`; legacy `~/.codex/siliconflow-rag/config.json` remains supported.
+3. Keep private key files owner-only readable on POSIX systems, e.g. `chmod 600 ~/.hermes/private/siliconflow-rag/config.json`; scripts warn if group/other permissions are open.
 4. Never put API keys in `rag_config.json`, repo files, skill files, logs, manifests, or examples.
 5. Explain the network surface when relevant: indexing sends chunks to embeddings; querying sends the question to embeddings; `--multi-query` sends the question to chat completions; `--rerank` sends candidate snippets to rerank.
 
@@ -33,7 +33,7 @@ Use `python3` in examples because macOS and many Linux systems no longer provide
 ### Build or update raw index
 
 ```bash
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
+python3 <skills-repo>/skills/siliconflow-rag/scripts/build_index.py \
   --md-dir wiki/raw \
   --index-dir 检索索引/raw \
   --metadata-mode enriched_raw \
@@ -49,7 +49,7 @@ Use `enriched_raw` once graph-readable wiki pages exist; use `plain` only for th
 Use when `karpathy-wiki` pages exist and the question is conceptual, argumentative, cross-source, or thesis-writing oriented.
 
 ```bash
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
+python3 <skills-repo>/skills/siliconflow-rag/scripts/build_index.py \
   --md-dir wiki \
   --index-dir 检索索引/wiki \
   --include-dirs claims,concepts,entities,comparisons,debates,observations,structures,predicts,synthesis,queries \
@@ -61,7 +61,7 @@ python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
 ### Query raw-only mode
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/query_index.py \
+python3 skills/siliconflow-rag/scripts/query_index.py \
   --index-dir 检索索引/raw \
   --question "用户的问题"
 ```
@@ -69,7 +69,7 @@ python3 skills/SiliconFlow-rag/scripts/query_index.py \
 ### Query wiki-first mode
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/query_index.py \
+python3 skills/siliconflow-rag/scripts/query_index.py \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
@@ -83,7 +83,7 @@ Use when the user names a direction they want to deepen, such as "补充儿童�
 Start from wiki-first if the direction is conceptual or argumentative:
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/query_index.py \
+python3 skills/siliconflow-rag/scripts/query_index.py \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
@@ -94,7 +94,7 @@ python3 skills/SiliconFlow-rag/scripts/query_index.py \
 Then broaden with raw-only when source wording may differ from the wiki wording:
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/query_index.py \
+python3 skills/siliconflow-rag/scripts/query_index.py \
   --index-dir 检索索引/raw \
   --question "儿童教育 家庭教育 爱敬 积浸 身教 保傅 内则 小学" \
   --source-discovery \
@@ -124,7 +124,7 @@ If fewer than three usable raw sources appear, report that limitation and broade
 Use rerank only when the user asks for better ordering, precise ranking, rerank mode, or similar wording:
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/query_index.py \
+python3 skills/siliconflow-rag/scripts/query_index.py \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
@@ -135,7 +135,7 @@ python3 skills/SiliconFlow-rag/scripts/query_index.py \
 Use multi-query only when recall is weak or wording mismatch is likely:
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/query_index.py \
+python3 skills/siliconflow-rag/scripts/query_index.py \
   --index-dir 检索索引/raw \
   --question "用户的问题" \
   --multi-query
@@ -144,7 +144,7 @@ python3 skills/SiliconFlow-rag/scripts/query_index.py \
 Add adjacent chunks when the answer needs local context:
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/query_index.py \
+python3 skills/siliconflow-rag/scripts/query_index.py \
   --index-dir 检索索引/raw \
   --question "用户的问题" \
   --expand-context \
@@ -154,8 +154,8 @@ python3 skills/SiliconFlow-rag/scripts/query_index.py \
 ### Inspect index health
 
 ```bash
-python3 skills/SiliconFlow-rag/scripts/query_index.py --index-dir 检索索引/raw --stats
-python3 skills/SiliconFlow-rag/scripts/query_index.py --index-dir 检索索引/wiki --stats
+python3 skills/siliconflow-rag/scripts/query_index.py --index-dir 检索索引/raw --stats
+python3 skills/siliconflow-rag/scripts/query_index.py --index-dir 检索索引/wiki --stats
 ```
 
 ## Answering rules

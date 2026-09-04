@@ -20,8 +20,8 @@ from pathlib import Path
 EMBEDDING_API_URL = "https://api.siliconflow.cn/v1/embeddings"
 RERANK_API_URL = "https://api.siliconflow.cn/v1/rerank"
 DEFAULT_RERANK_MODEL = "Qwen/Qwen3-Reranker-8B"
-HERMES_CONFIG_PATH = Path.home() / ".hermes" / "private" / "SiliconFlow-rag" / "config.json"
-LEGACY_CONFIG_PATH = Path.home() / ".codex" / "SiliconFlow-rag" / "config.json"
+HERMES_CONFIG_PATH = Path.home() / ".hermes" / "private" / "siliconflow-rag" / "config.json"
+LEGACY_CONFIG_PATH = Path.home() / ".codex" / "siliconflow-rag" / "config.json"
 DEFAULT_CONFIG_PATH = HERMES_CONFIG_PATH
 QUERY_DEFAULTS = {
     "index_dir": "检索索引",

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-test for SiliconFlow-rag scripts."""
+"""Self-test for siliconflow-rag scripts."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def run_expect_failure(command: list[str], cwd: Path) -> subprocess.CompletedPro
 
 
 def main() -> None:
-    temp_dir = Path(tempfile.mkdtemp(prefix="SiliconFlow-rag-test-"))
+    temp_dir = Path(tempfile.mkdtemp(prefix="siliconflow-rag-test-"))
     try:
         spec = importlib.util.spec_from_file_location("rag_build_checkpoint_test", BUILD)
         if spec is None or spec.loader is None:
@@ -538,7 +538,7 @@ related_concepts: [孝, 照料]
                 print(wiki_output)
                 raise SystemExit(f"Wiki-first test failed: missing '{marker}' in output")
 
-        print("SiliconFlow-rag self-test passed (full + incremental + context + stats + wiki-aware + enriched-raw)")
+        print("siliconflow-rag self-test passed (full + incremental + context + stats + wiki-aware + enriched-raw)")
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
