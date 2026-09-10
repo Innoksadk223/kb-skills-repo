@@ -4,12 +4,16 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -51,9 +55,45 @@ def run_py(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, cwd=cwd, text=True, capture_output=True, encoding="utf-8", errors="replace")
 
 
+def check_query_cli(km, project_root: Path, args: list[str], expected_code: int, mode: str | None) -> None:
+    """Exercise routing and real freshness checks without launching query/API work."""
+    argv = [str(KM_QUERY), "--project-root", str(project_root), "--no-lint", *args]
+    output = io.StringIO()
+    with patch.object(sys, "argv", argv), redirect_stdout(output), \
+            patch.object(km, "find_query_script", return_value=project_root / "query_index.py"), \
+            patch.object(km.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "mock evidence", "")) as run, \
+            patch.object(km, "check_staleness", wraps=km.check_staleness) as freshness:
+        code = 0
+        try:
+            km.main()
+        except SystemExit as exc:
+            code = exc.code
+        if code != expected_code:
+            raise SystemExit(f"CLI {args}: expected exit {expected_code}, got {code}: {output.getvalue()}")
+        if "--skip-check" in args and "--check" not in args:
+            freshness.assert_not_called()
+        else:
+            freshness.assert_called_once_with(project_root)
+        if mode is None:
+            run.assert_not_called()
+        else:
+            run.assert_called_once()
+            command = run.call_args.args[0]
+            if ("--wiki-first" in command) != (mode == "wiki"):
+                raise SystemExit(f"CLI {args}: wrong query mode: {command}")
+            if mode == "raw" and "--index-dir" not in command:
+                raise SystemExit(f"CLI {args}: missing raw index: {command}")
+            if run.call_args.kwargs["cwd"] != str(project_root):
+                raise SystemExit("Query must run in the project root")
+            if "--deep" in args:
+                for flag in ("--multi-query", "--rerank", "--expand-context"):
+                    if flag not in command:
+                        raise SystemExit(f"Deep query missing {flag}")
+
+
 def main() -> None:
     km = load_module()
-    temp_dir = Path(tempfile.mkdtemp(prefix="km-query-test-"))
+    temp_dir = Path(tempfile.mkdtemp(prefix="km-query-test-", dir=os.environ.get("PI_SCRATCH_DIR")))
     try:
         wiki = temp_dir / "wiki"
         raw = wiki / "raw"
@@ -109,6 +149,31 @@ def main() -> None:
         if status.stale:
             raise SystemExit(f"Expected fresh indexes, got stale: {status.message}")
 
+        source_question = "这段话的原文出处在哪里？"
+        concept_question = "孝与仁的关系是什么？"
+        check_query_cli(km, temp_dir, [source_question], 0, "raw")
+        check_query_cli(km, temp_dir, [concept_question], 0, "wiki")
+        check_query_cli(km, temp_dir, [source_question, "--deep"], 0, "wiki")
+        check_query_cli(km, temp_dir, ["--check"], 0, None)
+
+        # synthesis is indexed by wiki but does not enrich raw embeddings.
+        synthesis = wiki / "synthesis"
+        synthesis.mkdir()
+        unrelated_page = synthesis / "overview.md"
+        unrelated_page.write_text("# Overview", encoding="utf-8")
+        status = km.check_staleness(temp_dir)
+        if status.raw_stale or not status.wiki_stale:
+            raise SystemExit(f"Expected only unrelated wiki staleness, got: {status}")
+        check_query_cli(km, temp_dir, [source_question], 0, "raw")
+        check_query_cli(km, temp_dir, [source_question, "--raw-only"], 0, "raw")
+        check_query_cli(km, temp_dir, [concept_question], 1, None)
+        check_query_cli(km, temp_dir, [source_question, "--deep"], 1, None)
+        check_query_cli(km, temp_dir, ["--check"], 1, None)
+        check_query_cli(km, temp_dir, ["--check", "--raw-only"], 1, None)
+        check_query_cli(km, temp_dir, ["--check", "--skip-check"], 1, None)
+        check_query_cli(km, temp_dir, [concept_question, "--skip-check"], 0, "wiki")
+        unrelated_page.unlink()
+
         (temp_dir / "rag_config.json").write_text(
             '{"build": {"dimensions": 512}, "query": {"top_k": 4}}',
             encoding="utf-8",
@@ -116,18 +181,27 @@ def main() -> None:
         status = km.check_staleness(temp_dir)
         if not status.raw_stale or not status.wiki_stale or "dimensions" not in status.message:
             raise SystemExit(f"Expected config dimension change to stale both indexes, got: {status}")
+        check_query_cli(km, temp_dir, [source_question], 1, None)
         (temp_dir / "rag_config.json").write_text('{"query": {"top_k": 4}}', encoding="utf-8")
 
         (claims / "claim.md").write_text("---\ntype: claim\n---\n# Changed Claim", encoding="utf-8")
         status = km.check_staleness(temp_dir)
         if not status.raw_stale or "Wiki 语义标签" not in status.message:
             raise SystemExit(f"Expected wiki label changes to stale the enriched raw index, got: {status}")
+        check_query_cli(km, temp_dir, [source_question], 1, None)
+        check_query_cli(km, temp_dir, [source_question, "--skip-check"], 0, "raw")
         (claims / "claim.md").write_text("---\ntype: claim\n---\n# Claim", encoding="utf-8")
 
         (raw / "new.md").write_text("# New\n\nnew raw evidence", encoding="utf-8")
         status = km.check_staleness(temp_dir)
         if not status.stale or "raw" not in status.message or "新增/改动" not in status.message:
             raise SystemExit(f"Expected raw new/changed stale message, got: {status}")
+
+        check_query_cli(km, temp_dir, [source_question], 1, None)
+        check_query_cli(km, temp_dir, [concept_question], 1, None)
+        check_query_cli(km, temp_dir, [source_question, "--deep"], 1, None)
+        check_query_cli(km, temp_dir, ["--check"], 1, None)
+        check_query_cli(km, temp_dir, [source_question, "--skip-check"], 0, "raw")
 
         raw_mode = km.choose_mode("这段话的原文出处在哪里？", raw_only=False, deep=False, project_root=temp_dir)
         if raw_mode != "raw":
@@ -159,7 +233,7 @@ def main() -> None:
             print(result.stderr, file=sys.stderr)
             raise SystemExit("CLI help test failed")
 
-        check_project = Path(tempfile.mkdtemp(prefix="km-check-test-"))
+        check_project = Path(tempfile.mkdtemp(prefix="km-check-test-", dir=temp_dir))
         try:
             check_raw = check_project / "wiki" / "raw"
             check_raw.mkdir(parents=True)

@@ -27,7 +27,7 @@ question
 Recommended layout:
 
 ```text
-检索索引/wiki    # claims/concepts/entities/comparisons/debates/synthesis/queries
+检索索引/wiki    # claims/concepts/entities/comparisons/debates/observations/structures/predicts/synthesis/queries
 检索索引/raw     # wiki/raw original evidence
 ```
 
@@ -36,7 +36,7 @@ Recommended layout:
 - **Dual retrieval**: vector similarity + lightweight BM25 lexical search.
 - **RRF**: vector and BM25 ranks are fused with `1/(k+rank)`.
 - **Multi-query**: optional; disabled by default; calls chat completions to generate 3 additional queries.
-- **Rerank**: optional; use only when the user asks for better ordering, precise ranking, rerank mode, or similar wording.
+- **Rerank**: optional; escalate when candidate ordering is inadequate or precise, high-stakes evidence selection is needed (including critical thesis claims). The user need not name a flag or use special wording.
 
 ## Evidence boundary
 

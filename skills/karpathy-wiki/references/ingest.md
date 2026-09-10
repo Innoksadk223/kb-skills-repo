@@ -1,6 +1,6 @@
 # Ingest
 
-When the user provides a source (URL, file, paste), integrate it into the wiki.
+When the user provides a source (URL, file, paste), integrate it into the wiki within the requested scope. Under orchestration, check the dispatched route and accepted raw source before capture; conversion/capture belongs to the upstream ingestion workflow. Initialize a new target's minimum `SCHEMA.md`, `index.md`, and `log.md` configuration before wiki-oriented deep reading or formal compilation.
 
 ## Procedure
 
@@ -14,14 +14,14 @@ When the user provides a source (URL, file, paste), integrate it into the wiki.
 - Name the file descriptively: `raw/articles/karpathy-wiki-2026.md`
 - **Add raw frontmatter** with `ingested`, `sha256` of the body. Compute the hash over the body after the closing `---`, ignoring blank lines immediately after frontmatter. Use `source_url` for web-sourced files only (omit for local files). On re-ingest: recompute sha256, compare to stored value — skip if identical, flag drift if different.
 
-### ②.5 Check for a deep-reading dossier (acceleration path)
+### ①.5 Check the source route and deep-reading dossier
 
-Before extracting entities/concepts from scratch, check whether a deep-reading dossier already exists for this source. This is an optional acceleration — normal ingest is the default:
+Under `social-science-km` orchestration, consume the dispatched project/wiki paths, requested scope, source set, route/reason, reading mode, dossier paths and acceptance results, and allowed write scope. Use already accepted raw files without recapturing or modifying them. Require routing registration for all batch sources, then apply readiness per source or inseparable group; ready independent sources can proceed while others retain their blocker and next step.
 
-- Search `reading_dossiers/` for a file matching the source title.
-- **If a dossier exists** with `status: draft` and `target: karpathy-wiki`: you have a choice. The dossier's CERIC capsules and handoff list provide richer, deeper material than extracting from scratch. Load `references/compile-dossier.md` to use them. But you may still use normal ingest if the dossier doesn't cover what the user needs.
-- **If no dossier exists**: for long, theory-heavy, or thesis-critical sources follow the single decision rule in SKILL.md User-Directed Expansion step 5 — required under `social-science-km` orchestration, preferred (with a stated depth trade-off) standalone. For other sources proceed with normal ingest.
-- **Short/descriptive sources**: skip this check entirely.
+- **Required deep-reading route:** locate the dossier by `source_raw` membership, not only its title. Load `references/compile-dossier.md`, check its gates and key raw evidence, and compile from the accepted handoff. A missing directory/dossier, unavailable skill, failed gate, or inadequate coverage blocks this source/group; return it for deep reading or repair. Normal ingest cannot bypass that requirement.
+- **Other accepted routes:** use normal ingest only when the route permits direct compilation. Short/descriptive source length alone does not override the dispatched route.
+- **Standalone ingest:** dossiers remain optional. Search `reading_dossiers/` when available; an applicable draft targeted to `karpathy-wiki` can use the compile workflow, or normal ingest can address a different requested scope. For long, theory-heavy, or thesis-critical sources prefer deep reading; if proceeding without it, state the depth trade-off. Short/descriptive standalone sources may skip the dossier search.
+- A validator PASS checks structure only. Verify the source passages support proposed claims and preserve their limitations before formal writing.
 
 ### ② Discuss takeaways
 
@@ -50,6 +50,8 @@ Rules for these sections:
 - Prefer omission over inference.
 
 **Page titles:** Chinese with 中英对照 when the English term is standard: `[[注意力机制（Attention Mechanism）]]`、`[[安德烈·卡帕西（Andrej Karpathy）]]`、`[[Transformer 架构]]`（well-known English term as-is + Chinese suffix）、`[[OpenAI]]`（well-known English name kept as-is）
+
+**Optional evidence and argument nodes:** when supported by the source, use `observations/` (`type: observation`) for empirical/qualitative findings, `structures/` (`type: structure`) for frameworks and models, and `predicts/` (`type: prediction`) for conditional implications. Preserve raw anchors, method limits, framework assumptions, and prediction premises/uncertainty; separate author evidence from AI inference. Follow SKILL.md's Argument Structure Rule and SCHEMA. These types add no quotas and need not all appear for a source.
 
 **Existing pages:** Add new information, update facts, bump `updated` date. When new info contradicts existing content, follow the Update Policy below.
 

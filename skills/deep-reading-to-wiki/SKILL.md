@@ -1,6 +1,6 @@
 ---
 name: deep-reading-to-wiki
-description: Use when books, chapters, papers, source-discovery shortlists, or long Markdown sources must be read before karpathy-wiki, especially when raw-to-wiki ingest risks shallow summaries, missing claims, weak context, or low evidence density.
+description: Read identified books, chapters, papers, or long Markdown sources into evidence-anchored reading_dossiers using thorough or budget mode. Use for deep-reading-only requests or social-science-km deep-reading handoffs; source discovery and overall workflow routing stay upstream, and formal Wiki compilation belongs to karpathy-wiki.
 ---
 
 # Deep Reading To Wiki
@@ -77,7 +77,7 @@ When the user asks to deep-read multiple raw files and produce a **single merged
 
 1. **Filename**: Use a collective title, not one source's name: `reading_dossiers/<collection-name>-深读档案.md` (e.g., `原典材料-深读档案.md`).
 2. **Frontmatter**: List all source files under `source_raw:`. Record each file's hit reason and key terms under `source_discovery:`.
-3. **Structure map**: Organize the map by thematic layer or source group, not by single-file chapters. For each file, assign an L-level (short files get L3 full read; long files get L0 scan -> L1 key paragraphs -> L2 close reads). Cover every file in the map - none may be silently dropped.
+3. **Structure map**: Organize the map by thematic layer or source group, not by single-file chapters. Cover every included file. In thorough mode, map structure to support full sequential windows; select HV entries only after all included files have been read. In budget mode, record each file's L0-L3 coverage and apply the file-length exceptions in step 6.
 4. **Cross-file candidate synthesis**: Concepts and claims that appear across multiple files should be merged into single candidate rows with multiple raw anchors. Use comparisons to surface divergences between files (e.g., 孝经 "德之本" vs 论语 "仁之本").
 5. **High-value deep dives**: Each HV must cite its specific raw file path + line range. When a claim spans multiple files, list all anchors in the context capsule.
 6. **Reading budget per file**: In thorough mode, every file goes through windowed sequential reading. In budget mode: files < 300 lines are fully read; 300-500 lines are fully read unless weakly relevant (record skipped parts in 放弃清单); > 500 lines use L0 grep-based structure scan + L1 targeted reads. Batch independent reads across files in parallel.
@@ -95,7 +95,7 @@ When the user asks to deep-read multiple raw files and produce a **single merged
 
 ## Required Orientation
 
-Before reading the long source, orient to the target wiki when available:
+Before reading the long source, orient to the target wiki when available. Under `social-science-km` orchestration, use the dispatched project root, request scope, source set, route/reason, reading mode, dossier path, acceptance results, and allowed write scope. For a new target wiki, return to the orchestrator for minimal initialization (`SCHEMA.md`, `index.md`, `log.md`, domain and path) before wiki-oriented reading. Standalone deep reading without a wiki remains valid and ends at dossier delivery; do not initialize a wiki or compile pages unless requested:
 
 1. Read `wiki/SCHEMA.md`.
 2. Read `wiki/index.md`.
@@ -123,7 +123,7 @@ Pick the mode first, then apply its discipline (enforced by quality-gates.md Gat
 | **thorough**（默认） | Books, monographs, collections, theory-heavy or thesis-critical sources — depth and claim coverage matter more than token cost | Segmented sequential reading below. |
 | **budget** | Quick pre-screening, weakly relevant sources, or the user explicitly asks to save time | L0-L3 ladder below. |
 
-`social-science-km` Step 2 may pass `mode: thorough|budget` with the dispatch; when unspecified, default by the table above. Thorough mode costs several times more tokens/time — that trade is deliberate: richness and depth take priority.
+`social-science-km` may pass `mode: thorough|budget` with the dispatch; preserve it as `reading_mode` in the dossier. When unspecified, default by the table above. Thorough mode costs several times more tokens/time — that trade is deliberate: richness and depth take priority.
 
 ### Thorough mode: segmented sequential reading
 
@@ -164,23 +164,14 @@ File-search tools may return zero results when the path contains spaces, parenth
 
 This is a path-resolution limitation, not a content problem. The files are readable directly even when search tools cannot index them.
 
-## Structure-First Reading
+## Structure-Aware Reading (mode-aware)
 
-Read structure-first, value-second. Do not build the candidate pool from isolated passages that only look interesting.
+Map the source's chapters, sections, and argument phases in both modes. For each major unit, record its function, the problem it solves, the source-level thread it advances, and the wiki gap it touches. Every HV candidate must retain a compact layered path: whole source -> part or argument phase -> chapter or section -> candidate point.
 
-Before selecting high-value candidates:
+- **Thorough:** structure helps align windows and interpret their role; it never filters what gets read. Read every window sequentially, collect candidates, then select high-value areas after full coverage. A unit may be excluded from the final selection, but cannot be skipped during reading. Record already-read barren windows with line ranges and reasons.
+- **Budget:** classify every major unit at L0, including selected/skipped reasons and re-trigger conditions. Apply L1 to definitions, thesis statements, transitions, summaries, objections, and user-targeted topics. Select HV areas with wiki relevance and a clear structural role, then escalate their context to L2/L3 as needed. The short-file full-read exceptions still apply.
 
-1. Map the source's major units: chapters, sections, argument phases, or document headings.
-2. Give every major unit an L0 classification: function, likely wiki relevance, selected/skipped reason, and re-trigger condition.
-3. In the structure/problem map, answer for each major unit: what problem it solves, what source-level thread it advances, and which wiki gap it touches.
-4. For each high-value candidate, record a compact layered path: whole source -> part or argument phase -> chapter or section -> candidate point.
-5. Apply L1 sampling to units that define terms, state a thesis, summarize evidence, mark transitions, raise objections, or carry the user's target topic.
-6. Select high-value areas only when they have both wiki relevance and a clear structural role in the source.
-7. Escalate to L2/L3 only for structurally justified candidates, not because a passage is rhetorically attractive.
-
-Structure coverage is not full-source reading. L0 covers the map; L1 samples key points; L2/L3 remain local exceptions.
-
-Do not jump from raw excerpt to wiki claim. A high-value candidate must preserve its compact layered path.
+Structure coverage alone is not proof of full reading. In thorough mode, retain window coverage notes; in budget mode, report sampled and unread areas honestly. Do not jump from an isolated raw excerpt to a wiki claim.
 
 ## Minimum Dossier Blocks
 
@@ -203,7 +194,7 @@ Conditional modules are allowed only when triggered:
 
 ## Context Capsules
 
-The capsule's canonical layout is the **CERIC 10-field structure** in `references/dossier-template.md` — that template is the single authority for field names and numbering. The list below is only the semantic summary. Each high-value candidate claim, concept, or comparison must include a context capsule:
+The capsule's canonical layout is the **CERIC 10-field structure** in `references/dossier-template.md` — that template is the single authority for field names and numbering. The list below is only the semantic summary. Every high-value candidate, including optional observation, structure, or prediction candidates, must include a context capsule:
 
 - raw anchor: file path, chapter/section if available, and short exact excerpt;
 - local context: what problem the passage addresses and what it leads to;
@@ -231,10 +222,12 @@ If the gate fails, do not hand the dossier to `karpathy-wiki`. Continue targeted
 
 ## Handoff To Karpathy-Wiki
 
+The final section must carry the project root (or standalone designation), requested scope, raw paths/source set, route/reason when dispatched, reading mode, dossier path and acceptance results, and allowed write scope. Reuse the existing manifest and dossier; do not introduce a separate persistent task-state layer. A deep-reading-only request stops at this handoff.
+
 The final section must tell the next agent:
 
 - which existing wiki pages to update;
-- which new `concepts/`, `claims/`, `comparisons/`, or `entities/` pages may be needed;
+- which new `concepts/`, `claims/`, `comparisons/`, `entities/`, `observations/`, `structures/`, or `predicts/` pages may be needed; observation, structure, and prediction candidates are optional when evidence justifies them, with no new type quotas;
 - which candidates are too weak for wiki entry;
 - which raw anchors must be checked before formal compilation;
 - which context risks must be preserved in formal wiki pages;

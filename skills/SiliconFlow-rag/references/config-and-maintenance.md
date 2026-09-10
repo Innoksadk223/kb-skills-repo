@@ -50,8 +50,8 @@ Long builds write `.embedding_checkpoint.jsonl` inside the target index director
 ## Maintenance wording
 
 - When `wiki/raw/` changes materially, update the raw index. If the tool reports ordinary new/changed files, call this "新增到索引" or "增量更新", not "重建".
-- When `claims/`, `concepts/`, `entities/`, `comparisons/`, `synthesis/`, or `queries/` change materially, update the wiki index. If only files changed, call this "增量更新 wiki 索引".
-- An `enriched_raw` index also depends on wiki labels from `claims/`, `concepts/`, `comparisons/`, `entities/`, and `debates/`. The manifest records `semantic_source_hashes` and per-Raw `semantic_hint_hashes`; wiki-label changes must mark Raw stale and re-embed only affected Raw sources when possible.
+- When `claims/`, `concepts/`, `entities/`, `comparisons/`, `debates/`, `observations/`, `structures/`, `predicts/`, `synthesis/`, or `queries/` change materially, update the wiki index. If only files changed, call this "增量更新 wiki 索引".
+- An `enriched_raw` index also depends on wiki labels from `claims/`, `concepts/`, `comparisons/`, `entities/`, `debates/`, `observations/`, `structures/`, and `predicts/`. The manifest records `semantic_source_hashes` and per-Raw `semantic_hint_hashes`; wiki-label changes must mark Raw stale and re-embed only affected Raw sources when possible.
 - Use "重建" only for a full rebuild: initial build from an empty/missing index, or automatic fallback caused by changed `metadata_mode`, embedding model, mock/real mode, chunk size, overlap, include/exclude dirs, source dir, or index format.
 
 ## Index file rules

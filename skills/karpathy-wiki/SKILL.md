@@ -1,6 +1,6 @@
 ---
 name: karpathy-wiki
-description: "Build and maintain a persistent, graph-readable wiki as interlinked markdown files. Use when the user asks to create/start a wiki, ingest/add/process sources, query a wiki, lint/audit/health-check a wiki, create synthesis/claims, or work with a research knowledge base/Obsidian graph."
+description: "Initialize and maintain a graph-readable Markdown wiki; compile accepted sources or deep-reading dossiers into linked nodes, navigation, and logs, or perform Wiki structure health checks. social-science-km owns end-to-end research knowledge-base routing; standalone Wiki ingest and query operations remain available when explicitly requested."
 ---
 
 # Karpathy's Wiki
@@ -24,7 +24,11 @@ WIKI="${WIKI_PATH:-$HOME/wiki}"
 
 The wiki is just a directory of markdown files — open it in Obsidian, VS Code, or any editor. No database required.
 
-Deep-reading dossiers, when present, follow the `social-science-km` directory contract: `$WIKI_PATH/../reading_dossiers/` (a sibling of the wiki directory). If that directory does not exist, skip dossier-related steps — they are optional accelerators, not prerequisites.
+Deep-reading dossiers follow the `social-science-km` directory contract: `<project-root>/reading_dossiers/` (normally a sibling of `wiki/`). Under orchestration, use the dispatched project/wiki paths, request scope, source set, route/reason, reading mode, dossier paths and acceptance results, and allowed write scope; do not fall back to `~/wiki`. Missing dossiers or an unavailable deep-reading skill cannot bypass a required deep-reading gate. Only standalone ingest treats dossiers as optional accelerators.
+
+`social-science-km` owns multi-skill routing, conversion, source readiness, and index maintenance dispatch. This skill owns Wiki initialization, formal compilation, graph maintenance, and structural health checks. Respect the requested stop point: initialization or a health check does not trigger ingest; compilation does not automatically start queries, indexing, or outline writing. Standalone Wiki operations remain available within their requested scope.
+
+For orchestrated batches, first require routing registration for every source in the existing manifest. Then assess readiness per source or inseparable logical group: readable raw material, an accepted route, and an accepted dossier when that route requires deep reading. Compile ready independent sources; retain reasons and next steps for blocked/pending sources. Do not use a global all-dossiers-complete gate, or split a dependent group to evade its gate. Report partial completion explicitly when the user requested the whole batch.
 
 ## Architecture: Graph-Readable Layers
 
@@ -81,16 +85,15 @@ Use your file-read tool (or shell) on `$WIKI/SCHEMA.md`, `$WIKI/index.md`, and t
 
 ## Initializing a New Wiki
 
-When creating a wiki:
+When creating a wiki, establish the minimal target configuration before any wiki-oriented deep reading:
 
-1. Determine wiki path from `$WIKI_PATH` or ask; default `~/wiki`.
-2. Create the directory structure above, including `claims/`, optional `debates/`, and `synthesis/`.
-3. Ask what domain the wiki covers.
-4. Write `SCHEMA.md` from `references/templates/SCHEMA-template.md`, customized to the domain.
-5. Write `index.md` from `references/templates/index-template.md`. When any section exceeds 50 entries, split by pinyin first letter; when index exceeds 200 entries total, create `_meta/主题地图.md`.
-6. Write `log.md` from `references/templates/log-template.md`.
-7. Create empty `qa-log.md`: `## [YYYY-MM-DD] Q: 问题` → `A: 摘要（来源：[[页面]]）`.
-8. Confirm the wiki is ready and suggest first sources to ingest.
+1. Resolve the project root, wiki path, and domain from the user request or orchestration handoff. Standalone use may use `$WIKI_PATH` / `~/wiki`; ask only for genuinely missing context.
+2. Create the wiki root and needed directories from the structure above.
+3. Write domain-specific `SCHEMA.md` from `references/templates/SCHEMA-template.md`, `index.md` from `references/templates/index-template.md`, and `log.md` from `references/templates/log-template.md`. These are the minimum orientation files; read them before target-oriented deep reading starts. Preserve existing configuration when resuming a partially initialized wiki.
+4. Create `qa-log.md` if needed: `## [YYYY-MM-DD] Q: 问题` → `A: 摘要（来源：[[页面]]）`.
+5. Return the initialized path/domain and configuration to the orchestrator so ready sources can advance to deep reading or compilation. Initialization-only requests stop here; standalone deep reading without a target Wiki requires no initialization.
+
+When any index section exceeds 50 entries, split by pinyin first letter; when the index exceeds 200 entries total, create `_meta/主题地图.md`.
 
 ## Core Operations
 
@@ -204,9 +207,9 @@ Use this when the user says they want to add, deepen, rebalance, or supplement a
 2. Identify the graph gap in plain language: missing concept, thin claim, missing objection, weak comparison, missing source, or shallow synthesis.
 3. Find raw evidence before writing: use available RAG/source-discovery workflow from `social-science-km` or `SiliconFlow-rag`; do not rely on wiki pages alone.
 4. If no usable raw source is found, stop and report the source-discovery gap; do not create placeholder claims from general knowledge.
-5. For long, theory-heavy, or thesis-critical raw sources: when orchestrated by `social-science-km`, a `deep-reading-to-wiki` dossier is **required** before formal wiki edits (its Step 2 gate enforces this); when running standalone or the skill is not installed, **prefer** a dossier but fall back to normal ingest and tell the user the depth trade-off. This is the single decision rule; `references/ingest.md` follows it too.
-6. When a dossier exists, verify its `source_raw`, `user_intent` when present, high-value context capsules, and raw anchors before compiling it.
-7. Compile only after evidence is located: create/update `concepts/`, `claims/`, `comparisons/`, `entities/`, and lightweight `synthesis/` according to existing rules.
+5. For long, theory-heavy, or thesis-critical raw sources under `social-science-km`, require an accepted `deep-reading-to-wiki` dossier before formal edits; also honor any other source explicitly routed to required deep reading. Missing dossiers or an unavailable skill block that source/group and return it to the orchestrator. Only standalone ingest may prefer a dossier and fall back to normal ingest with a stated depth trade-off. `references/ingest.md` follows this same boundary.
+6. When a dossier exists, verify its `source_raw`, `user_intent` when present, high-value context capsules, and raw anchors before compiling it. Validator PASS is structural only; check that raw evidence supports the proposed nodes.
+7. Compile only after evidence is located: create/update `concepts/`, `claims/`, `comparisons/`, `entities/`, and, where supported, `observations/`, `structures/`, `predicts/`, plus lightweight `synthesis/` according to existing rules. The three extended node types are optional, with no per-dossier quotas.
 8. Preserve the user's stated inclination as a research direction, not as evidence. Raw sources support claims; the user's interest only chooses what to investigate.
 9. Update `index.md` and `log.md`; if the expansion touches 10+ existing pages, confirm scope before mass-editing.
 

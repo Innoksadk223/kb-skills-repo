@@ -172,7 +172,8 @@ def validate_dossier(text: str) -> tuple[list[str], list[str]]:
             )
     else:
         warnings.append(
-            "frontmatter 缺 raw_lines（Step 2 源转换行数）——"
+            "frontmatter 缺 raw_lines（转换 manifest 的源转换行数；"
+            "standalone 或合并档案按实际统计）——"
             "无法执行分档配额检查，仅按最低档提示"
         )
         if 0 < len(hv_blocks) < 3:

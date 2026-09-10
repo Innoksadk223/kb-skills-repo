@@ -15,7 +15,7 @@ Required signals:
 
 ## Gate 2: Enough Richness
 
-Quotas scale with converted source size. Read `raw_lines` from the Step 2 manifest (`_conversion_manifest.md`), write it into the dossier frontmatter, and meet the tier:
+Quotas scale with converted source size. Read `raw_lines` from the conversion manifest (`_conversion_manifest.md`); for standalone sources without a manifest, count the actual source lines. For a merged dossier, sum all included files. Write the total into dossier frontmatter and meet the tier:
 
 | raw_lines | 高价值区域 ≥ | 候选概念 ≥ | 候选 claims ≥ |
 |---|---|---|---|
@@ -40,13 +40,13 @@ Fail if high-value choices are not traceable to the source structure, or if the 
 
 Required signals:
 
-- The reading map covers every major chapter, section, or argument phase at L0.
-- Each major unit has a function, selected/skipped reason, and answers: what problem it solves, what source-level thread it advances, and which wiki gap it touches.
-- L1 sampling is tied to structural signals such as definitions, thesis statements, transitions, summaries, objections, limitations, or user-targeted topics.
+- The reading map covers every major chapter, section, or argument phase; budget uses L0 mapping, thorough links units to full sequential window coverage.
+- Each major unit has a function, selection/exclusion reason, and answers: what problem it solves, what source-level thread it advances, and which wiki gap it touches. Thorough exclusions mean already-read material not selected for HV, not unread units.
+- In budget mode, L1 sampling is tied to structural signals such as definitions, thesis statements, transitions, summaries, objections, limitations, or user-targeted topics. In thorough mode, these signals aid interpretation without filtering windows.
 - Every high-value area points back to a mapped unit and names its structural role.
 - Every high-value candidate names a compact layered path: whole source / part or argument phase / chapter or section / candidate point.
 - The candidate pool is not built from isolated passages without showing where they sit in the whole source.
-- The layered path compresses structure; it does not require reading every section in full.
+- The layered path compresses structure; full-reading obligations come from the selected mode, including for merged dossiers.
 
 ## Gate 3: Enough Depth
 
@@ -100,18 +100,18 @@ For user-directed expansion, the user's inclination is never evidence. It may ap
 
 **Thorough mode**（书、专著、论文集、理论重文献的默认模式）:
 
-- Fail if any window has neither window notes nor a skipped-area entry with line range — coverage must be complete: 窗口笔记覆盖区间 ∪ 放弃清单区间 ≈ 全文.
-- Fail if HV selection happened before all windows were read — selection comes from the over-complete pool, not from pre-reading judgment.
+- Fail if any included window was not read sequentially. Window notes must cover the complete source; a zero-candidate window must be re-read once and recorded with its line range and reason in 放弃清单. Such entries document already-read material, not permission to skip reading.
+- Fail if HV selection happened before all windows were read — selection comes from the over-complete pool, not from pre-reading judgment. For merged dossiers, this applies to all included files before cross-file HV selection.
 
 **Budget mode**（快速预筛、弱相关源、用户明确要求省时）:
 
-- Fail if the agent reads the full source by default.
-- Fail if the agent treats structure coverage as permission to read every section in full.
+- For each file (also in merged dossiers), < 300 lines must be read fully; 300-500 lines must be read fully unless weakly relevant, with skipped ranges and reasons in 放弃清单. These are length-based L3 exceptions, not gate failures.
+- For files > 500 lines, fail if the agent reads the full source by default or treats structure coverage as permission to read every section in full.
 - Allowed escalation:
   - L0 covers the source map through headings, openings/endings, summaries, and other cheap structural signals.
-  - L1 samples structurally relevant units to produce candidates.
+  - L1 samples structurally relevant units to produce candidates; sample a zero-candidate unit once more before accepting zero.
   - L2 builds context only for high-value candidates with wiki relevance and structural role.
-  - L3 is used only for thesis-critical sections, major disputes, or high compression risk.
+  - L3 covers the short-file exceptions above, thesis-critical sections, major disputes, or high compression risk. Escalate any HV region to L2/L3 when its capsule cannot be completed from the text already read.
 
 ## Generic Dossier (degraded gate)
 
@@ -135,7 +135,7 @@ Stop and ask or report the blocker when:
 
 ## Final Check Before Handoff
 
-Run the bundled validator; FAIL blocks the handoff:
+Run the bundled validator; FAIL blocks the handoff. PASS confirms structural checks only: independently verify key raw passages, context, coverage records, and evidence boundaries before accepting candidates for formal compilation. Observation, structure, and prediction candidates are optional when supported; they add no quotas and do not replace the existing concept/claim quotas.
 
 ```bash
 python3 <本技能目录>/scripts/validate_dossier.py reading_dossiers/<档案>.md

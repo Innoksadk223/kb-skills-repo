@@ -1,557 +1,202 @@
 ---
 name: social-science-km
-description: Use when managing social-science knowledge bases that need paper discovery, source ingestion, raw evidence conversion, deep reading, wiki graph writing, RAG indexing, or evidence-backed answers.
+description: "Use as the coordinator for social-science knowledge bases: choose a bounded conversion, deep-reading, wiki compilation, retrieval, outline, or maintenance route, and coordinate full source-to-wiki workflows only when requested."
 ---
 
 # Social Science Knowledge Management
 
-Use this skill as the coordinator for a layered social-science knowledge system:
+Coordinate the layered system and hand work to the appropriate skill. The user's requested scope has priority over the full pipeline; use the cheapest route that preserves evidence quality.
 
-1. **Convert sources → `wiki/raw/`**: use MinerU first for all PDF files, especially scanned PDFs, 古籍/影印本, papers, tables, formulas, and complex layouts; use MarkItDown only as the lightweight first pass for clean non-PDF sources.
-2. **Inspect Raw size/type, then deep-read selected sources → `reading_dossiers/`**: after conversion, inventory every content file in `wiki/raw/`; use its converted size, document type, and interpretation risk to decide whether `deep-reading-to-wiki` is required before wiki compilation.
-3. **Compile dossiers/raw → graph-readable `wiki/`**: use `karpathy-wiki` for formal `claims/`, `concepts/`, `entities/`, `comparisons/`, lightweight `synthesis/`, backlinks, `index.md`, and `log.md`.
-4. **Build/query RAG indexes → `检索索引/`**: use `SiliconFlow-rag` for raw evidence recall, source discovery, and wiki-first expansion.
+The full chain is **sources → `wiki/raw/` → selected `reading_dossiers/` → formal `wiki/` → raw/wiki indexes**. Discovery is optional upstream work; paper outlining is a separate downstream output. Do not create another orchestration framework, persistent task-state layer, or `资料md/` store.
 
-Optional before Step 1: **Discover new papers → source folder** with `academic-search` when the existing corpus is thin or the user asks to broaden coverage beyond local files. Only accepted, legally accessible full texts become source files; search metadata and abstracts are candidate records, not raw evidence.
+## 1. Route And Stop
 
-**Upstream prerequisites (not shipped by this repo):** `academic-search`, `mineru-document-extractor`, MinerU MCP, and `markitdown` must be installed from upstream. See the parent repo `README.md` / `CONFIG.md`, or run `bash setup.sh --list` for install URLs. This skill only coordinates them; it does not vendor their files.
+Resolve explicit task scope first, then required prerequisites, then source risk. Do not expand a bounded request into full ingestion merely because the user mentions a knowledge base.
 
-Do not create a separate `资料md/` layer. In this workflow, `wiki/raw/` is the single bottom-layer text store; `reading_dossiers/` is a pre-wiki interpretation layer; `wiki/claims`, `wiki/concepts`, `wiki/entities`, and `wiki/comparisons` are graph-readable knowledge layers, not replacements for raw evidence.
+| User intent | Route | Stop point |
+|---|---|---|
+| Only convert PDFs/documents | [Source ingestion](references/source-ingestion.md); MinerU for PDFs, MarkItDown first for supported non-PDFs | Accepted raw outputs + coverage/failures report; no dossiers, compilation, or indexing |
+| Only deep-read / produce a dossier | `deep-reading-to-wiki`, with selected raw and reading mode; standalone allowed | Accepted dossier + limitations/handoff; no formal wiki or index writes |
+| Answer an existing-wiki question / find a quote | [RAG workflow](references/rag-workflow.md), mode-appropriate retrieval or permitted local reading | Evidence answer; no re-ingestion |
+| Write a paper outline | `wiki-paper-outline` | Skeleton → discussion → fill, output only under `outlines/`; no automatic corpus supplementation |
+| Wiki structure/health check, lint only | `karpathy-wiki` maintenance | Findings report; no automatic repairs, ingestion, or index updates |
+| Index status only | RAG helper check-only maintenance | Status report; no query/API or index mutation |
+| Explicit index update | RAG maintenance within authorized scope | Relevant indexes updated + report |
+| Build/expand knowledge base from local sources | Conversion as needed → initialization → batch routing → source-ready dossiers/compilation → relevant index update | Requested chain completed, with partial/blocked sources disclosed |
+| Search a field and build from zero | Approved academic acquisition → source folder → full chain | Requested corpus/wiki/index result and coverage report |
+| Supplement a stated topic/gap | Gap-driven loop below; stop at shortlist if that is the request | Only the requested discovery or accepted evidence-backed expansion |
+| Wiki is shallow after ingest | Retroactive deep reading → revise supported nodes → relevant index check/update | Targeted revision and remaining gaps |
+| Retrieval is weak | Required-index freshness → ordinary retrieval → justified escalation | Answer or explicit evidence gap; do not rewrite wiki to fix ranking |
 
-The coordinator's job is to make the workflow executable. Prefer bundled helper scripts over asking each agent to improvise shell commands. If a repeated operation is needed across projects, add or copy a reference helper instead of hand-writing a new local variant.
+A book, collection, long chapter, theory-heavy or thesis-critical source needs the raw routing gate before formal compilation. A short, narrow, self-contained, low-risk source may qualify for direct wiki compilation; size alone never decides.
 
-## Workflow Router
+Sub-skills remain independently usable. When this coordinator dispatches them, its source routing and acceptance requirements travel in the handoff; standalone “no dossier” paths cannot waive a required dossier here.
 
-Use the cheapest path that preserves quality:
+## 2. Directory And Evidence Contract
 
-| User intent / source state | Route |
+Keep source and knowledge-base folders as siblings:
+
+```text
+<source-folder>/                      # original sources, read-only
+<source-folder>（知识库）/             # project root for processed outputs
+├── reading_dossiers/                 # pre-wiki interpretation, not raw/graph
+├── outlines/                         # wiki-paper-outline output
+├── wiki/                             # WIKI_PATH, karpathy-wiki root
+│   ├── SCHEMA.md                     # structure and conventions
+│   ├── index.md                      # content navigation
+│   ├── log.md                        # operation log
+│   ├── qa-log.md                     # karpathy-wiki question log
+│   ├── raw/                          # sole bottom-layer converted text
+│   │   ├── <source-folder-name>/     # preserve source-relative paths
+│   │   ├── _conversion_manifest.md  # coverage and routing ledger
+│   │   ├── _conversion_failures.md  # present when conversion fails
+│   │   └── _主题索引.md              # concise corpus inventory
+│   ├── claims/                       # theses, support, objections, limits
+│   ├── concepts/
+│   ├── entities/
+│   ├── comparisons/
+│   ├── observations/                 # evidence-backed observations
+│   ├── structures/                   # structural relationships
+│   ├── predicts/                     # predictions with uncertainty
+│   ├── debates/                      # optional mature multi-position disputes
+│   ├── queries/                      # archived query results
+│   └── synthesis/                    # lightweight routes, not evidence banks
+└── 检索索引/
+    ├── raw/                          # raw evidence recall
+    └── wiki/                         # graph-readable wiki recall
+```
+
+- Work from `<知识库>/`; set `WIKI_PATH=<知识库>/wiki/` for `karpathy-wiki`.
+- Never put the knowledge base inside the source folder or scatter processed layers beside its parent. Sibling separation prevents re-ingesting outputs.
+- Original sources remain unchanged. Only approved academic acquisition may add accepted new files to the source folder.
+- Dossiers guide interpretation through raw anchors; they are not original evidence and belong in neither default RAG index.
+- Wiki nodes and enriched-raw labels aid recall; substantive assertions and quotations require checked `wiki/raw/` evidence.
+- Preserve disagreements, attribution, context risks, and uncertainty. Never replace a weak source with confident generated prose.
+- `synthesis/` and optional `synthesis/_global/` are route maps linking formal nodes, not durable evidence banks.
+
+## 3. Initialize Only What The Route Needs
+
+For a new wiki-oriented workflow, establish project root, domain, and minimum wiki configuration **before** instructing deep reading to read wiki context. Use `karpathy-wiki` to initialize missing SCHEMA/index/log and required structures, preserving existing files. Then read `wiki/SCHEMA.md`, `wiki/index.md`, and recent `wiki/log.md`.
+
+For an existing wiki, read its existing configuration rather than replacing it. For deep-reading-only, use standalone mode when no target wiki is needed. Conversion-only may create raw output directories without initializing the formal wiki. Query/lint against an absent wiki reports that absence rather than silently starting a build.
+
+Check only route-specific dependencies:
+
+| Route | Required capability |
 |---|---|
-| User starts from zero and asks to search a field and build a new knowledge base | Academic-search acquisition → source folder setup → Step 1 → Step 2 Raw sizing/type gate → Step 3 → Step 4 initial build |
-| User already has source files and asks to build or expand the wiki | Step 1 for local files → Step 2 Raw sizing/type gate → Step 3 → Step 4 update; use Gap-driven expansion only for stated gaps |
-| Existing corpus is thin, stale, or missing obvious related-field sources | Academic-search acquisition → Step 1 → Step 2 Raw sizing/type gate → Step 3 → Step 4 update |
-| New PDFs or documents need conversion | Step 1 → Step 2 Raw sizing/type gate → Step 3 → Step 4 update |
-| User wants to add related-field papers beyond local sources | Academic-search acquisition → Step 1 → Step 2 Raw sizing/type gate → Step 3 → Step 4 update |
-| Source is a book, long chapter, theory-heavy paper, or thesis-critical text | Step 2 is required before Step 3 |
-| Source is short, narrow, and low-risk | Step 3 may compile directly from `wiki/raw/` |
-| Existing wiki question or citation lookup | Step 4 query; do not re-ingest |
-| User wants to supplement a topic already visible in the wiki | Gap-driven expansion → Step 4 source discovery → Step 2 → Step 3 → Step 4 update |
-| Wiki feels shallow or missing context after ingest | Step 2 retroactively creates a dossier, then Step 3 revises wiki |
-| RAG output is weak | Check index freshness, then escalate query mode before changing wiki |
-| User wants to plan/outline a paper from the built wiki（写论文大纲、构思论文结构） | Route to `wiki-paper-outline`: read-only over `wiki/` + `检索索引/`, two-phase skeleton→discussion→fill, output to `<知识库>/outlines/` |
+| Academic discovery/acquisition | Upstream `academic-search` and the approved network boundary |
+| PDF conversion / extraction fallback | Upstream `mineru-document-extractor` and usable MinerU MCP or permitted CLI |
+| Supported non-PDF conversion | Upstream `markitdown` and needed local dependencies |
+| Deep reading | `deep-reading-to-wiki`, usable source, selected reading mode |
+| Wiki initialization/compilation/lint | `karpathy-wiki`, appropriate local project context |
+| Real indexing/retrieval | `siliconflow-rag`, required index/configuration, approved API use |
+| Paper outlining | `wiki-paper-outline`, its read-only source context; small-wiki local-reading exception applies |
 
-`deep-reading-to-wiki` exists to prevent shallow raw-to-wiki compilation. It produces `reading_dossiers/` only; formal wiki writing remains `karpathy-wiki`'s job.
+Do not assume MinerU skill/MCP installation status. These upstream tools are not vendored; setup references are in repository [README](../../README.md) / [CONFIG](../../CONFIG.md). A missing tool/key blocks only work that depends on it.
 
-### Optional Academic-Search Acquisition
+## 4. Batch Inventory, Then Source Readiness
 
-Use this route when the user explicitly asks the agent to find related papers, or when `wiki/raw/` and the RAG indexes do not contain enough candidate sources for a stated gap.
+Load [raw-routing-gate.md](references/raw-routing-gate.md) before any formal compilation. It owns the size bands and semantic overrides; do not duplicate or weaken them.
 
-**REQUIRED SUB-SKILL:** Use `academic-search` for paper search, metadata extraction, open-access status checks, and legal full-text acquisition.
+1. Inventory **all active-batch** converted content Markdown by bytes/lines, excluding operational `_*.md` files. Account for failed conversions too.
+2. Classify source types and logical collection membership; inspect group totals as well as individual files.
+3. Record `raw_bytes`, `raw_lines`, `source_type`, `wiki_route`, and `route_reason` in the existing conversion manifest. Every batch content source needs a route before any batch source compiles.
+4. After that common inventory, assess readiness per independent source or inseparable logical group, not by waiting for every dossier in the entire batch.
 
-Procedure:
-
-1. Follow `academic-search`, including the relevant discipline profile, before searching.
-2. Search with 2-3 focused queries, then return a shortlist with title, year, venue/source, relevance reason, citation count when available, DOI/arXiv ID, and open full-text status.
-3. Ask before downloading papers or running a long batch. Download only `open_pdf` or otherwise legally accessible full text; never use paywall bypasses.
-4. After user approval, save accepted new source files under the source folder, preferably `<source-folder>/academic-search/<topic>/...`, then treat them as ordinary source files for Step 1. This is the only allowed source-folder mutation; do not move, delete, or rewrite existing source files.
-5. Convert accepted PDFs through MinerU and accepted non-PDF/HTML sources through the Step 1 MarkItDown/MinerU routing into `wiki/raw/<source-folder-name>/academic-search/<topic>/...`.
-6. Record paper provenance in `wiki/raw/_conversion_manifest.md`: query/topic, DOI/arXiv ID when available, source URL/PDF URL, download status, converter, and output path.
-
-Do not write wiki pages from search results alone. Metadata, abstracts, and candidate lists help decide what to acquire; only converted full text in `wiki/raw/` or a checked dossier may support formal wiki nodes.
-
-### Gap-Driven Expansion
-
-Use this route when the user looks at the current wiki and states an inclination or gap, for example: "我想补充一些关于儿童教育的内容."
-
-Procedure:
-
-1. Capture the user's intent as a research direction, not a conclusion.
-2. Orient to the current wiki: read `wiki/SCHEMA.md`, `wiki/index.md`, recent `wiki/log.md`, and search graph-readable pages for the topic.
-3. State the suspected gap: thin concept, missing claim, absent objection, weak comparison, underused source, or missing raw evidence.
-4. Run source discovery with `SiliconFlow-rag`:
-   - start with wiki-first when the topic is conceptual or argumentative;
-   - use raw-only for direct source lookup;
-   - add `--multi-query` when wording mismatch is likely;
-   - add `--expand-context --context-window 1` when local passage context matters.
-5. Return a short candidate-source list: source path, why it may help, key terms, and whether it likely needs deep reading.
-6. If candidate raw sources are weak, stale, or fewer than needed, report the blocker and broaden/check the index before deep reading.
-7. For each long/high-value candidate source, run Step 2 with `deep-reading-to-wiki`, passing the user intent and source-discovery shortlist into the dossier.
-8. Compile accepted dossiers through Step 3 with `karpathy-wiki`.
-9. After wiki edits, run Step 4 stale-index check and update the relevant index.
-
-Do not add wiki pages from the user's inclination alone. The inclination chooses the search path; raw evidence and dossiers decide what enters the graph.
-
-Keep this loop short: **intent → candidate raw sources → dossier when needed → formal wiki edit → index update**. Do not invent extra durable layers.
-
-## Directory Contract
-
-Always keep the source folder and the knowledge-base folder as siblings. If the source folder is `03-心理学文献/`, create or use `03-心理学文献（知识库）/` beside it as the project root for all processed outputs.
-
-Use this fixed directory contract:
-
-```
-<source-folder>/                      ← 原始文档。只读，永不修改或删除
-<source-folder>（知识库）/
-├── reading_dossiers/                 ← deep-reading-to-wiki 输出；预编译深读档案，不是 raw，不进正式图谱
-├── wiki/                             ← $WIKI_PATH（karpathy-wiki 项目根）
-│   ├── SCHEMA.md                     ← karpathy-wiki 初始化生成的结构与规范
-│   ├── index.md                      ← 知识库内容目录
-│   ├── log.md                        ← 操作日志
-│   ├── raw/                          ← MinerU / MarkItDown 输出的 Markdown 语料
-│   │   ├── <topic>/                  ← 按原始主题/目录组织
-│   │   └── _主题索引.md              ← Step 1 生成的语料清单
-│   ├── claims/                       ← karpathy-wiki 编译的论证节点页
-│   ├── concepts/                     ← karpathy-wiki 编译的概念页
-│   ├── entities/                     ← karpathy-wiki 编译的实体页
-│   ├── comparisons/                  ← karpathy-wiki 编译的比较/辨析页
-│   ├── debates/                      ← 可选；成熟社科争议谱系/多立场争论页
-│   ├── queries/                      ← karpathy-wiki 存档的查询结果
-│   ├── synthesis/                    ← 轻量入口页/路线图，不承载主要证据银行
-│   ├── qa-log.md                     ← 问答日志（karpathy-wiki 维护）
-└── 检索索引/                         ← RAG 本地索引（由 SiliconFlow-rag 维护）
-    ├── raw/                          ← raw source evidence index
-    └── wiki/                         ← wiki structure index for wiki-first recall
-```
-
-Treat `<source-folder>（知识库）/` as the project root when running commands. Set `WIKI_PATH` to `<知识库>/wiki/` so that `karpathy-wiki` operates on the correct wiki directory. `reading_dossiers/` is read by agents as precompiled interpretation, but it is not raw evidence and is not a formal graph layer. `SiliconFlow-rag` builds two indexes relative to the project root: `wiki/raw/` → `检索索引/raw`, and graph-readable wiki pages → `检索索引/wiki`.
-
-Do not place `raw/`, `wiki/`, `reading_dossiers/`, or `检索索引/` beside the source folder's parent directory, and do not put the knowledge-base folder inside the source folder. Keeping source and knowledge-base folders as siblings prevents converted Markdown, dossiers, wiki files, and index files from being scanned again as source material.
-
-## Step 1: Convert Sources To Raw Markdown
-
-Use `mineru-document-extractor` for PDFs and any MarkItDown failure/fallback cases. Use the `markitdown` skill and Microsoft MarkItDown CLI only for non-PDF sources that convert cleanly.
-
-Dependency note: this workflow requires both the MinerU skill and the MinerU MCP. The skill is already installed; the MinerU MCP still needs to be installed/configured from https://mineru.net/ecosystem so agents can call MinerU directly.
-
-Procedure:
-
-1. Load/read both relevant skills when needed: `mineru-document-extractor` for PDFs and fallback extraction; `markitdown` for non-PDF document conversion.
-2. Check the active Python environment with `python -m markitdown --version`; install `markitdown` and needed optional dependencies only if missing and only for non-PDF conversion.
-3. Recursively scan the source folder for convertible files such as PDF, DOCX, PPTX, XLSX, HTML, TXT, Markdown, and common document formats.
-4. Route conversions by file type:
-   - **PDF (`.pdf`) → MinerU first**. Do not use MarkItDown as the default PDF path. MinerU is preferred for scanned/影印 PDFs, papers, tables, formulas, and complex layouts because it provides OCR and stronger document-structure extraction.
-   - **Non-PDF → MarkItDown first** when the format is supported and the output looks usable.
-   - **MarkItDown fallback → MinerU** when MarkItDown fails, returns empty/near-empty output, or produces obvious乱码/garbled text.
-5. Convert each file to `<知识库>/wiki/raw/<source-folder-name>/...` while preserving the relative directory structure when possible. Keep the output extension as `.md`.
-6. Existing Markdown sources may be copied into `<知识库>/wiki/raw/<source-folder-name>/...` as processed Markdown without changing their content.
-7. Do not overwrite original files.
-8. When MinerU is available through MCP, prefer the MinerU MCP tools. Use the MinerU CLI only when MCP is unavailable, the user explicitly asks for CLI usage, or the MCP tool cannot satisfy the workflow.
-9. Detect unusable MarkItDown output before accepting it. Treat these as fallback triggers: empty output, only boilerplate/page markers, widespread replacement characters (`�`), mojibake patterns, or mostly unreadable text compared with the source language.
-10. If both primary conversion and MinerU fallback fail, record the source path, target path, attempted tools, and errors in `wiki/raw/_conversion_failures.md` and tell the user.
-11. Generate or update `wiki/raw/_conversion_manifest.md` with a durable conversion ledger. At minimum record source path, output path, converter, status, source size or hash when cheap, language/OCR mode when known, and failure reason if any. After conversion, Step 2 must add or update `raw_bytes`, `raw_lines`, `source_type`, `wiki_route`, and `route_reason` for every successfully converted content source. Markdown table format is acceptable; JSONL is also acceptable if the project already uses JSONL manifests.
-12. Generate or update `wiki/raw/_主题索引.md` with a concise file list and rough topic grouping when enough filenames or headings are available.
-
-### Batch Source Conversion With Subagents
-
-For large source folders, source conversion may be split across subagents by directory, file type, or topic batch. This is especially useful when many PDFs need MinerU processing or when mixed formats may require MarkItDown → MinerU fallback checks.
-
-Use subagents for **independent conversion batches only**:
-
-- Assign each subagent a non-overlapping file list and a matching output subtree under `wiki/raw/`.
-- Each subagent may run MinerU/MarkItDown for its assigned files and write only its own raw Markdown outputs plus a small per-batch conversion report.
-- The parent agent owns shared files: merge per-batch reports into `wiki/raw/_conversion_failures.md`, generate/update `wiki/raw/_conversion_manifest.md`, generate/update `wiki/raw/_主题索引.md`, and verify final coverage.
-- Do not let multiple subagents edit `_主题索引.md`, `_conversion_failures.md`, wiki pages, navigation, or RAG indexes concurrently.
-- After all batches finish, the parent must check for missing source files, duplicate outputs, failed conversions, and MarkItDown outputs that still look garbled before moving to the Step 2 deep-reading decision.
-
-Validation: every source file is either represented by one `.md` output under `wiki/raw/` or listed in `_conversion_failures.md` with the attempted tools and error. The manifest is the coverage source of truth; do not rely on filename resemblance alone for large folders.
-
-Validation:
-
-- `wiki/raw/` exists.
-- At least one `.md` file exists under `wiki/raw/`, unless all conversions failed.
-- PDF entries in `wiki/raw/` were produced by MinerU unless explicitly noted otherwise.
-- Any MarkItDown failure/乱码 fallback is either successfully replaced by MinerU output or recorded in `wiki/raw/_conversion_failures.md`.
-- `wiki/raw/_conversion_manifest.md` exists after batch conversion or any conversion involving more than a few files.
-- `wiki/raw/_conversion_failures.md` exists when any file failed after all fallback attempts.
-
-## Step 2: Inspect Raw Size And Route Deep Reading
-
-Run this gate after Step 1 has finished and before any Step 3 wiki compilation. Do not decide from the original PDF/DOCX byte size: inspect the converted Markdown under `wiki/raw/`, because that is what downstream agents will read.
-
-Load and follow [references/raw-routing-gate.md](references/raw-routing-gate.md). Its required sequence is:
-
-1. Inventory each converted content Markdown file by line and byte count; exclude operational `_*.md` files.
-2. Classify source type and group files belonging to the same book, anthology, proceedings volume, or deliberate collection.
-3. Apply the size bands plus semantic overrides; size is a signal, while source type and context-loss risk are decisive.
-4. Record `raw_bytes`, `raw_lines`, `source_type`, `wiki_route`, and `route_reason` in `_conversion_manifest.md` using `deep-reading`, `direct-wiki`, or `blocked`.
-5. Do not start Step 3 until every converted content source has a route and every `deep-reading` source has an accepted dossier.
-
-### Create Dossiers For The Selected Sources
-
-Use `deep-reading-to-wiki` for every source or source group routed to `deep-reading` before formal wiki compilation.
-
-Procedure:
-
-1. Read the installed `deep-reading-to-wiki/SKILL.md` if not already loaded in the conversation.
-2. Work from the project root (`<知识库>/`), not inside `wiki/`.
-3. Orient to the target wiki first: read `wiki/SCHEMA.md`, `wiki/index.md`, and recent `wiki/log.md`.
-4. Pass the selected raw path(s), source type, size measurements (including manifest `raw_lines`, which the dossier frontmatter must carry for tiered quotas), route reason, collection grouping, and a reading mode into the deep-reading task: `mode: thorough`（默认——书、专著、合集、理论重或 thesis-critical 源；分段顺序精读）or `mode: budget`（快速预筛或用户明确要求省时；L0-L3 采样）. For a collection, use the multi-source merged-dossier workflow when one collective argument map is more useful than isolated dossiers.
-5. Follow the `deep-reading-to-wiki` reading-mode contract: thorough mode reads the source window-by-window in full and selects from the over-complete pool; budget mode uses the L0-L3 ladder.
-6. If invoked from Gap-Driven Expansion, include `trigger: user_directed_expansion`, `user_intent`, and the `source_discovery` shortlist in the dossier frontmatter.
-7. Write the dossier to `reading_dossiers/<source-title>-深读档案.md`.
-8. Require raw anchors, context capsules, skipped-area notes, candidate nodes, and a wiki handoff checklist.
-9. Do not write `wiki/claims`, `wiki/concepts`, `wiki/entities`, `wiki/comparisons`, `wiki/synthesis`, `index.md`, or `log.md` in this step.
-
-Validation:
-
-- `reading_dossiers/` exists when any source is routed to `deep-reading`.
-- Every successfully converted Raw content source has `raw_bytes`, `raw_lines`, `source_type`, `wiki_route`, and `route_reason` in `_conversion_manifest.md` before Step 3.
-- Every book, monograph, thesis/dissertation, collection, and long/high-risk source routed to `deep-reading` has a corresponding dossier; a missing dossier blocks that source from Step 3.
-- Every `direct-wiki` source satisfies the short, narrow, self-contained, low-risk conditions, with collection membership checked.
-- Each high-value candidate in the dossier has a raw anchor and context capsule.
-- The dossier passes its anti-slack self-check before Step 3.
-- `python3 <skills-repo>/skills/deep-reading-to-wiki/scripts/validate_dossier.py reading_dossiers/<档案>.md` reports PASS for every `deep-reading` dossier; FAIL blocks that source from Step 3.
-
-### Batch Deep Reading
-
-For many long sources, split by non-overlapping source files or source groups. A subagent may create only its assigned dossier path under `reading_dossiers/`; it must not edit wiki pages, navigation files, or RAG indexes.
-
-The parent agent owns final routing: review dossier quality, decide which dossiers are ready for `karpathy-wiki`, and keep a short list of skipped or blocked sources.
-
-## Step 3: Compile Dossiers Or Raw Into Wiki
-
-Use `karpathy-wiki`. Set `WIKI_PATH` to `<知识库>/wiki/` before running it. Its evidence layer is still `wiki/raw/`; when a dossier exists, treat it as a precompiled reading guide that points back to raw anchors, not as raw evidence.
-
-Procedure:
-
-1. Read the installed `karpathy-wiki/SKILL.md` if not already loaded in the conversation.
-2. Export `WIKI_PATH=<知识库>/wiki/` (or tell the agent to set this environment variable).
-3. Initialize only missing `wiki/` structures according to that skill:
-   - `wiki/SCHEMA.md`
-   - `wiki/index.md`
-   - `wiki/log.md`
-   - `wiki/qa-log.md`
-   - `wiki/claims/`
-   - `wiki/concepts/`
-   - `wiki/entities/`
-   - `wiki/comparisons/`
-   - `wiki/debates/` when the wiki contains mature multi-position social-science controversies
-   - `wiki/queries/`
-   - `wiki/synthesis/`
-4. Check the Step 2 manifest route before compiling each source:
-   - `deep-reading` → require the corresponding accepted dossier, then compile from `reading_dossiers/` plus its raw anchors;
-   - `direct-wiki` → compile directly from `wiki/raw/`;
-   - `blocked` or missing route → do not compile.
-5. Compile content into `wiki/claims/`, `wiki/concepts/`, `wiki/entities/`, `wiki/comparisons/`, optional `wiki/debates/`, and lightweight `wiki/synthesis/` per karpathy-wiki's workflow.
-   - Use `claims/` for theses, support propositions, objections, limitations, and bridge claims.
-   - Use `debates/` only for durable multi-position disputes with recurring authors, schools, objections, or method conflicts. Do not use it for a simple two-term distinction; use `comparisons/` for that.
-   - Use `synthesis/` only as route maps, reading order, current state, and gaps; do not keep long durable evidence banks there.
-   - For large or mature corpora, optional GraphRAG-lite global entry pages may live under `wiki/synthesis/_global/`. These pages are only theme/community route maps: major debates, reading paths, topic clusters, and gaps. They must link to `claims/`, `concepts/`, `entities/`, `comparisons/`, or `debates/`; they must not become durable evidence banks.
-6. For user-directed expansion, compile only claims/concepts/comparisons/entities/debates that are backed by accepted dossier entries or checked raw anchors.
-7. Preserve context risks from the dossier inside the formal wiki page when they affect interpretation.
-8. Update `wiki/index.md` and append to `wiki/log.md` after ingest.
-9. When a dossier is used, update its frontmatter to `status: compiled` and list key `compiled_to:` wiki pages.
-10. Preserve factual disagreements with source attribution instead of smoothing them away.
-
-### Bulk Ingest Pattern (50+ files, multi-domain)
-
-When the raw corpus is large and spans multiple disciplines, split work by stage:
-
-- **Step 2 deep reading**: subagents may create non-overlapping dossiers under `reading_dossiers/`.
-- **Step 3 formal wiki compilation**: subagents return structured analysis only; the parent writes all wiki pages and navigation files.
-
-The parent must complete the Raw size/type inventory and assign non-overlapping source groups before dispatching Step 2 work. For collections, group by the logical work or volume rather than arbitrary equal file counts.
-
-**Grouping strategy**: split by source directory domain — e.g. classical texts, secondary scholarship, empirical psychology. Keep groups under ~30 files each.
-
-**Deep-reading subagent prompt shape**:
-- Domain context (what this wiki covers)
-- Exact file paths to read
-- Exact dossier output path under `reading_dossiers/`
-- Instruction to use `deep-reading-to-wiki`
-- Explicit instruction: "Do not create or edit wiki pages"
-
-**Wiki-compilation subagent prompt shape**:
-- Domain context and existing wiki targets
-- Exact raw files and/or dossier files to inspect
-- Output format: candidate claims, concepts, entities, comparisons, cross-links, context risks
-- Explicit instruction: "Only analyze, do NOT create or write any files"
-
-**Parent synthesis**: collect dossiers and subagent summaries, identify cross-group connections that no single subagent could see, then create wiki pages in this order: claims and concepts first, then entities and comparisons, then only lightweight synthesis route maps if cross-domain themes emerge. Update index.md and log.md in one pass at the end.
-
-**Pitfall**: subagent file-mutation hazard (karpathy-wiki skill warns about this). Subagents share the parent filesystem — never let them write wiki pages or update navigation. Only Step 2 subagents may write their assigned dossier files.
-
-Validation:
-
-- `wiki/index.md` exists.
-- `wiki/log.md` exists.
-- At least one article exists under `wiki/entities/` or `wiki/concepts/` after a successful compile.
-
-## Step 4: Build Or Query RAG
-
-Use `SiliconFlow-rag`.
-
-Before the first real RAG build or query, make sure `SILICONFLOW_API_KEY` is configured in the environment or saved in the local private config. Resolution order should match `SiliconFlow-rag`: environment variable first, then `~/.hermes/private/SiliconFlow-rag/config.json`, then legacy `~/.codex/SiliconFlow-rag/config.json`. If it is missing, ask the user for a SiliconFlow API key, explain that raw Markdown chunks/questions will be sent to SiliconFlow for embeddings, wiki-page retrieval text will be sent when building the wiki index, multi-query sends the question for rewriting, and rerank sends candidate snippets. Never write a real key into repository files because the skills repo may be uploaded.
-
-### Initial Build
-
-Build both indexes after `wiki/raw/` and graph-readable wiki pages are populated, running from the project root (`<知识库>/`). `<skills-repo>` 指技能安装根（如 `~/.claude/skills` 的上级仓库或克隆目录）——知识库根目录下没有 `skills/`，不要逐字照抄相对路径；也可 `export KB_SKILLS_DIR=<skills-repo>/skills` 让 `km_query.py`/`check_rebuild_rag.py` 自动定位脚本:
-
-```bash
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
-  --md-dir wiki/raw \
-  --index-dir 检索索引/raw \
-  --metadata-mode enriched_raw
-
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
-  --md-dir wiki \
-  --index-dir 检索索引/wiki \
-  --include-dirs claims,concepts,entities,comparisons,debates,observations,structures,predicts,synthesis,queries \
-  --exclude-dirs raw,_archive \
-  --metadata-mode wiki
-```
-
-Do not include `reading_dossiers/` in either default index. Dossiers are AI-generated precompiled reading guides; they may guide wiki compilation, but raw evidence must still come from `wiki/raw/` and formal recall should come from graph-readable wiki pages.
-
-`enriched_raw` is the default raw-index mode for this workflow once wiki pages exist. It adds retrieval-only labels from wiki claims/concepts/entities/comparisons to raw chunks, improving recall without changing the evidence boundary: the quoted/cited text is still the raw chunk, not the wiki label. If this is the very first build and the wiki layer is empty, a plain raw index is acceptable temporarily; after Step 3 creates graph-readable wiki pages, rebuild or incrementally update the raw index with `--metadata-mode enriched_raw`.
-
-Stage gate: before graph-readable wiki pages exist, raw index `metadata_mode: plain` is acceptable. Once any page exists under `wiki/claims`, `wiki/concepts`, `wiki/entities`, `wiki/comparisons`, `wiki/debates`, `wiki/synthesis`, or `wiki/queries`, raw index checks must require `metadata_mode: enriched_raw`.
-
-### Proactive Index Status Check & Incremental Update (mandatory)
-
-**Every session** where the knowledge base is mentioned, proactively check whether either RAG index is stale before doing any query or wiki work. Do NOT wait for the user to ask.
-
-1. Copy `<skills-repo>/skills/social-science-km/references/check_rebuild_rag.py` into `<知识库>/check_rebuild_rag.py` if it doesn't exist. Do not improvise a new local helper unless the bundled helper is unavailable.
-2. Run a check-only scan:
-
-```bash
-cd "<知识库>"
-python check_rebuild_rag.py --check
-```
-
-If `<知识库>/rag_config.json` exists, both `check_rebuild_rag.py` updates and `km_query.py` queries must pass it through to SiliconFlow-rag so project-specific models and chunk/query settings are preserved.
-The staleness check must also compare explicit build settings (`model`, `chunk_size`, `overlap`, `dimensions`, and `encoding_format`) with both manifests; a mismatch is a settings change that requires a full rebuild.
-
-3. **If stale**: tell the user which index needs updating, and distinguish the operation precisely:
-   - `new/changed` files → say "新增/改动，需要增量更新索引" or "补入索引".
-   - `deleted` files → say "有删除，需要从索引移除对应条目".
-   - only say "重建" when the tool reports a settings/model/index-format change that forces a **full rebuild**.
-   - Example: "RAG 索引有更新：raw 有 1 个新增文件，要不要增量更新 raw 索引？"
-4. **If current**: say nothing, the indexes are fine.
-5. After user confirms, update/add to the index:
-
-```bash
-cd "<知识库>"
-python check_rebuild_rag.py
-```
-
-**Staleness logic**:
-
-- Raw index checks `wiki/raw/` against `检索索引/raw/manifest.json`; in `enriched_raw` mode it also compares the Wiki semantic-label sources recorded in `semantic_source_hashes`, because changed claims/concepts/comparisons/entities/debates can change Raw embedding text even when Raw files are unchanged.
-- Wiki index checks `wiki/claims`, `wiki/concepts`, `wiki/entities`, `wiki/comparisons`, `wiki/debates`, `wiki/synthesis`, and `wiki/queries` against `检索索引/wiki/manifest.json`.
-- Content hashes are SHA256, not mtime.
-- The helper runs `SiliconFlow-rag/scripts/build_index.py --incremental` with the correct raw/wiki paths and metadata modes. For ordinary new/changed files, describe the result as "增量更新 / 新增到索引". `SiliconFlow-rag` falls back to a full rebuild only if index settings changed; reserve "重建" for that case.
-- If the wiki index is stale, run `karpathy-wiki` lint before updating the wiki index when the lint script is available. Broken links, source drift, missing claim structure, and frontmatter issues should be reported before embedding the wiki layer. Do not block urgent raw-only queries on non-severe wiki lint findings.
-
-### Query
-
-Default to routed querying rather than one expensive mode for every question. Use the cheapest mode that can answer the question well, then escalate only when retrieval quality is weak.
-
-**Routing defaults:**
-
-- Direct source lookup ("原文", "出处", "哪一段", "引用", "证据", page/source/quote/passage) → raw-only.
-- Conceptual, argumentative, cross-source, comparison, or thesis-writing questions → wiki-first.
-- Broad wording, terminology mismatch, or the first pass returns fewer than 3 usable raw sources → add `--multi-query`.
-- Conceptual questions where wiki graph relationships matter more than keyword overlap → use **wiki-graph-expanded query**. See [references/wiki-graph-expanded-query.md](references/wiki-graph-expanded-query.md).
-- Top hits are on-topic but poorly ordered, or the user is writing final prose / needs precise evidence ranking → add `--rerank`.
-- A hit is relevant but depends on the previous/next paragraph, pronouns, table context, or transitional wording → add `--expand-context --context-window 1` before changing chunk size.
-- Final citation checking or high-risk thesis claims → use deep mode: wiki-first + multi-query + rerank + context.
-
-Raw-only:
-
-```bash
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
-  --index-dir 检索索引/raw \
-  --question "用户的问题"
-```
-
-Wiki-first:
-
-```bash
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
-  --wiki-first \
-  --wiki-index-dir 检索索引/wiki \
-  --raw-index-dir 检索索引/raw \
-  --question "用户的问题"
-```
-
-Deep / writing mode:
-
-```bash
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
-  --wiki-first \
-  --wiki-index-dir 检索索引/wiki \
-  --raw-index-dir 检索索引/raw \
-  --question "用户的问题" \
-  --multi-query \
-  --rerank \
-  --candidates 20 \
-  --expand-context \
-  --context-window 1
-```
-
-### Wiki-Graph-Expanded Query
-
-When a conceptual question depends on how the concept relates to others in the wiki graph, use the procedure in [references/wiki-graph-expanded-query.md](references/wiki-graph-expanded-query.md).
-
-The agent reads wiki pages to discover graph neighbors and their relationships, generates sub-questions targeting those relationships, retrieves evidence in parallel, then merges and deduplicates results. This is an escalation from standard wiki-first — use it when wiki-first alone returns shallow results.
-
-### Unified Query (km_query.py)
-
-For daily use, copy `skills/social-science-km/references/km_query.py` into the knowledge-base project root. It combines dual-index staleness checks, query routing, optional wiki lint, and query execution into one command.
-
-```bash
-python km_query.py "亲亲与仁的关系"
-```
-
-Behaviour:
-- **Staleness check**: checks both raw and wiki manifests; if either is stale, prints a warning and exits unless the user uses `--skip-check`. Use "增量更新/新增到索引" wording for ordinary new/changed files; reserve "重建" for forced full rebuilds caused by settings/model/index-format changes.
-- **Mode routing**: direct source lookups use raw-only; conceptual/cross-source questions use wiki-first when a wiki index exists.
-- **If current**: raw-only prints `# RAG Evidence`; wiki-first prints `# Wiki Hits`, `# Expanded Query`, and `# Raw Evidence`.
-- `--raw-only`: run raw-only query against `检索索引/raw`.
-- `--skip-check`: skip staleness check, query with current indexes as-is.
-- `--rerank`: enable SiliconFlow rerank for raw evidence candidates.
-- `--multi-query`: enable LLM query rewriting when recall is weak.
-- `--deep`: use the high-quality writing mode: wiki-first + multi-query + rerank + context, with `candidates=20`.
-- `--source-discovery`: aggregate chunks into candidate Raw sources and show local line/byte size hints for the Step 2 Raw size/type gate.
-
-This is the recommended query entry point for agents and daily use — it prevents stale-index answers while using wiki structure for recall.
-
-`km_query.py --check` is acceptable for status-only checks. Use `check_rebuild_rag.py --check` when the next likely action is updating the index, because it uses the same logic for check and apply modes.
-
-### Lightweight RAG Evaluation (recommended P1)
-
-When changing `metadata_mode`, chunk size, overlap, include/exclude dirs, wiki structure rules, or query routing, run a small retrieval regression set before trusting the new behavior. Do not run a full evaluation for every new file; ordinary new/changed raw files only require stale-index checks and incremental updates.
-
-Start from `<skills-repo>/skills/social-science-km/references/rag_eval_set.example.jsonl`, then create `eval/rag_eval_set.jsonl` in the knowledge-base root with 10-20 high-value questions:
-
-```jsonl
-{"question":"孝为什么不能只基于生育事实？","mode":"wiki","expected_sources":["wiki/raw/...md"],"expected_terms":["照料","生育事实"],"notes":"核心论证召回"}
-{"question":"这段关于亲亲的原文出处在哪里？","mode":"raw","expected_sources":["wiki/raw/...md"],"expected_terms":["亲亲"],"notes":"直接证据查找"}
-```
-
-Minimum pass rule: expected source appears in the retrieved raw evidence and at least one expected term appears in the evidence text. LLM-judge/RAGAS-style faithfulness scoring is optional and should be used only for larger revisions or high-stakes writing.
-
-Validation:
-
-- `检索索引/raw/manifest.json`, `chunks.jsonl`, and `embeddings.jsonl` exist.
-- `检索索引/wiki/manifest.json`, `chunks.jsonl`, and `embeddings.jsonl` exist when wiki pages exist.
-- Raw index manifest uses `metadata_mode: enriched_raw` after the wiki layer exists.
-- Wiki index manifest uses `metadata_mode: wiki`.
-- Wiki-first query output contains `# Wiki Hits`, `# Expanded Query`, `# Raw Evidence`, source paths, and evidence snippets.
-- `python3 <skills-repo>/skills/social-science-km/references/km_query_self_test.py` passes in the skills repo after changing `km_query.py` or `check_rebuild_rag.py`.
-
-## Answering Templates
-
-Choose the smallest template that matches the user intent.
-
-### Evidence Answer
-
-Use this when answering a substantive knowledge-base question. Every substantive claim must cite raw evidence. Wiki hits explain the recall/argument path; raw evidence proves the answer. Never treat a wiki hit alone as proof, and never fabricate — if evidence is weak, say so.
-
-```markdown
-## 检索摘要
-- 查询意图：（一句话概括用户想知道什么）
-- Wiki 命中节点：（列出命中的 claim/concept/comparison/entity；如 raw-only 则写「未使用」）
-- Raw 命中源文件：X 个（列出文件名）
-- 索引状态：当前 / 过期（如过期已提醒用户）
-
-## Wiki 路径
-- 命中的 claim / concept / comparison 如何帮助扩展问题
-- 相关的支持、反对、限定或依赖关系
-- 注意：这里是召回路径，不是最终证据
-
-## 原始证据
-（每条证据一个子标题，来自不同源文件时分开展示）
-
-### 观点／发现 A
-- 来源：`wiki/raw/xxx/xxx.md`（chunk N）
-> 原文引用
-
-解读：（用 1-2 句话说明这段原文与问题的关系）
-
-### 观点／发现 B
-- 来源：`wiki/raw/yyy.md`（chunk N）
-> 原文引用
-
-解读：...
-
-## 综合解读
-- 只基于 Raw Evidence 回答问题
-- 可以说明 Wiki Hits 帮助定位了哪些概念或论证节点
-- 不把 wiki 页面当作原始证据引用
-
-## 不确定项
-- 哪些推论证据不足、需要更多查证
-- 哪些概念在知识库中未覆盖
-- 建议的后续检索方向
-```
-
-**Rules:**
-- Evidence answers must contain the five sections above.
-- 如果某段落无内容（如 raw-only 下无 Wiki 路径），写「（无）」而不是删掉。
-- 原文引用必须逐字复制 Raw Evidence 输出，不得改写。
-- 解读部分允许用自己的话概括，但必须忠实于原文。
-- Wiki Hits 只能用于解释检索路径和论证结构，不能单独支撑论文断言。
-- 不确定项不是可选项——宁可多写也不敢装懂。
-
-### Source-Discovery Shortlist
-
-Use this when the user wants to supplement, deepen, or rebalance a topic and the immediate job is finding candidate raw sources.
-
-```markdown
-## 候选来源
-| raw 路径 | 为什么可能有用 | 命中关键词 | 建议下一步 | 限制 |
-|---|---|---|---|---|
-
-## 初步缺口判断
-- 薄弱概念 / 缺失 claim / 缺少反方 / 比较不足 / 原始证据不足
-
-## 下一步
-- deep-reading-to-wiki / 直接 karpathy-wiki / 继续扩大检索 / 暂停等待新来源
-```
-
-Do not use this shortlist as final evidence. It is a routing artifact that decides what deserves deep reading or formal wiki compilation.
-
-### Operational Status
-
-Use this for index status, conversion coverage, helper failures, API-key blockers, or batch progress.
-
-```markdown
-## 状态
-- 当前结果：
-- 需要用户确认的动作：
-- 不会做的事：
-
-## 证据
-- 命令 / 文件 / manifest：
-
-## 下一步
-- 最小可执行动作：
-```
-
-## User-Facing Behavior
-
-- Explain progress in plain Chinese.
-- **Proactive RAG check**: every session where the knowledge base is involved, run `check_rebuild_rag.py --check` before any query or wiki work. If either raw or wiki index is stale, ask the user before updating the index. Say "新增到索引" or "增量更新" for ordinary new/changed files; say "重建" only for full rebuilds. Do NOT wait for the user to tell you to check.
-- **Optional paper acquisition**: when local sources are thin or the user asks to add related papers, use `academic-search` first for a candidate shortlist, then acquire only user-accepted legal full texts and route them through Step 1 into `wiki/raw/`.
-- **Source-discovery routing**: when the user wants to supplement a topic, first return candidate `wiki/raw/` sources and gaps; do not jump straight to wiki page creation.
-- **Deep-reading routing**: after the Raw sizing/type gate, route books, collections, long chapters, theory-heavy papers, thesis-critical sources, and other context-loss risks through `deep-reading-to-wiki` before `karpathy-wiki`. A quick/rough request may relax only a documented borderline case, not silently bypass a mandatory semantic override.
-- **Raw sizing gate**: after conversion, inspect and record converted Raw line/byte size plus source type for every content source. Do not start `karpathy-wiki` until each source is marked `deep-reading`, `direct-wiki`, or `blocked` and all `deep-reading` routes have accepted dossiers.
-- **Prefer `km_query.py`** for queries: it auto-checks both indexes, routes source lookups to raw-only, and uses wiki-first for conceptual/cross-source questions — one command instead of several.
-- If any source file cannot be converted, explicitly list it or point to `wiki/raw/_conversion_failures.md`.
-- If `SILICONFLOW_API_KEY` and the local private key config are both missing, stop before real RAG indexing/querying and ask the user for the key; do not fake a real index.
-- For final answers over the knowledge base, choose the matching **Answering Template** above: cite source paths, keep evidence and interpretation separate, always flag uncertainties.
-- Prefer simple defaults. Ask the user only when a missing choice would change the project structure or data privacy boundary.
-
-### Ask-Before Matrix
-
-Ask the user before:
-
-| Boundary | Ask before doing this |
+| Route/readiness | Compilation decision |
 |---|---|
-| Network/API privacy | Sending raw chunks, questions, wiki retrieval text, multi-query prompts, or rerank candidates to external APIs when the project has not already approved that boundary |
-| Academic paper acquisition | Sending search queries to academic APIs/search sites, downloading open PDFs, or adding newly downloaded papers to the source folder |
-| Index mutation | Updating, removing, or rebuilding `检索索引/raw` or `检索索引/wiki` |
-| Batch conversion | Running long MinerU/MarkItDown batches or using MinerU token-backed network extraction |
-| Mass wiki edits | Touching 10+ existing wiki pages or changing a taxonomy in `SCHEMA.md` |
-| Source material | Deleting, moving, or modifying original source files, which should normally never happen |
+| `direct-wiki`, usable raw, low-risk conditions met | May compile from checked raw |
+| `deep-reading`, accepted dossier and checked raw support | May compile that source/group |
+| `deep-reading`, missing/failed/unverified dossier | Hold that source/group; name missing acceptance step |
+| `blocked` or missing route | Hold and report conversion/routing problem |
+| Inseparable source group with a required member unfinished | Hold group; do not bypass collection interpretation |
+
+Ready independent sources may proceed while other sources remain blocked or await deep reading. This is not permission to ignore an unfinished member of a logical collection. Report completed, pending, failed, and blocked coverage explicitly; partial completion is not whole-batch success.
+
+### Reading And Compilation Quality
+
+Load [wiki-compilation.md](references/wiki-compilation.md) for detailed initialization, dossier acceptance, formal writing, and bulk responsibilities.
+
+- `thorough` is the default for books, collections, theory-heavy and thesis-critical material: structure assists sequential full-window reading, then selection.
+- `budget` is for rapid prescreening or explicit time savings: L0–L3 sampling/local close reading, with the deep-reading skill's short-text full-read exception.
+- The selected mode applies to merged dossiers too. Preserve tiered quotas, raw-line measurements, anchors, context capsules, skipped areas, and anti-slack gates.
+- A required dossier needs structural validation PASS and substantive raw-support review before compilation. PASS alone does not prove a claim; unrun validation is unverified.
+- Candidates may include observations, structures, and predictions as well as claims/concepts/entities/comparisons. Include types only when evidence warrants them.
+- Deep reading writes dossiers only. `karpathy-wiki` writes formal pages and navigation, then marks actually compiled dossiers with `status: compiled` and `compiled_to:`.
+
+## 5. Shared Handoff And Write Ownership
+
+Use this same checklist between stages in prompts/reports and existing manifest/dossier fields. Do not create another durable task-state file or schema.
+
+| Handoff item | Required content |
+|---|---|
+| Project and scope | Absolute project root, WIKI_PATH when applicable, user request, current route and stop point |
+| Sources and group | Exact original/raw paths, active source set, inseparable group membership, failed/pending members |
+| Routing | `source_type`, `raw_bytes`, `raw_lines`, `wiki_route`, `route_reason` |
+| Reading | Selected mode, research intent, wiki context or standalone, expansion discovery shortlist when used |
+| Dossier and acceptance | Exact dossier path(s), structural result, raw-support review, limitations/blockers; compiled pages when applicable |
+| Permissions | Exact allowed output paths, shared-file owner, prohibited writes, existing external/index authorization |
+| Return | Outputs actually written, ready/blocked sources, reasons and next action; no claim of unverified success |
+
+Parallel ownership is strict:
+
+- Conversion workers own non-overlapping raw subtrees and per-batch reports; parent owns shared conversion ledger, failures, and topic index.
+- Deep-reading workers own exact non-overlapping dossier paths only.
+- Compilation workers return structured analysis only and write no files; parent owns all wiki pages, navigation, logs, and compiled dossier metadata.
+- Parent coordinates index mutation after relevant writes. No concurrent shared navigation/index writes.
+
+## 6. Gap-Driven Expansion
+
+1. Capture user inclination as a research direction, not a conclusion.
+2. Initialize missing wiki context if an authorized build/expansion needs it; then inspect SCHEMA/index/recent log and relevant graph pages.
+3. Identify a thin concept, missing claim/objection, weak comparison, underused source, or absent raw evidence.
+4. Use ordinary wiki-first discovery for conceptual gaps or raw-only for direct sources. Escalate recall/context only as needed under [rag-workflow.md](references/rag-workflow.md).
+5. Return raw paths, relevance, keywords, likely deep-reading need, and limitations using the source-discovery template. Stop here if only a shortlist was requested.
+6. If candidates remain weak/stale/insufficient, report the gap and check/broaden retrieval; use academic acquisition only within approved scope.
+7. For requested expansion, route candidates, create required dossiers with `trigger: user_directed_expansion`, `user_intent`, and `source_discovery`; compile only accepted raw-backed content.
+8. Check relevant indexes after wiki writes and apply authorized updates. Keep the loop intent → sources → dossier when needed → formal wiki → indexes.
+
+## 7. Retrieval And Maintenance Contract
+
+Load [rag-workflow.md](references/rag-workflow.md) for commands, index settings/staleness, privacy, escalation, evaluation, and required answer templates.
+
+- Skill identifier: `siliconflow-rag`; repository script directory: `skills/SiliconFlow-rag/`; private config directories: lowercase `siliconflow-rag`. Do not migrate keys/configs.
+- Prefer direct bundled `km_query.py` / `check_rebuild_rag.py` calls with `--project-root "<知识库>"`. Existing project copies remain compatible; do not automatically replace them.
+- Check indexes for retrieval, index maintenance, or after relevant wiki edits, not every session mentioning a knowledge base.
+- Query mode is selected before freshness gating: raw needs raw; wiki-first/deep need both. Raw enrichment dependencies remain part of raw freshness.
+- Pure `--check` reports both indexes. Current indexes need no chatter; stale status names the cause and smallest required update.
+- Preserve project `rag_config.json`. New/changed files mean incremental update; deleted files mean entry removal; settings/model/index-format changes may force rebuild.
+- Start ordinary retrieval. Add multi-query for recall gaps, rerank for ordering/precise evidence, context for neighboring passages, deep for high-risk/final citation checks.
+- Use [wiki-graph-expanded-query.md](references/wiki-graph-expanded-query.md) only when standard wiki-first is too shallow and relationships matter.
+- Explicit old-index approval requires `--skip-check` on affected queries plus a freshness caveat. Never bypass stale checks by default.
+- Missing required keys/indexes stop the dependent operation; permitted local reading and unrelated tasks remain available.
+- Wiki lint is maintenance, not ingestion. Report lint findings before relevant index updates; non-severe wiki lint does not block urgent usable raw-only queries.
+
+## 8. User-Facing Boundaries And Completion
+
+Explain progress in plain Chinese and choose the evidence answer, source shortlist, or operational status template in [rag-workflow.md](references/rag-workflow.md#answering-templates). Evidence answers retain all five sections, verbatim raw quotes, separate interpretation, and explicit uncertainty.
+
+Honor authorization already given; ask only when the following boundary is not covered:
+
+| Boundary | Action requiring prior authorization |
+|---|---|
+| External privacy | Sending raw chunks, questions, wiki retrieval text, rewrite prompts, or rerank snippets to external APIs |
+| Academic acquisition | Sending search queries, downloading legal full texts, adding accepted new source files |
+| Index mutation | Updating, removing, or rebuilding raw/wiki index entries |
+| Long conversion | Long MinerU/MarkItDown batches or token-backed extraction |
+| Mass wiki change | Editing 10+ existing pages or changing SCHEMA taxonomy |
+| Original material | Moving/deleting/modifying originals, normally prohibited |
+
+Do not repeat permission requests for approved work. Never write real API keys to repository files. Do not automatically run tests/builds/evaluations without authorization; report static inspection separately from executed validation.
+
+At each requested stop point, name outputs, coverage, blockers, and the next minimal action. Cite failure manifests when conversion fails. A missing external dependency or one failed source must not silently become a global stop for unrelated authorized work.
+
+## Reference Map
+
+| Load when | Reference |
+|---|---|
+| Acquiring/converting sources, coverage, parallel conversion | [source-ingestion.md](references/source-ingestion.md) |
+| Deciding raw size/type routes | [raw-routing-gate.md](references/raw-routing-gate.md) |
+| Initializing wiki, accepting dossiers, compiling, bulk ownership | [wiki-compilation.md](references/wiki-compilation.md) |
+| Checking/updating/querying indexes, answering, privacy, evaluation | [rag-workflow.md](references/rag-workflow.md) |
+| Escalating through wiki relationships | [wiki-graph-expanded-query.md](references/wiki-graph-expanded-query.md) |

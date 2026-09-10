@@ -27,7 +27,7 @@ Use these defaults unless the project has stricter written thresholds:
 | 200-499 lines or 40-99 KiB | Inspect TOC/headings, introduction/abstract, conclusion, and argument density; use `deep-reading` when theory-heavy, multi-claim, context-sensitive, or central to the research question |
 | Under 200 lines and under 40 KiB | `direct-wiki` only when narrow, self-contained, low-risk, and not part of a larger collection |
 | Any size: thesis-critical, theory-heavy, argument-rich, conceptually disputed, or likely to lose support/objection/limitation context | `deep-reading` |
-| Empty, near-empty, garbled, or structurally unusable Raw | `blocked`; return to Step 1 conversion fallback |
+| Empty, near-empty, garbled, or structurally unusable Raw | `blocked`; return to the upstream conversion workflow and its fallback |
 
 When line and byte bands disagree, use the more cautious band and inspect the source. Size is a routing signal, not a quality verdict: OCR page markers, image links, tables, references, or malformed extraction may inflate it, while a concise foundational text may be small but high-risk.
 
@@ -45,4 +45,13 @@ Add or update these fields in `wiki/raw/_conversion_manifest.md` for every succe
 | `wiki_route` | `deep-reading`, `direct-wiki`, or `blocked` |
 | `route_reason` | Size band, semantic override, collection membership, or conversion problem that determined the route |
 
-For grouped sources, give every member the same group identifier in `route_reason` or the manifest's existing notes field. Step 3 may begin only after all content sources are routed and every `deep-reading` route has an accepted dossier.
+For grouped sources, give every member the same group identifier in `route_reason` or the manifest's existing notes field.
+
+Readiness is then assessed per independent source or inseparable group, not as one batch-wide gate:
+
+- every batch content source must have a recorded route before any of them compiles;
+- a `direct-wiki` source may compile once its low-risk conditions are checked;
+- a `deep-reading` source or inseparable group may compile once its required dossier is accepted and its key raw support is verified;
+- a `blocked`, missing, or unaccepted source/group is held with its reason and next action, without stopping ready independent sources.
+
+Report completed and held sources separately; do not present partial coverage as a finished batch.

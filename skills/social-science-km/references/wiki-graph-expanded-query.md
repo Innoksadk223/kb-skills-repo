@@ -13,14 +13,12 @@ Use when the user asks a conceptual question and the answer depends on how conce
 
 ### Phase 1 — Wiki Graph Exploration
 
-1. Search wiki for pages mentioning the concept:
-   ```bash
-   grep -rl "概念名" wiki/claims/ wiki/concepts/ wiki/entities/ wiki/comparisons/ wiki/debates/ wiki/observations/ wiki/structures/ wiki/predicts/
-   ```
+1. Search existing graph-page directories for pages mentioning the concept: `wiki/claims/`, `concepts/`, `entities/`, `comparisons/`, `debates/`, `observations/`, `structures/`, and `predicts/`. Scope the search to directories that exist; exclude raw, logs, and archives.
 2. Read matching pages; for each neighbor concept found, extract:
    - Wikilinks (`[[...]]`) the page links to
-   - Backlinks: search `[[概念名]]` across wiki to find pages pointing here
-   - Claim relations from frontmatter: support/oppose/limit/depend links
+   - Backlinks: search `[[概念名]]` across graph pages to find pages pointing here
+   - Frontmatter `relationships.supports/contradicts/derives_from/supersedes`, `follows`, and legacy claim support/oppose/limit/depend links
+   - Source anchors for observations, structures and predictions; keep empirical findings distinct from frameworks and unverified implications
    - The **relationship description** — the actual sentence or proposition that explains *how* A relates to B (e.g., "孝以亲亲为大", not just "wikilink")
 3. Build a **graph neighborhood table**:
 
@@ -57,42 +55,30 @@ Rules:
 
 ### Phase 3 — Retrieval
 
-Three-step retrieval using the existing `query_index.py`:
+Use the existing `km_query.py` helper directly from its installed location with an explicit project root. It forwards project `rag_config.json` and checks the indexes needed by the selected route. Reuse a current check for unchanged inputs; do not update indexes during this read-only flow. If the user has authorized querying existing stale indexes, append `--skip-check` to every query and disclose that limitation. Missing indexes still require maintenance; `--skip-check` cannot create them.
 
-**Step 1 — Broad recall:** Run the consolidated expanded query to cast a wide net.
-
-```bash
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
-  --index-dir 检索索引/raw \
-  --question "<扩展 query>" \
-  --multi-query \
-  --expand-context \
-  --context-window 1 \
-  --top-k 20
-```
-
-**Step 2 — Precision retrieval:** For each sub-question, run a targeted query with rerank to surface the most relevant evidence for that specific relationship.
+**Step 1 — Broad recall:** Run the consolidated expanded query against raw evidence.
 
 ```bash
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
-  --index-dir 检索索引/raw \
-  --question "<子问题 N>" \
-  --rerank \
-  --candidates 15 \
-  --expand-context \
-  --context-window 1
+python3 <skills-repo>/skills/social-science-km/references/km_query.py \
+  --project-root "<知识库>" \
+  "<扩展 query>" --raw-only --no-lint
 ```
 
-**Step 3 — Merge and deduplicate:** After all queries complete:
+The graph expansion already supplies related wording. Add `--multi-query` only if recall remains weak or wording mismatch persists. Adjacent context is enabled by the helper by default.
 
-1. Collect all evidence items from Step 1 and each Step 2 run
-2. Deduplicate by `source_path` + `chunk_no`: keep the item with the highest `rerank_score` (or `similarity` if no rerank), and record which sub-questions it matched
-3. Sort merged results: reranked items first, then by similarity descending
-4. If fewer than 3 unique sources appear, escalate: check index freshness (`check_rebuild_rag.py --check`), broaden sub-questions, or increase `--candidates`
+**Step 2 — Precision retrieval:** Query unresolved sub-questions using the same command with `"<子问题 N>"`. Reuse sufficient evidence from Step 1. Add `--rerank --candidates 15` when ordering is inadequate or precise evidence ranking is needed. Use `--deep` only for high-risk citation checks requiring wiki-first, rewriting, ranking and context; omit `--raw-only` for that wiki-first route. Independent queries may run in parallel within the authorized service/batch scope.
+
+**Step 3 — Merge and deduplicate:** After all necessary queries complete:
+
+1. Collect evidence from the broad and targeted queries.
+2. Deduplicate by `source_path` + `chunk_no` and record matched sub-questions. Preserve score provenance: rerank and similarity scores are different scales, so do not compare them as one number or treat rank as proof.
+3. Select evidence by relevance, source diversity and checked raw context; retain source attribution for disagreements.
+4. If fewer than 3 unique sources appear, report the coverage limit. Broaden only when the question needs more sources; check freshness if files changed since the previous check. Increasing rerank candidates is appropriate only when candidate truncation is the issue.
 
 ### Phase 4 — Answer
 
-Present results using the **Evidence Answer** template from the parent skill, with the graph expansion path traced per sub-question:
+Present results using the **Evidence Answer** template in [rag-workflow.md](rag-workflow.md), with the graph expansion path traced per sub-question:
 
 ```markdown
 ## 图谱扩展路径

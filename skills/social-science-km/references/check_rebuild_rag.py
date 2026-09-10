@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Check and incrementally update social-science-km RAG indexes.
 
-Copy this file to a knowledge-base project root, then run:
-  python3 check_rebuild_rag.py --check
-  python3 check_rebuild_rag.py
+Run the maintained helper with an explicit knowledge-base project root:
+  python3 <skills-repo>/skills/social-science-km/references/check_rebuild_rag.py --project-root <project-root> --check
+  python3 <skills-repo>/skills/social-science-km/references/check_rebuild_rag.py --project-root <project-root>
+Existing copies in project roots remain supported.
 
 The script keeps raw/wiki index maintenance in one place so agents do not
 improvise local rebuild commands.

@@ -6,16 +6,19 @@ Consume a `reading_dossiers/<source>-深读档案.md` and compile formal wiki pa
 
 - User says "compile the dossier" or "把档案编译进 wiki"
 - A deep-reading dossier exists with `target: karpathy-wiki` and `status: draft`
-- `ingest.md` step ②.5 detects a dossier for a long/theory-heavy source
+- `ingest.md` step ①.5 detects a dossier for a long/theory-heavy source
 
 ## ① Validate the Dossier
 
-Before compilation, verify the dossier is ready:
+Before compilation, consume the project/wiki paths, requested scope, source set, route/reason, reading mode, dossier paths and acceptance results, and allowed write scope from the handoff. In orchestrated batches, require all sources to be registered in the existing manifest, then assess this source or inseparable group independently; blocked sources do not hold up unrelated ready sources. Missing required dossiers or an unavailable deep-reading skill never authorize normal-ingest fallback.
 
-1. Check frontmatter: `target: karpathy-wiki` and `status: draft`
-2. Check 硬门禁自检 section: all 6 checkboxes must be `[x]` (checked). If any are `[ ]` (unchecked), stop and report which gate failed.
-3. If `deep-reading-to-wiki` is installed, run its validator (`python3 <deep-reading-to-wiki 安装目录>/scripts/validate_dossier.py <dossier-path>`, 任意 cwd 均可) — FAIL = stop. If the skill is not installed, verify step 2 manually and continue.
-4. Read dossier frontmatter for `source_raw`, `user_intent`, `confidence`, `source_discovery`.
+Verify the dossier is ready:
+
+1. Check frontmatter: `target: karpathy-wiki` and `status: draft`.
+2. Check 硬门禁自检 section: all 6 checkboxes must be `[x]` (checked). If any are `[ ]` (unchecked), stop this source/group and report which gate failed.
+3. If `deep-reading-to-wiki` is installed, run its validator (`python3 <deep-reading-to-wiki 安装目录>/scripts/validate_dossier.py <dossier-path>`, 任意 cwd 均可) — FAIL blocks this source/group. PASS means structural checks passed, not that the source supports the claims or that full reading occurred. Under orchestration, missing required validation blocks the affected source/group and returns it for completion; only standalone compilation without the skill may use manual review of all dossier gates, anchors, capsules, quotas, and reading coverage.
+4. Read `source_raw`, `user_intent`, `confidence`, `source_discovery`, and the recorded reading mode/coverage. Check that the dossier covers the dispatched source/group and requested scope; merged dossiers obey the same mode-specific gates.
+5. Independently read the key raw passages and surrounding context. Verify they support each proposed node, its evidence type, boundaries, and inference chain before writing. An unsupported candidate stays pending or is rejected even with PASS; preserve the reason and next step.
 
 ## ② Orient to Wiki
 
@@ -72,7 +75,17 @@ Every high-value candidate in the dossier has a CERIC context capsule (10 fields
 | 8. wiki relationships | `## 关联页面` — wikilinks to related claims/concepts |
 | 9. method boundary | Level of evidence for each side |
 
-Use only fields that apply. Do not force-fill every CERIC field if the page type doesn't need it.
+### For optional observation, structure, and prediction pages
+
+Use these types only when the evidence and graph role justify them; there is no per-dossier quota and no need to produce all three. Follow `references/templates/SCHEMA-template.md` for frontmatter and `references/claims.md` for card conventions.
+
+| Target / type | Evidence and CERIC mapping |
+|---|---|
+| `observations/` / `observation` | Empirical findings or qualitative observations: fields 1/3 preserve raw evidence and collection context; 7/9 preserve sample, method, and generalization limits; 8 links the claims supported or challenged. Do not recast normative arguments as empirical findings. |
+| `structures/` / `structure` | Frameworks, models, or typologies: fields 1/5/6 preserve the source, components, and their relationships; 7/9 preserve scope and assumptions; 8 links concepts and claims. Label an AI-reconstructed framework as interpretation. |
+| `predicts/` / `prediction` | Conditional implications or forecasts: fields 1/6 retain anchored premises and the inference chain; 7/9 state conditions, uncertainty, and what would falsify the prediction; 8 links its basis. Distinguish author predictions from AI inference; never present an extrapolation as an observed fact. |
+
+Use only fields that apply to the formal page type; retain all 10 fields in every HV dossier capsule. Preserve raw anchors, compression risks, and evidence boundaries in every compiled node.
 
 ## ④ Consume the Handoff List
 
@@ -80,8 +93,8 @@ Use only fields that apply. Do not force-fill every CERIC field if the page type
 
 | Dossier Column | Use as |
 |---|---|
-| `目标路径` | File path relative to wiki root. Create parent directories if needed. |
-| `类型` | Page `type` frontmatter: `claim` / `concept` / `comparison` / `entity` |
+| `目标路径` | Resolve against the dispatched project/wiki roots. Template paths beginning `wiki/` are project-relative; do not create `wiki/wiki/`. Create parent directories only within the allowed write scope. |
+| `类型` | Page `type` frontmatter: `claim` / `concept` / `comparison` / `entity` / `observation` / `structure` / `prediction` (`prediction` files live in `predicts/`). |
 | `核心贡献` | Page title (for claims) or `## 命题` one-liner |
 | `边界/微妙之处` | `## 方法边界` or `概念厘定` — nuance that survives compression |
 | `互链` | Body wikilinks; create stubs for nonexistent targets |
@@ -133,7 +146,9 @@ After creating all pages:
 
 ## ⑧ Finalize the Dossier
 
-Update dossier frontmatter:
+Set `status: compiled` only when all accepted actions within the dossier's scope have been resolved. For partial compilation, retain `status: draft`, record completed paths in `compiled_to`, and record pending/rejected candidates with reasons and next steps in the handoff section. Do not mark an inseparable group complete while a required source is blocked. Report completed and pending sources separately; partial delivery is not whole-batch success.
+
+For a completed dossier:
 
 ```yaml
 status: compiled

@@ -7,7 +7,7 @@ description: Use when building, updating, inspecting, or querying local JSONL RA
 
 Build local JSONL indexes from Markdown, query them for evidence snippets, and use raw source chunks as the citation basis.
 
-This skill does not convert source documents and does not build the wiki. Use `markitdown` for source conversion and `karpathy-wiki` for structured pages such as `claims/`, `concepts/`, `entities/`, and `comparisons/`.
+This skill does not convert source documents and does not build the wiki. Defer conversion to `social-science-km` and its [source-ingestion rules](../social-science-km/references/source-ingestion.md): PDF uses MinerU on the core route; other formats follow the core's format-specific conversion rules. Use `karpathy-wiki` for structured wiki pages.
 
 For user-directed wiki expansion, this skill's role is **source discovery**: return candidate `wiki/raw/` paths, why they matter, key terms, and retrieval limits. It does not create wiki nodes and does not treat wiki hits as proof.
 
@@ -17,6 +17,7 @@ For user-directed wiki expansion, this skill's role is **source discovery**: ret
 - Retrieval modes, RRF, multi-query, rerank, evidence boundary: [references/retrieval-architecture.md](references/retrieval-architecture.md)
 - Config fields, defaults, index maintenance wording: [references/config-and-maintenance.md](references/config-and-maintenance.md)
 - Self-test and syntax checks: [references/testing.md](references/testing.md)
+- Core query routing and maintenance: [rag-workflow.md](../social-science-km/references/rag-workflow.md)
 
 ## Safety rules
 
@@ -25,15 +26,24 @@ For user-directed wiki expansion, this skill's role is **source discovery**: ret
 3. Keep private key files owner-only readable on POSIX systems, e.g. `chmod 600 ~/.hermes/private/siliconflow-rag/config.json`; scripts warn if group/other permissions are open.
 4. Never put API keys in `rag_config.json`, repo files, skill files, logs, manifests, or examples.
 5. Explain the network surface when relevant: indexing sends chunks to embeddings; querying sends the question to embeddings; `--multi-query` sends the question to chat completions; `--rerank` sends candidate snippets to rerank.
+6. Continue within existing task authorization without asking again. New external-service scope or long batches must respect the user's authorization boundaries.
 
 Use `python3` in examples because macOS and many Linux systems no longer provide `python`. If a specific machine only exposes `python`, use that interpreter instead; the scripts are Python 3 scripts (`#!/usr/bin/env python3`).
 
 ## Common workflow
 
+The skill identifier is `siliconflow-rag`; the repository's script directory is `SiliconFlow-rag` (case-sensitive). Private configuration directories remain lowercase; do not migrate them.
+
+Replace `<skills-repo>` and `<project-root>` with absolute paths. Run the commands below from the knowledge-base project root so relative corpus, index, and configuration paths resolve there:
+
+```bash
+cd "<project-root>"
+```
+
 ### Build or update raw index
 
 ```bash
-python3 <skills-repo>/skills/siliconflow-rag/scripts/build_index.py \
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
   --md-dir wiki/raw \
   --index-dir 检索索引/raw \
   --metadata-mode enriched_raw \
@@ -49,7 +59,7 @@ Use `enriched_raw` once graph-readable wiki pages exist; use `plain` only for th
 Use when `karpathy-wiki` pages exist and the question is conceptual, argumentative, cross-source, or thesis-writing oriented.
 
 ```bash
-python3 <skills-repo>/skills/siliconflow-rag/scripts/build_index.py \
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
   --md-dir wiki \
   --index-dir 检索索引/wiki \
   --include-dirs claims,concepts,entities,comparisons,debates,observations,structures,predicts,synthesis,queries \
@@ -58,10 +68,28 @@ python3 <skills-repo>/skills/siliconflow-rag/scripts/build_index.py \
   --incremental
 ```
 
+### Query through the core helper
+
+Prefer the maintained helper with an explicit project root. Existing project copies remain compatible; do not overwrite or delete them automatically.
+
+```bash
+python3 "<skills-repo>/skills/social-science-km/references/km_query.py" \
+  --project-root "<project-root>" "用户的问题"
+```
+
+Actual queries select raw/wiki mode before deciding whether stale indexes block execution. Raw mode requires a current raw index, including configuration and `enriched_raw` semantic dependencies; an unrelated stale wiki index does not block it. Wiki-first requires both indexes to be current. Pure `--check` checks both indexes, even with `--raw-only` or `--skip-check`.
+
+```bash
+python3 "<skills-repo>/skills/social-science-km/references/km_query.py" \
+  --project-root "<project-root>" --check
+```
+
+When continuing with old indexes is authorized, explicitly add `--skip-check` to the query and disclose the freshness limitation. Direct `query_index.py` calls below do not perform the helper's freshness gate; check the required indexes before using them.
+
 ### Query raw-only mode
 
 ```bash
-python3 skills/siliconflow-rag/scripts/query_index.py \
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --index-dir 检索索引/raw \
   --question "用户的问题"
 ```
@@ -69,7 +97,7 @@ python3 skills/siliconflow-rag/scripts/query_index.py \
 ### Query wiki-first mode
 
 ```bash
-python3 skills/siliconflow-rag/scripts/query_index.py \
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
@@ -80,10 +108,10 @@ python3 skills/siliconflow-rag/scripts/query_index.py \
 
 Use when the user names a direction they want to deepen, such as "补充儿童教育", and the next step is to find which raw files deserve `deep-reading-to-wiki`.
 
-Start from wiki-first if the direction is conceptual or argumentative:
+Start from ordinary wiki-first retrieval if the direction is conceptual or argumentative:
 
 ```bash
-python3 skills/siliconflow-rag/scripts/query_index.py \
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
@@ -91,10 +119,10 @@ python3 skills/siliconflow-rag/scripts/query_index.py \
   --source-discovery
 ```
 
-Then broaden with raw-only when source wording may differ from the wiki wording:
+Then broaden with raw-only when source wording may differ from the wiki wording. Add multi-query when recall is insufficient or wording mismatch is likely:
 
 ```bash
-python3 skills/siliconflow-rag/scripts/query_index.py \
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --index-dir 检索索引/raw \
   --question "儿童教育 家庭教育 爱敬 积浸 身教 保傅 内则 小学" \
   --source-discovery \
@@ -121,10 +149,10 @@ If fewer than three usable raw sources appear, report that limitation and broade
 
 ### Optional query modes
 
-Use rerank only when the user asks for better ordering, precise ranking, rerank mode, or similar wording:
+Default to ordinary retrieval. Escalate to rerank when candidate ordering is inadequate or the task needs precise, high-stakes evidence selection, including critical thesis claims. The user need not name a flag or use special wording; choose based on evidence quality requirements within existing authorization.
 
 ```bash
-python3 skills/siliconflow-rag/scripts/query_index.py \
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
@@ -135,16 +163,18 @@ python3 skills/siliconflow-rag/scripts/query_index.py \
 Use multi-query only when recall is weak or wording mismatch is likely:
 
 ```bash
-python3 skills/siliconflow-rag/scripts/query_index.py \
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --index-dir 检索索引/raw \
   --question "用户的问题" \
   --multi-query
 ```
 
+The core helper's `--deep` combines multi-query, rerank, and context (wiki-first when a wiki manifest exists, unless `--raw-only` is set). Reserve it for evidence tasks that need this combined escalation; do not apply it to every initial retrieval or every outline query.
+
 Add adjacent chunks when the answer needs local context:
 
 ```bash
-python3 skills/siliconflow-rag/scripts/query_index.py \
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --index-dir 检索索引/raw \
   --question "用户的问题" \
   --expand-context \
@@ -153,9 +183,11 @@ python3 skills/siliconflow-rag/scripts/query_index.py \
 
 ### Inspect index health
 
+Use the helper's `--check` above for freshness. Inspect index statistics with:
+
 ```bash
-python3 skills/siliconflow-rag/scripts/query_index.py --index-dir 检索索引/raw --stats
-python3 skills/siliconflow-rag/scripts/query_index.py --index-dir 检索索引/wiki --stats
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" --index-dir 检索索引/raw --stats
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" --index-dir 检索索引/wiki --stats
 ```
 
 ## Answering rules

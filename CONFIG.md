@@ -154,7 +154,9 @@ bash ~/.claude/skills/academic-search/scripts/check-deps.sh
 
 ## SiliconFlow RAG 配置
 
-`SiliconFlow-rag` 用 SiliconFlow embeddings 给 Markdown/wiki 建本地向量索引。索引文件仍保存在本地，发送给 SiliconFlow 的是用于生成向量的文本片段、查询文本，以及开启 rerank 时的候选片段。
+`siliconflow-rag` 用 SiliconFlow embeddings 给 Markdown/wiki 建本地向量索引。技能标识为小写 `siliconflow-rag`，仓库磁盘目录为 `skills/SiliconFlow-rag/`。索引文件仍保存在本地，发送给 SiliconFlow 的是用于生成向量的文本片段、查询文本，以及开启 rerank 时的候选片段。
+
+下列 Python 示例中的 `<skills-repo>` 请替换为技能仓库的绝对路径，`<知识库项目>` 替换为知识库根目录。先 `cd "<知识库项目>"`，使 `wiki/`、`检索索引/` 和 `rag_config.json` 均相对该项目解析；脚本从技能仓库直接调用。
 
 官方说明：
 
@@ -173,19 +175,19 @@ export SILICONFLOW_API_KEY="your_key_here"
 如果要保存到本地私有文件，当前脚本优先读取：
 
 ```bash
-mkdir -p ~/.hermes/private/SiliconFlow-rag
-cat > ~/.hermes/private/SiliconFlow-rag/config.json <<'JSON'
+mkdir -p ~/.hermes/private/siliconflow-rag
+cat > ~/.hermes/private/siliconflow-rag/config.json <<'JSON'
 {
   "SILICONFLOW_API_KEY": "your_key_here"
 }
 JSON
-chmod 600 ~/.hermes/private/SiliconFlow-rag/config.json
+chmod 600 ~/.hermes/private/siliconflow-rag/config.json
 ```
 
-兼容旧路径：
+兼容旧路径（同样小写，不需要迁移已有配置）：
 
 ```text
-~/.codex/SiliconFlow-rag/config.json
+~/.codex/siliconflow-rag/config.json
 ```
 
 不要把真实 key 写进仓库、`rag_config.json`、README、日志或索引 manifest。
@@ -202,13 +204,14 @@ chmod 600 ~/.hermes/private/SiliconFlow-rag/config.json
 可替换模型示例：
 
 ```bash
-python skills/SiliconFlow-rag/scripts/build_index.py \
+cd "<知识库项目>"
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
   --md-dir wiki/raw \
   --index-dir 检索索引/raw \
   --model BAAI/bge-m3
 ```
 
-也可以在配置文件里写非密钥参数：
+也可以在项目根目录的 `rag_config.json` 里写非密钥参数：
 
 ```json
 {
@@ -230,52 +233,75 @@ python skills/SiliconFlow-rag/scripts/build_index.py \
 }
 ```
 
-使用配置：
+使用配置时仍明确指定数据与索引目录：
 
 ```bash
-python skills/SiliconFlow-rag/scripts/build_index.py --config rag_config.json
-python skills/SiliconFlow-rag/scripts/query_index.py --config rag_config.json --question "A 和 B 有什么区别？"
+cd "<知识库项目>"
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
+  --config rag_config.json --md-dir wiki/raw --index-dir 检索索引/raw
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
+  --config rag_config.json --index-dir 检索索引/raw --question "A 和 B 有什么区别？"
 ```
 
 ### 建两个索引
 
-知识库推荐建两个索引：
+完整建库或索引更新任务中，知识库推荐建两个索引：
 
 ```bash
-python skills/SiliconFlow-rag/scripts/build_index.py \
+cd "<知识库项目>"
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
   --md-dir wiki/raw \
   --index-dir 检索索引/raw \
   --metadata-mode enriched_raw \
   --incremental
 
-python skills/SiliconFlow-rag/scripts/build_index.py \
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
   --md-dir wiki \
   --index-dir 检索索引/wiki \
   --metadata-mode wiki \
-  --exclude-dirs raw \
+  --include-dirs claims,concepts,entities,comparisons,debates,observations,structures,predicts,synthesis,queries \
+  --exclude-dirs raw,_archive \
   --incremental
 ```
 
-查询时优先用 wiki，再回到 raw 原文证据：
+Wiki 索引覆盖 `wiki/` 下的图谱页面，包括按证据需要创建的 `observations/`、`structures/`、`predicts/`；项目根目录的论文大纲 `outlines/` 不在该索引范围内。
+
+查询时可先用 wiki，再回到 raw 原文证据：
 
 ```bash
-python skills/SiliconFlow-rag/scripts/query_index.py \
+cd "<知识库项目>"
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
   --question "这个领域的主要争议是什么？"
 ```
 
-需要更精确排序时：
+默认使用基础检索；召回不足时再考虑 `--multi-query`，需要更精确排序时使用 `--rerank`，并遵守当前任务的外部服务授权范围：
 
 ```bash
-python skills/SiliconFlow-rag/scripts/query_index.py \
+cd "<知识库项目>"
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --wiki-first \
   --wiki-index-dir 检索索引/wiki \
   --raw-index-dir 检索索引/raw \
   --rerank \
   --question "A 和 B 有什么区别？"
 ```
+
+### 通过总入口检查与查询
+
+`social-science-km` 的 helper 可直接从技能仓库调用并指定项目，无需复制到知识库。已有项目副本仍兼容，不自动覆盖或删除。
+
+```bash
+cd "<知识库项目>"
+python3 "<skills-repo>/skills/social-science-km/references/km_query.py" \
+  --project-root "<知识库项目>" --check
+python3 "<skills-repo>/skills/social-science-km/references/km_query.py" \
+  --project-root "<知识库项目>" "这个领域的主要争议是什么？"
+```
+
+`--check` 检查 raw / wiki 双索引后结束，不更新索引。实际查询先选择 raw / wiki 模式，再检查必要索引；直接查 raw 不受无关 Wiki 索引过期阻塞，但仍检查 raw 自身及其 enriched_raw 依赖。仅查询不触发摄入；仅 Wiki 结构体检交给 `karpathy-wiki`，报告后结束。获准沿用旧索引查询或写大纲时，应显式加 `--skip-check` 并说明证据可能滞后。
 
 ## 给 AI 的教学口径
 
@@ -291,15 +317,17 @@ python skills/SiliconFlow-rag/scripts/query_index.py \
 ## 快速体检
 
 ```bash
+cd "<知识库项目>"
 mineru-open-api version
 mineru-open-api auth --verify
-python skills/SiliconFlow-rag/scripts/build_index.py --help
-python skills/SiliconFlow-rag/scripts/query_index.py --help
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" --help
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" --help
 ```
 
 如果只是测试脚本流程，不想调用 SiliconFlow：
 
 ```bash
-python skills/SiliconFlow-rag/scripts/build_index.py --md-dir wiki/raw --index-dir 检索索引/raw --mock
-python skills/SiliconFlow-rag/scripts/query_index.py --index-dir 检索索引/raw --question "测试" --mock
+cd "<知识库项目>"
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" --md-dir wiki/raw --index-dir 检索索引/raw --mock
+python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" --index-dir 检索索引/raw --question "测试" --mock
 ```

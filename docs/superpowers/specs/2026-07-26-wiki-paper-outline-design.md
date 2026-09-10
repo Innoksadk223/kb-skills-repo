@@ -1,7 +1,7 @@
 # wiki-paper-outline 技能设计
 
 日期：2026-07-26
-状态：已与用户确认设计，待实现
+状态：已实现（设计于 2026-07-26）。本文是当时的设计存档，用于追溯决策；现行规则以 [wiki-paper-outline/SKILL.md](../../../skills/wiki-paper-outline/SKILL.md) 与 `social-science-km` 路由核心为准。
 
 ## 目标
 
@@ -111,10 +111,12 @@ SKILL.md 遵循生态通用范式：YAML frontmatter（name + description 触发
 
 ## 生态接入（改动仅两处）
 
-1. `skills/social-science-km/SKILL.md` Workflow Router 表加一行：
+1. `skills/social-science-km/SKILL.md` 路由表加一行：
    用户要写论文大纲/构思论文 → 路由到 wiki-paper-outline
-2. 检索统一走 `social-science-km/references/km_query.py`（`--deep` 档），
+   （当时该表名为「Workflow Router」；现行核心已改为 `## 1. Route And Stop`，新增了停止点列。）
+2. 检索统一走 `social-science-km/references/km_query.py`，
    索引 staleness 由其自带检查兜底；不新写检索脚本
+   （后续收紧：初轮用普通检索，`--multi-query` / `--rerank` / `--deep` 按召回与证据风险逐级升级，不再默认全量 `--deep`；获准沿用旧索引时须显式传 `--skip-check`。）
 
 ## 明确不做
 

@@ -2,10 +2,10 @@
 """
 KM unified query interface.
 
-Copy this file to a knowledge-base project root, then run:
-  python3 km_query.py "你的问题"
-  python3 km_query.py "原文出处在哪里？" --raw-only
-  python3 km_query.py "用于论文写作的精确证据" --deep
+Run the maintained helper with an explicit knowledge-base project root:
+  python3 <skills-repo>/skills/social-science-km/references/km_query.py --project-root <project-root> "你的问题"
+  # Add --raw-only for raw evidence, or --deep when evidence quality needs escalation.
+Existing copies in project roots remain supported.
 """
 
 from __future__ import annotations
@@ -393,12 +393,14 @@ def main() -> None:
     if not args.question and not args.check:
         raise SystemExit("用法: python3 km_query.py \"你的问题\" [--raw-only|--deep|--skip-check]")
 
-    status = StalenessStatus(False, "")
-    if not args.skip_check:
+    mode = None if args.check else choose_mode(
+        args.question, raw_only=args.raw_only, deep=args.deep, project_root=project_root,
+    )
+    if args.check or not args.skip_check:
         status = check_staleness(project_root)
-        blocking = status.raw_stale if args.raw_only else status.stale
+        blocking = status.raw_stale if mode == "raw" else status.stale
         if status.stale and not blocking:
-            print(f"[NOTE] wiki 索引过期（{status.message}）；--raw-only 查询不受影响，继续。")
+            print(f"[NOTE] wiki 索引过期（{status.message}）；raw-only 查询不受影响，继续。")
         if blocking:
             print(f"[WARN] RAG 索引过期：{status.message}")
             if status.wiki_stale and not args.no_lint:
@@ -410,8 +412,7 @@ def main() -> None:
         print("RAG 索引状态：当前")
         return
 
-    assert args.question is not None
-    mode = choose_mode(args.question, raw_only=args.raw_only, deep=args.deep, project_root=project_root)
+    assert args.question is not None and mode is not None
     query_script = find_query_script(project_root)
     cmd = build_query_command(
         project_root=project_root,

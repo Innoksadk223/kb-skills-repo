@@ -32,11 +32,13 @@
 
 | 技能 | 负责什么 |
 |---|---|
+| `social-science-km` | 总调度入口：按用户目标选择转换、深读、编译、检索或维护，并在请求范围内停止 |
 | `deep-reading-to-wiki` | 长书、章节、理论文献先生成深读档案，避免浅总结直接入库 |
-| `karpathy-wiki` | 把原文和深读档案编译成 claims / concepts / entities / comparisons 图谱 wiki |
-| `SiliconFlow-rag` | 建 raw 原文索引 + wiki 结构索引，支持 wiki-first 检索 |
-| `social-science-km` | 总调度入口：从资料转换、深读、wiki 到 RAG 索引的一体化流程 |
-| `wiki-paper-outline` | 基于已有 wiki 与检索索引，经导师式讨论生成有证据出处的社科论文大纲 |
+| `karpathy-wiki` | 把原文和深读档案编译成 claims / concepts / entities / comparisons / observations / structures / predicts 等图谱节点 |
+| `siliconflow-rag` | 建 raw 原文索引 + wiki 结构索引，支持 wiki-first 检索 |
+| `wiki-paper-outline` | 只读已有知识库，经导师式讨论生成有证据出处的社科论文大纲，写入 `outlines/` |
+
+RAG 技能标识是 `siliconflow-rag`，仓库磁盘目录是 `skills/SiliconFlow-rag/`；命令路径需保留目录大小写。`setup.sh --list` / `--skills` 用的是目录名，所以筛选该技能时写 `SiliconFlow-rag`。
 
 ### 上游安装（不随本仓库复制）
 
@@ -56,14 +58,27 @@
 
 > 「帮我把这个文件夹里的论文建个知识库」
 
-AI 应该按场景调度：
+`social-science-km` 从接到请求起统筹全程，按场景调用下列能力。完整建库时的顺序是：
 
 1. `academic-search`（上游）—— 可选；本地资料不够时，先找相关领域论文并筛出可合法获取的全文
-2. `mineru-document-extractor` / MinerU MCP / `markitdown`（上游）—— 先把文件转成 Markdown 原文
-3. `deep-reading-to-wiki` —— 对长文、理论文献、补库候选源做深读档案
-4. `karpathy-wiki` —— 编译 Obsidian 可读的图谱 wiki
-5. `SiliconFlow-rag` —— 建立可查询索引
-6. `social-science-km` —— 负责统筹流程、补库和问答入口
+2. `mineru-document-extractor` / MinerU MCP / `markitdown`（上游）—— 把文件转成 Markdown 原文
+3. 新库先确定项目路径、领域和最小 Wiki 配置，由 `karpathy-wiki` 初始化 `wiki/SCHEMA.md`、`wiki/index.md`、`wiki/log.md` 等必要结构；已有库读取现有配置
+4. 登记本批全部来源的分流结果；`deep-reading-to-wiki` 对需要深读的来源生成并验收档案
+5. `karpathy-wiki` —— 按来源或不可拆分的逻辑集合验收就绪条件，编译 Obsidian 可读的图谱 wiki
+6. `siliconflow-rag` —— 更新 raw / wiki 双索引
+
+独立合格来源可先推进；blocked 或待深读来源需保留原因和下一步。用户要求整批完成时，应报告已完成和未完成来源，部分成功不能称为整批完成。
+
+用户指定范围时，按以下停止点交付：
+
+| 请求范围 | 停止点 |
+|---|---|
+| 仅转换 | Markdown 原文（raw）验收后结束 |
+| 仅深读 | 深读档案交付后结束；可用 standalone 模式，无需强建 Wiki |
+| 仅查询 | 检索并回答后结束，不触发资料摄入；只检查当前查询需要的索引 |
+| 仅体检 / lint | Wiki 结构检查交给 `karpathy-wiki`，索引状态检查交给 RAG 维护流程；交付问题清单后结束，修复或更新需属于请求范围 |
+| 论文大纲 | 只读已有知识库并写入 `outlines/`，不自动补库 |
+| 完整建库 / 补库 | 在请求范围内贯穿分流、深读、编译与索引更新 |
 
 已有知识库后，用户也可以说：
 
@@ -201,14 +216,14 @@ bash setup.sh --update-only
 - **MinerU skill + MCP 均需从上游安装**；本仓库不再内置 `mineru-document-extractor` 副本  
   - MCP：https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp  
   - 生态：https://mineru.net/ecosystem
-- `SiliconFlow-rag` 需要 SiliconFlow API Key 才能建立真实语义索引；默认嵌入模型是 `BAAI/bge-m3`，详细配置见 [CONFIG.md](CONFIG.md)
+- `siliconflow-rag` 需要 SiliconFlow API Key 才能建立真实语义索引；默认嵌入模型是 `BAAI/bge-m3`，详细配置见 [CONFIG.md](CONFIG.md)
 - Obsidian 不是必需，但强烈建议安装，用来看知识图谱：https://obsidian.md
 
 ## 技能来源
 
 | 能力 | 来源 | 是否随 setup 安装 |
 |---|---|---|
-| `deep-reading-to-wiki` / `karpathy-wiki` / `SiliconFlow-rag` / `social-science-km` / `wiki-paper-outline` | 本仓库 | 是 |
+| `deep-reading-to-wiki` / `karpathy-wiki` / `siliconflow-rag` / `social-science-km` / `wiki-paper-outline` | 本仓库 | 是 |
 | `academic-search` | https://github.com/ustc-ai4science/academic-search | 否，第三方可选推荐 |
 | `mineru-document-extractor` | https://github.com/opendatalab/MinerU-Ecosystem | 否，上游安装 |
 | MinerU MCP | https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp | 否，上游配置 |
