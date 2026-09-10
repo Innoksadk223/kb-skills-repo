@@ -34,19 +34,17 @@
 > 「知识库技能包已经装好。我先用 3 分钟带你上手：你不用记技能名，直接说资料目标，AI 会自己选择解析、深读、建图谱和检索流程。
 > 如果你只想听总览，我会讲最短版；也可以选一个方向深入讲：建库、加资料、Obsidian 看图、提问检索、SiliconFlow API Key、MinerU MCP。」
 
-介绍时按这个顺序讲，保持简短：
+介绍时按这个顺序讲，保持简短，**不要把配置一次性全塞给用户**：
 
 1. 先用「一句话原则」说明：**用户只管说资料目标，AI 负责挑技能和流程。**
-2. 用最短总览说明：`social-science-km` 统筹全程，按请求范围选择步骤；完整建库是「文件转 Markdown → 最小 Wiki 初始化 → 深读档案 → wiki 图谱 → RAG 索引」，之后可基于证据问答。
-3. 给 3-5 个常用说法示例，不要一次灌输全部细节（可引用下方「常用说法速查」）。
-4. 结尾问用户想重点了解哪一块；如果用户明确说不用介绍，就收住。
+2. 说明本仓库只装 5 个知识库技能；`academic-search` 是其他项目维护的可选论文搜集入口，MinerU / markitdown 按文档类型从上游安装（见「技能列表」）。
+3. 用最短总览说明：`social-science-km` 统筹全程，按请求范围选择步骤；完整建库是「文件转 Markdown → 最小 Wiki 初始化 → 深读档案 → wiki 图谱 → RAG 索引」，之后可基于证据问答。
+4. 给 3-5 个常用说法示例，不要一次灌输全部细节（见「使用方法 → 怎么提问」）。
 5. 用户问 Obsidian 时，教他打开知识库文件夹并按 `Ctrl/Cmd + G` 看图谱。
-6. 用户问 API Key 时，说明 SiliconFlow 用来做向量索引；不配置也可以先做 Markdown/wiki，配置后检索效果更好。
-7. 用户处理 PDF、扫描件、表格或公式时，提醒 **MinerU skill 与 MinerU MCP 需从上游安装**，本仓库不内置副本。
-8. 用户想深入了解图谱、问答、颜色配置或常见问题时，看本文件的「使用方法」。
-9. 用户问 MinerU、SiliconFlow、嵌入模型、rerank、API Key 或隐私边界时，看本文件的「配置与运维手册」。
-
-更完整的教学口径见「配置与运维手册 → 给 AI 的教学口径」，原则是**不要把配置一次性全塞给用户**。
+6. 用户问 API Key 时，先说明不配置也能整理 Markdown/wiki，但真实语义检索需要 SiliconFlow；再指导配置 `SILICONFLOW_API_KEY`，并强调密钥只放环境变量或本地私有 config，不要写进仓库（见「配置与运维手册 → SiliconFlow RAG 配置」）。
+7. 用户处理 PDF、扫描件、表格或公式时，先问是否已有 MinerU skill + MCP；没有就给出上游安装命令和 MCP 的 `uvx` 配置，并提醒本仓库不内置副本（见「配置与运维手册 → MinerU 配置」）。
+8. 解释默认嵌入模型是 `BAAI/bge-m3`，适合中英文资料；换模型会导致已有索引需要重建。
+9. 结尾问用户想重点了解哪一块；如果用户明确说不用介绍，就收住。
 
 ---
 
@@ -74,68 +72,27 @@ git clone https://github.com/Innoksadk223/kb-skills-repo.git ~/kb-skills
 
 ### 各 agent 的链接命令
 
-本仓库 5 个技能目录分别是：`social-science-km`、`deep-reading-to-wiki`、`karpathy-wiki`、`SiliconFlow-rag`、`wiki-paper-outline`。
+本仓库 5 个技能目录：`social-science-km`、`deep-reading-to-wiki`、`karpathy-wiki`、`SiliconFlow-rag`、`wiki-paper-outline`。
 
-**Claude Code —— `~/.claude/skills`（扁平目录）**
+先按下表把 `DEST` 换成你要装的目录：
 
-```bash
-REPO=~/kb-skills
-mkdir -p ~/.claude/skills
-ln -s "$REPO/skills/social-science-km"    ~/.claude/skills/social-science-km
-ln -s "$REPO/skills/deep-reading-to-wiki" ~/.claude/skills/deep-reading-to-wiki
-ln -s "$REPO/skills/karpathy-wiki"        ~/.claude/skills/karpathy-wiki
-ln -s "$REPO/skills/SiliconFlow-rag"      ~/.claude/skills/SiliconFlow-rag
-ln -s "$REPO/skills/wiki-paper-outline"   ~/.claude/skills/wiki-paper-outline
-```
-
-**Codex —— `~/.codex/skills`（扁平目录）**
+| agent | `DEST` 的值 | 说明 |
+|---|---|---|
+| Claude Code | `~/.claude/skills` | 扁平目录 |
+| Codex | `~/.codex/skills` | 扁平目录 |
+| Hermes | `~/.hermes/skills/research` | Hermes 按用途分组，研究类技能放 `research/` 子目录 |
+| Pi / 共享全局 | `~/.agents/skills` | Pi 与 Codex 共用的全局技能目录 |
 
 ```bash
 REPO=~/kb-skills
-mkdir -p ~/.codex/skills
-ln -s "$REPO/skills/social-science-km"    ~/.codex/skills/social-science-km
-ln -s "$REPO/skills/deep-reading-to-wiki" ~/.codex/skills/deep-reading-to-wiki
-ln -s "$REPO/skills/karpathy-wiki"        ~/.codex/skills/karpathy-wiki
-ln -s "$REPO/skills/SiliconFlow-rag"      ~/.codex/skills/SiliconFlow-rag
-ln -s "$REPO/skills/wiki-paper-outline"   ~/.codex/skills/wiki-paper-outline
-```
-
-**Hermes —— `~/.hermes/skills/research`（Hermes 按用途分组，研究类技能放在 `research/` 子目录）**
-
-```bash
-REPO=~/kb-skills
-mkdir -p ~/.hermes/skills/research
-ln -s "$REPO/skills/social-science-km"    ~/.hermes/skills/research/social-science-km
-ln -s "$REPO/skills/deep-reading-to-wiki" ~/.hermes/skills/research/deep-reading-to-wiki
-ln -s "$REPO/skills/karpathy-wiki"        ~/.hermes/skills/research/karpathy-wiki
-ln -s "$REPO/skills/SiliconFlow-rag"      ~/.hermes/skills/research/SiliconFlow-rag
-ln -s "$REPO/skills/wiki-paper-outline"   ~/.hermes/skills/research/wiki-paper-outline
-```
-
-**共享全局目录 —— `~/.agents/skills`（Pi / Codex 的全局技能目录共用）**
-
-```bash
-REPO=~/kb-skills
-mkdir -p ~/.agents/skills
-ln -s "$REPO/skills/social-science-km"    ~/.agents/skills/social-science-km
-ln -s "$REPO/skills/deep-reading-to-wiki" ~/.agents/skills/deep-reading-to-wiki
-ln -s "$REPO/skills/karpathy-wiki"        ~/.agents/skills/karpathy-wiki
-ln -s "$REPO/skills/SiliconFlow-rag"      ~/.agents/skills/SiliconFlow-rag
-ln -s "$REPO/skills/wiki-paper-outline"   ~/.agents/skills/wiki-paper-outline
-```
-
-**一次装到多个目录（可选批量写法）**
-
-```bash
-REPO=~/kb-skills
+DEST=~/.claude/skills          # 换成上表里你要用的那个目录
+mkdir -p "$DEST"
 for SKILL in social-science-km deep-reading-to-wiki karpathy-wiki SiliconFlow-rag wiki-paper-outline; do
-  mkdir -p ~/.claude/skills ~/.codex/skills ~/.hermes/skills/research ~/.agents/skills
-  ln -s "$REPO/skills/$SKILL" ~/.claude/skills/"$SKILL"
-  ln -s "$REPO/skills/$SKILL" ~/.codex/skills/"$SKILL"
-  ln -s "$REPO/skills/$SKILL" ~/.hermes/skills/research/"$SKILL"
-  ln -s "$REPO/skills/$SKILL" ~/.agents/skills/"$SKILL"
+  ln -s "$REPO/skills/$SKILL" "$DEST/$SKILL"
 done
 ```
+
+要给多个 agent 都装上，改一次 `DEST` 再跑一遍即可。
 
 ### 卸载
 
@@ -147,9 +104,9 @@ rm ~/.claude/skills/social-science-km
 
 （只删链接本身；`rm -rf` 打到仓库路径会误删正本，注意别写错目标。）
 
-### 只有 5 个技能随本仓库安装
+### 本仓库只安装 5 个技能
 
-本仓库安装的就是上面 5 个技能。文档解析与学术搜索等外围能力（`academic-search`、`mineru-document-extractor`、MinerU MCP、`markitdown`、`paper-spine`）**从各自上游安装**，见「技能列表 → 上游 / 第三方」与「配置与运维手册 → 上游组件安装入口」。
+本仓库安装的就是上面 5 个技能。文档解析与学术搜索等外围能力（`academic-search`、`mineru-document-extractor`、MinerU MCP、`markitdown`、`paper-spine`）**从各自上游安装**，地址与说明见「技能列表 → 上游 / 第三方」。
 
 ---
 
@@ -184,17 +141,6 @@ rm ~/.claude/skills/social-science-km
 
 > **第三方可选推荐：** **Academic-Search Skill** 只在需要搜索、筛选和补充论文资料时使用；已有完整本地资料可直接跳过。**PaperSpine** 只在需要把材料或大纲进一步写成、改成并审计完整论文时使用。两者均由其他项目维护，不属于本仓库。
 
-### 技能来源一览
-
-| 能力 | 来源 | 是否随本仓库安装 |
-|---|---|---|
-| `deep-reading-to-wiki` / `karpathy-wiki` / `siliconflow-rag` / `social-science-km` / `wiki-paper-outline` | 本仓库 | 是 |
-| `academic-search` | https://github.com/ustc-ai4science/academic-search | 否，第三方可选推荐 |
-| `mineru-document-extractor` | https://github.com/opendatalab/MinerU-Ecosystem | 否，上游安装 |
-| MinerU MCP | https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp | 否，上游配置 |
-| `markitdown` | https://github.com/microsoft/markitdown | 否，上游安装 |
-| `paper-spine` | https://github.com/WUBING2023/PaperSpine | 否，第三方可选推荐 |
-
 ---
 
 ## 典型工作流
@@ -208,7 +154,7 @@ rm ~/.claude/skills/social-science-km
 1. `academic-search`（上游）—— 可选；本地资料不够时，先找相关领域论文并筛出可合法获取的全文
 2. `mineru-document-extractor` / MinerU MCP / `markitdown`（上游）—— 把文件转成 Markdown 原文
 3. 新库先确定项目路径、领域和最小 Wiki 配置，由 `karpathy-wiki` 初始化 `wiki/SCHEMA.md`、`wiki/index.md`、`wiki/log.md` 等必要结构；已有库读取现有配置
-4. 登记本批全部来源的分流结果；`deep-reading-to-wiki` 对需要深读的来源生成并验收档案
+4. 登记本批全部来源的分流结果；`deep-reading-to-wiki` 对需要深读的来源生成并验收档案（哪些来源需要深读，见「深读触发规则」）
 5. `karpathy-wiki` —— 按来源或不可拆分的逻辑集合验收就绪条件，编译 Obsidian 可读的图谱 wiki
 6. `siliconflow-rag` —— 更新 raw / wiki 双索引
 
@@ -278,32 +224,13 @@ rm ~/.claude/skills/social-science-km
 
 > 「帮我把这个文件夹里的论文建个知识库」
 
-AI 会自动：
+AI 会按「典型工作流」自动走完转换、深读、编译和索引；你也可以只要求其中一步，停止点见「典型工作流 → 停止点」。哪些资料需要深读，见「深读触发规则」。完成后 AI 会告诉你知识库在哪个文件夹。
 
-1. 新库先确定知识库保存路径、研究领域，并初始化最小 Wiki 配置；已有知识库则读取现有配置，不覆盖；
-2. 优先用 MinerU 把 PDF 转成可读文本；扫描件、古籍影印本、表格/公式多的资料都走 MinerU；其他格式才优先用 MarkItDown，失败或乱码时也交给 MinerU 兜底；
-3. 登记这一批全部资料的处理路线；典籍/注疏、专著、教材章节、合集、学位论文这类材料，以及理论性强、容易被压缩失真的文献，会先生成 `reading_dossiers/` 深读档案；普通单篇论文默认直接编译，你需要时也可以要求深读；
-4. 提取概念、实体、比较关系和论证命题；有证据时也提取 observations / structures / predicts 节点；
-5. 生成可以在 Obsidian 图谱中看到的 claims / concepts / entities / comparisons 等页面；
-6. 建立 raw 原文索引 + wiki 结构索引，后续提问先定位论证路径，再回到原文证据。
-
-已合格的资料会先入库；失败或还没深读完成的资料会列出原因和下一步。如果你要求整批完成，AI 必须说明哪些完成、哪些没完成——部分成功不等于整批成功。建好后 AI 会告诉你知识库在哪个文件夹。
-
-> PDF 解析依赖 **MinerU skill + MinerU MCP（推荐）**，二者均从上游安装，不在本仓库内置：
-> - 生态：https://mineru.net/ecosystem
-> - 技能：https://github.com/opendatalab/MinerU-Ecosystem/blob/main/skills/SKILL.md
-> - MCP：https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp
->   README：https://github.com/opendatalab/MinerU-Ecosystem/blob/main/mcp/README.md
+> PDF 解析依赖 **MinerU skill + MinerU MCP（推荐）**，二者均从上游安装，不在本仓库内置；安装与配置见「配置与运维手册 → MinerU 配置」。
 
 **第二步：打开 Obsidian 看图。** 见下方「在 Obsidian 里看图谱」。
 
-**第三步：提问。**
-
-> 「这个概念在哪些论文里出现过？」
-> 「A 和 B 有什么区别？」
-> 「总结一下这个领域的共识和争议」
-
-AI 不会凭空回答——每个结论都能溯源到具体论文的哪一段。
+**第三步：提问。** AI 不会凭空回答——每个结论都能溯源到具体论文的哪一段。常用说法见「怎么提问」。
 
 ### 在 Obsidian 里看图谱
 
@@ -323,46 +250,41 @@ AI 不会凭空回答——每个结论都能溯源到具体论文的哪一段�
 - 新建组：`path:synthesis/` → 灰色
 - 可选：`path:debates/`、`path:observations/`、`path:structures/`、`path:predicts/` → 自选颜色（有这类页面时再加）
 
-### 图谱能看什么
+### 节点类型与颜色
 
-| 你看到的 | 含义 |
-|---|---|
-| 🟣 紫色节点 | 论证命题、支持、反对、限定关系（`claims/`） |
-| 🔵 蓝色节点 | 人物、机构、模型（`entities/`） |
-| 🟢 绿色节点 | 理论、概念、方法（`concepts/`） |
-| 🟠 橙色节点 | 对比分析（`comparisons/`，概念 A vs 概念 B） |
-| ⚪ 灰色节点 | 轻量入口页 / 阅读路线图（`synthesis/`） |
-| 其他颜色（可选） | 争议谱系（debates）、经验观察（observations）、理论框架（structures）、预测命题（predicts）——有证据时才会出现 |
-| 虚线边框的节点 | 待补充页面——被引用但还没详细内容 |
-| 节点之间的连线 | 两份资料之间存在关系 |
+图谱页面都位于 `wiki/` 下，按证据需要创建；论文大纲单独放在项目根目录的 `outlines/`。
+
+| 目录 | 图谱颜色 | 含义 |
+|---|---|---|
+| `claims/` | 🟣 紫色 | 论证命题、支持、反对、限定关系 |
+| `entities/` | 🔵 蓝色 | 人物、机构、模型、地点 |
+| `concepts/` | 🟢 绿色 | 理论、概念、方法 |
+| `comparisons/` | 🟠 橙色 | 概念或理论之间的对比（概念 A vs 概念 B） |
+| `synthesis/` | ⚪ 灰色 | 综述、路线图、阶段性总结（轻量入口页） |
+| `debates/`、`observations/`、`structures/`、`predicts/`（可选） | 自选颜色 | 争议谱系、经验观察、理论框架、预测命题——有证据时才会出现 |
+| 虚线边框的节点（非目录） | — | 待补充页面：被引用但还没详细内容 |
+| 节点之间的连线（非目录） | — | 两份资料之间存在关系 |
 
 **图谱的价值：** 一篇论文提到「确认偏误」，另一篇也提到——你会看到两条线汇聚到同一个绿色节点。这就是 AI 帮你做的事情，靠人眼翻几百页论文做不到。
 
-### 节点类型说明
+### 怎么提问
 
-以上节点位于 `wiki/` 下，按证据需要创建；论文大纲单独放在项目根目录的 `outlines/`。
-
-| 类型 | 含义 |
+| 你想做 | 直接这样说 |
 |---|---|
-| `claims/` | 论证命题、支持、反对、限定关系 |
-| `concepts/` | 理论、概念、方法 |
-| `entities/` | 人物、机构、模型、地点 |
-| `comparisons/` | 概念或理论之间的对比 |
-| `observations/` | 有来源的观察、事实与现象（可选） |
-| `structures/` | 机制、关系与结构解释（可选） |
-| `predicts/` | 带前提和验证条件的预测（可选） |
-| `synthesis/` | 综述、路线图、阶段性总结 |
-
-### 提问示例
-
-- **建库**：「帮我把 Downloads 里的论文文件夹建个知识库」「这个文件夹叫『认知心理学文献』」
-- **加料**：「把这 5 篇新论文也加进去」「继续处理这个文件夹，旧资料不要重跑」
-- **查问**：「确认偏误在哪些论文里被讨论过？」「可得性启发和确认偏误有什么关系？」「这个领域目前有什么争议？」
-- **体检**：「检查一下知识库有没有断链或矛盾」「有没有哪些概念被多次引用但还没详细页面？」
-- **综述**：「总结一下认知偏差这个领域的现状」「帮我写一份这个知识库的综述」
-- **大纲**：「基于这个知识库，和我讨论一篇关于 X 的论文大纲」「先给我两个核心论点候选，再一起收敛论文结构」
+| 新建知识库 | 「帮我把这个文件夹建成知识库」「这个文件夹叫『认知心理学文献』」 |
+| 加新资料 | 「把这些新论文加进去」「继续处理这个文件夹，旧资料不要重跑」 |
+| 看图谱 | 「教我在 Obsidian 打开这个知识库」 |
+| 查证据 | 「确认偏误在哪些论文里被讨论过？」「可得性启发和确认偏误有什么关系？」「这个领域目前有什么争议？」 |
+| 做综述 | 「基于这个知识库写一份文献综述」「总结一下这个领域的现状」 |
+| 规划论文大纲 | 「基于这个知识库，和我讨论并规划论文大纲」「先给我两个核心论点候选，再一起收敛论文结构」 |
+| 写成完整论文 | 「把这些材料和大纲交给 PaperSpine，继续写成论文」 |
+| 查断链 / 体检 | 「检查一下知识库有没有断链或矛盾」「有没有哪些概念被多次引用但还没详细页面？」 |
+| 配 API Key | 「帮我配置 SiliconFlow API Key，用 BAAI/bge-m3 建索引」 |
+| 处理扫描 PDF | 「这批 PDF 是扫描件，优先用 MinerU」 |
 
 基于知识库提问时，AI 按问题选择「先查 wiki 结构再回到 raw 原文证据」或「直接检索原文」，并且只检查当前查询需要的索引。小型 Wiki 可直接阅读，回答仍需引用证据。
+
+不确定怎么说？直接说目标就行：「我有一堆论文，想以后方便提问」「我想把这些资料整理成图谱」「我想知道这些作者之间的观点差异」。AI 应该先判断该走建库、补库、查询、体检还是综述流程，再问必要的问题。
 
 ### 论文大纲流程
 
@@ -370,33 +292,16 @@ AI 不会凭空回答——每个结论都能溯源到具体论文的哪一段�
 
 要从材料或大纲继续完成论文写作、改稿、审稿审计和 LaTeX / PDF / Word 输出，可选用第三方独立项目 [PaperSpine](https://github.com/WUBING2023/PaperSpine)。
 
-### 常用说法速查
-
-| 你想做 | 直接这样说 |
-|---|---|
-| 新建知识库 | 「帮我把这个文件夹建成知识库」 |
-| 加新资料 | 「把这些新论文加进去」 |
-| 看图谱 | 「教我在 Obsidian 打开这个知识库」 |
-| 查证据 | 「回答这个问题，并引用原文证据」 |
-| 做综述 | 「基于这个知识库写一份文献综述」 |
-| 规划论文大纲 | 「基于这个知识库，和我讨论并规划论文大纲」 |
-| 写成完整论文 | 「把这些材料和大纲交给 PaperSpine，继续写成论文」 |
-| 查断链 | 「检查知识库有没有断链或待补页面」 |
-| 配 API Key | 「帮我配置 SiliconFlow API Key，用 BAAI/bge-m3 建索引」 |
-| 处理扫描 PDF | 「这批 PDF 是扫描件，优先用 MinerU」 |
-
-不确定怎么说？直接说目标就行：「我有一堆论文，想以后方便提问」「我想把这些资料整理成图谱」「我想知道这些作者之间的观点差异」。AI 应该先判断该走建库、补库、查询、体检还是综述流程，再问必要的问题。
-
 ### 常见问题（FAQ）
 
 **Q: 文件存在哪里？**
 A: 你电脑上。知识库就是一个普通文件夹，里面的 Markdown 文件可以用任何编辑器打开。
 
 **Q: 我的论文会上传到云端吗？**
-A: 只有向量化时会发送文本片段给硅基流动（为了让它能理解内容）。不会存储你的原文。如果介意，可以先问 AI 具体哪些内容会被发送。详见「配置与运维手册 → 隐私与网络边界」。
+A: 只有做向量化时，文本片段和查询文本会发往硅基流动，不会存储你的原文；原始文件、索引文件和 `rag_config.json` 都留在本机。详见「配置与运维手册 → 隐私与网络边界」。
 
 **Q: 支持什么格式？**
-A: PDF、Word、网页文章、纯文本。PDF 默认优先用 MinerU 处理，尤其是扫描版 PDF、古籍影印本、论文、表格和公式；MarkItDown 只作为非 PDF 的轻量转换工具，失败、空输出或乱码时再用 MinerU 兜底。
+A: PDF、Word、网页文章、纯文本；PDF 默认优先用 MinerU，非 PDF 走 MarkItDown 轻量转换，失败、空输出或乱码时再用 MinerU 兜底。安装见「配置与运维手册 → MinerU 配置」。
 
 **Q: 能多人协作吗？**
 A: 知识库就是一个文件夹。放在 iCloud 或 Dropbox 里就可以多设备同步。放在 GitHub 上可以协作（注意不要把 API Key 一起提交）。
@@ -411,7 +316,7 @@ A: 知识库背后用的服务，把资料和 wiki 结构「翻译」成数学�
 
 ## 配置与运维手册
 
-技能装好后，外部服务仍需单独配置：MinerU 负责解析复杂文档，SiliconFlow 负责 RAG 向量索引和可选 rerank。
+技能装好后，外部服务仍需单独配置：MinerU 负责解析复杂文档，SiliconFlow 负责 RAG 向量索引和可选 rerank。需要安装的上游组件清单与地址见「技能列表 → 上游 / 第三方」，下面给出各组件的实际安装与配置步骤。
 
 ### 最小可用配置
 
@@ -423,21 +328,9 @@ A: 知识库背后用的服务，把资料和 wiki 结构「翻译」成数学�
 | RAG 向量索引 | 是 | `SILICONFLOW_API_KEY` | 只能做 Markdown/wiki，不能建真实语义检索索引 |
 | Rerank 精排 | 可选 | 同一个 `SILICONFLOW_API_KEY` | 查询仍可用，只是不做二次精排 |
 
-### 上游组件安装入口
-
-| 组件 | 上游地址 |
-|---|---|
-| academic-search | https://github.com/ustc-ai4science/academic-search |
-| mineru-document-extractor skill | https://github.com/opendatalab/MinerU-Ecosystem/blob/main/skills/SKILL.md |
-| MinerU MCP | https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp |
-| MinerU MCP README | https://github.com/opendatalab/MinerU-Ecosystem/blob/main/mcp/README.md |
-| MinerU 生态总入口 | https://mineru.net/ecosystem |
-| markitdown | https://github.com/microsoft/markitdown |
-| PaperSpine | https://github.com/WUBING2023/PaperSpine |
-
 ### MinerU 配置
 
-MinerU 有两条路：MCP 和 CLI。知识库工作流优先用 MCP；MCP 不可用时再用 CLI。**本仓库不内置 MinerU skill 副本**——请从上游安装 skill，并按下方配置 MCP。
+MinerU 有两条路：MCP 和 CLI。知识库工作流优先用 MCP；MCP 不可用时再用 CLI 兜底。**本仓库不内置 MinerU skill 副本**——请从上游安装 skill，并按下方配置 MCP。
 
 **推荐：MinerU MCP。** 安装 `uv` 后，MCP 客户端可以用 `uvx` 直接启动最新版：
 
@@ -463,59 +356,6 @@ MinerU 有两条路：MCP 和 CLI。知识库工作流优先用 MCP；MCP 不可
 - `OUTPUT_DIR` 是批量解析或内容过长时保存结果的目录。
 - 有些 MCP 客户端会把拖入的文件放进临时沙盒；让用户尽量给出文件的**完整路径**。
 
-**Streamable HTTP 模式**（需要手动启动 MCP 服务、再让客户端连接）：
-
-```bash
-MINERU_API_TOKEN=your_token_here mineru-open-mcp --transport streamable-http --port 8001
-```
-
-```json
-{
-  "mcpServers": {
-    "mineru": {
-      "type": "streamableHttp",
-      "url": "http://127.0.0.1:8001/mcp"
-    }
-  }
-}
-```
-
-**备用：MinerU CLI。**
-
-```bash
-npm install -g mineru-open-api
-mineru-open-api version
-```
-
-或 macOS/Linux 使用 Go：
-
-```bash
-go install github.com/opendatalab/MinerU-Ecosystem/cli/mineru-open-api@latest
-```
-
-认证：
-
-```bash
-mineru-open-api auth
-export MINERU_TOKEN="your_token_here"
-```
-
-CLI token 读取顺序：`--token` 参数 > `MINERU_TOKEN` 环境变量 > `~/.mineru/config.yaml`。
-
-常用命令：
-
-```bash
-mineru-open-api flash-extract paper.pdf -o ./out/
-mineru-open-api extract paper.pdf -o ./out/ -f md,json --model pipeline
-mineru-open-api extract paper.pdf -o ./out/ -f md --model vlm
-```
-
-模型选择：
-
-- `pipeline`：更稳，适合要求不幻觉的解析。
-- `vlm`：版式理解更强，适合复杂排版，但极少数情况下可能生成幻觉文本。
-- `html` / MinerU-HTML：适合需要 HTML 结构的场景。
-
 **MinerU skill 安装（上游）：**
 
 ```bash
@@ -526,6 +366,8 @@ cp /tmp/MinerU-Ecosystem/skills/SKILL.md ~/.claude/skills/mineru-document-extrac
 # Hermes: ~/.hermes/skills/productivity/mineru-document-extractor
 ```
 
+**CLI 兜底：** 上游还提供 `mineru-open-api` CLI（认证用 `MINERU_TOKEN`，也可写进 `~/.mineru/config.yaml`），MCP 不可用时可用它解析；具体命令见上游文档。
+
 ### markitdown 配置
 
 ```bash
@@ -533,8 +375,7 @@ python -m pip install 'markitdown[all]'
 python -m markitdown --version
 ```
 
-上游：https://github.com/microsoft/markitdown
-（官方以 CLI/Python 包为主；agent 需要 skill 目录时，可按官方 CLI 写薄封装，不要依赖本仓库内置副本。）
+官方以 CLI/Python 包为主；agent 需要 skill 目录时，可按官方 CLI 写薄封装，不要依赖本仓库内置副本。上游地址见「技能列表 → 上游 / 第三方」。
 
 ### academic-search 配置（第三方可选推荐）
 
@@ -552,7 +393,6 @@ git clone https://github.com/ustc-ai4science/academic-search.git ~/.codex/skills
 git clone https://github.com/ustc-ai4science/academic-search.git ~/.hermes/skills/research/academic-search
 ```
 
-上游：https://github.com/ustc-ai4science/academic-search
 建议申请 Semantic Scholar API Key 以提高配额：https://www.semanticscholar.org/product/api#api-key-form
 
 获取全文时**只使用合法的开放获取渠道，不绕过付费墙**。
@@ -567,7 +407,7 @@ bash install.sh
 
 ### SiliconFlow RAG 配置
 
-`siliconflow-rag` 用 SiliconFlow embeddings 给 Markdown/wiki 建本地向量索引。**技能标识为小写 `siliconflow-rag`，仓库磁盘目录为 `skills/SiliconFlow-rag/`**（命令按目录大小写写）。索引文件保存在本地。
+`siliconflow-rag` 用 SiliconFlow embeddings 给 Markdown/wiki 建本地向量索引。索引文件保存在本地；技能标识与磁盘目录的大小写差异见「技能列表 → 大小写契约」。
 
 官方说明：
 
@@ -762,17 +602,6 @@ python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
 python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --index-dir 检索索引/raw --question "测试" --mock
 ```
-
-### 给 AI 的教学口径
-
-安装完成后，AI 不要把配置一次性全塞给用户。按这个顺序讲：
-
-1. 先告诉用户：本仓库只装 5 个知识库技能；academic-search 是其他项目维护的可选论文搜集入口，MinerU / markitdown 按文档类型从上游安装。
-2. 先告诉用户：不配 API Key 也能整理 Markdown/wiki，但真实语义检索需要 SiliconFlow。
-3. 处理 PDF、扫描件、表格、公式时，先问是否已有 MinerU skill + MCP；没有就给上游 skill 安装命令和 MCP 的 `uvx` 配置（见上文）。
-4. 用户要建 RAG 索引时，再指导配置 `SILICONFLOW_API_KEY`。
-5. 解释默认嵌入模型是 `BAAI/bge-m3`，适合中英文资料；换模型会导致已有索引需要重建。
-6. 强调密钥只放环境变量或本地私有 config，不要写进仓库。
 
 ### 快速体检
 
