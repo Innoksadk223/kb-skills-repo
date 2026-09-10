@@ -66,63 +66,15 @@
 
 ## 安装
 
-### 为什么用符号链接（symlink）
-
-本仓库作者本机就是把技能以**符号链接**方式装进各 agent 的 skills 目录，而不是复制：
-
-- 仓库里只有**一份正本**，不存在某个 agent 目录里留着旧副本、互相不一致的问题；
-- `git pull` 之后所有 agent **立即生效**，不需要重新「安装」；
-- 卸载技能 = 删掉那条符号链接即可，**仓库本身原封不动**。
-
-复制安装会产生多份副本，容易出现「这个 agent 更新了、那个没更新」的陈旧重复。
-
-### 准备：拿到仓库
+把本仓库 `skills/` 下的 5 个技能目录放进你所用 AI agent 的技能目录即可。各 agent 的技能目录位置和加载方式不一样，按你自己那份 agent 的文档处理就行；不确定就把这件事交给 AI 去办。
 
 ```bash
 git clone https://github.com/Innoksadk223/kb-skills-repo.git ~/kb-skills
 ```
 
-下文用 `REPO=~/kb-skills` 指代仓库绝对路径。如果 clone 到别处，把 `REPO` 换成实际路径即可。
-
-> 若目标目录里已存在同名技能（旧副本），先删除那个副本再建链接；`ln -s` 不会覆盖已存在的同名条目。
-
-### 各 agent 的链接命令
-
-本仓库 5 个技能目录：`social-science-km`、`deep-reading-to-wiki`、`karpathy-wiki`、`SiliconFlow-rag`、`wiki-paper-outline`。
-
-先按下表把 `DEST` 换成你要装的目录：
-
-| agent | `DEST` 的值 | 说明 |
-|---|---|---|
-| Claude Code | `~/.claude/skills` | 扁平目录 |
-| Codex | `~/.codex/skills` | 扁平目录 |
-| Hermes | `~/.hermes/skills/research` | Hermes 按用途分组，研究类技能放 `research/` 子目录 |
-| Pi / 共享全局 | `~/.agents/skills` | Pi 与 Codex 共用的全局技能目录 |
-
-```bash
-REPO=~/kb-skills
-DEST=~/.claude/skills          # 换成上表里你要用的那个目录
-mkdir -p "$DEST"
-for SKILL in social-science-km deep-reading-to-wiki karpathy-wiki SiliconFlow-rag wiki-paper-outline; do
-  ln -s "$REPO/skills/$SKILL" "$DEST/$SKILL"
-done
-```
-
-要给多个 agent 都装上，改一次 `DEST` 再跑一遍即可。
-
-### 卸载
-
-删除对应的符号链接即可，仓库不受影响：
-
-```bash
-rm ~/.claude/skills/social-science-km
-```
-
-（只删链接本身；`rm -rf` 打到仓库路径会误删正本，注意别写错目标。）
-
-### 本仓库只安装 5 个技能
-
-本仓库安装的就是上面 5 个技能。文档解析与学术搜索等外围能力（`academic-search`、`mineru-document-extractor`、MinerU MCP、`markitdown`、`paper-spine`）**从各自上游安装**，地址与说明见「技能列表 → 上游 / 第三方」。
+- **更新**：`cd ~/kb-skills && git pull`。若是把技能目录复制进去的，更新后要再复制一次；若你的 agent 支持指向仓库路径（比如软链接），拉取即生效，也不会留下多份旧副本。
+- **卸载**：从 agent 技能目录里移除对应技能即可，本仓库不受影响。
+- **本仓库只含 5 个技能**：文档解析与学术搜索等外围能力（`academic-search`、`mineru-document-extractor`、MinerU MCP、`markitdown`、`paper-spine`）**从各自上游安装**，地址见「技能列表 → 上游 / 第三方」。
 
 ---
 
@@ -330,98 +282,9 @@ A: 知识库背后用的服务，把资料和 wiki 结构「翻译」成数学�
 
 ---
 
-## 配置与运维手册
+## RAG 配置（SiliconFlow）
 
-技能装好后，外部服务仍需单独配置：MinerU 负责解析复杂文档，SiliconFlow 负责 RAG 向量索引和可选 rerank。需要安装的上游组件清单与地址见「技能列表 → 上游 / 第三方」，下面给出各组件的实际安装与配置步骤。
-
-### 最小可用配置
-
-| 能力 | 是否必需 | 需要配置什么 | 不配置会怎样 |
-|---|---:|---|---|
-| 普通文档转 Markdown | 否 | 上游安装 Microsoft `markitdown` Python 包 | 只能处理已经是 Markdown/文本的资料 |
-| MinerU Flash 解析 | 否 | 上游安装 MinerU MCP 或 CLI | 小 PDF/图片/Office 仍可走 flash 模式，但需要工具本身可用 |
-| MinerU 高级解析 | 可选 | `MINERU_API_TOKEN`（MCP）或 `MINERU_TOKEN`（CLI） | 无法用更高额度、多格式输出和高级解析 |
-| RAG 向量索引 | 是 | `SILICONFLOW_API_KEY` | 只能做 Markdown/wiki，不能建真实语义检索索引 |
-| Rerank 精排 | 可选 | 同一个 `SILICONFLOW_API_KEY` | 查询仍可用，只是不做二次精排 |
-
-### MinerU 配置
-
-MinerU 有两条路：MCP 和 CLI。知识库工作流优先用 MCP；MCP 不可用时再用 CLI 兜底。**本仓库不内置 MinerU skill 副本**——请从上游安装 skill，并按下方配置 MCP。
-
-**推荐：MinerU MCP。** 安装 `uv` 后，MCP 客户端可以用 `uvx` 直接启动最新版：
-
-```json
-{
-  "mcpServers": {
-    "mineru": {
-      "command": "uvx",
-      "args": ["mineru-open-mcp"],
-      "env": {
-        "MINERU_API_TOKEN": "your_token_here",
-        "OUTPUT_DIR": "~/mineru-downloads"
-      }
-    }
-  }
-}
-```
-
-说明：
-
-- `MINERU_API_TOKEN` 可不填；不填时走 **Flash mode**，免费、免注册，但额度和输出能力较低。
-- 填 token 后可用更高额度、更多输出格式和更完整的解析能力。Token：https://mineru.net/apiManage/token
-- `OUTPUT_DIR` 是批量解析或内容过长时保存结果的目录。
-- 有些 MCP 客户端会把拖入的文件放进临时沙盒；让用户尽量给出文件的**完整路径**。
-
-**MinerU skill 安装（上游）：**
-
-```bash
-git clone --depth 1 https://github.com/opendatalab/MinerU-Ecosystem.git /tmp/MinerU-Ecosystem
-mkdir -p ~/.claude/skills/mineru-document-extractor
-cp /tmp/MinerU-Ecosystem/skills/SKILL.md ~/.claude/skills/mineru-document-extractor/SKILL.md
-# Codex: ~/.codex/skills/mineru-document-extractor
-# Hermes: ~/.hermes/skills/productivity/mineru-document-extractor
-```
-
-**CLI 兜底：** 上游还提供 `mineru-open-api` CLI（认证用 `MINERU_TOKEN`，也可写进 `~/.mineru/config.yaml`），MCP 不可用时可用它解析；具体命令见上游文档。
-
-### markitdown 配置
-
-```bash
-python -m pip install 'markitdown[all]'
-python -m markitdown --version
-```
-
-官方以 CLI/Python 包为主；agent 需要 skill 目录时，可按官方 CLI 写薄封装，不要依赖本仓库内置副本。上游地址见「技能列表 → 上游 / 第三方」。
-
-### academic-search 配置（第三方可选推荐）
-
-仅在本地论文资料不足、需要搜索和筛选候选文献时配置；已有完整资料集可跳过。
-
-```bash
-# Claude Code
-git clone https://github.com/ustc-ai4science/academic-search.git ~/.claude/skills/academic-search
-bash ~/.claude/skills/academic-search/scripts/check-deps.sh
-
-# Codex
-git clone https://github.com/ustc-ai4science/academic-search.git ~/.codex/skills/academic-search
-
-# Hermes
-git clone https://github.com/ustc-ai4science/academic-search.git ~/.hermes/skills/research/academic-search
-```
-
-建议申请 Semantic Scholar API Key 以提高配额：https://www.semanticscholar.org/product/api#api-key-form
-
-获取全文时**只使用合法的开放获取渠道，不绕过付费墙**。
-
-### PaperSpine 安装（第三方可选推荐）
-
-```bash
-git clone https://github.com/WUBING2023/PaperSpine.git
-cd PaperSpine
-bash install.sh
-```
-
-### SiliconFlow RAG 配置
+知识库的**语义检索**靠 SiliconFlow 做向量索引；不配置它，仍然可以整理 Markdown 与 wiki 图谱，但没有真正的语义检索。其余外围能力（MinerU 文档解析、markitdown 轻量转换、academic-search 学术搜索、PaperSpine 论文写作）都**从上游安装**，入口见「技能列表 → 上游 / 第三方」；完整的配置与运维规则写在技能本体里（`skills/` 下各技能的 `SKILL.md` 与 `references/`），AI 会按需读取，这里不重复。
 
 `siliconflow-rag` 用 SiliconFlow embeddings 给 Markdown/wiki 建本地向量索引。索引文件保存在本地；技能标识与磁盘目录的大小写差异见「技能列表 → 大小写契约」。
 
@@ -618,26 +481,6 @@ python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
 python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --index-dir 检索索引/raw --question "测试" --mock
 ```
-
-### 快速体检
-
-```bash
-cd "<知识库项目>"
-mineru-open-api version
-mineru-open-api auth --verify
-python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" --help
-python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" --help
-```
-
-### 排障清单
-
-- **`siliconflow-rag` 找不到脚本**：检查大小写——命令必须写 `skills/SiliconFlow-rag/...`（目录名），技能标识才是小写 `siliconflow-rag`。
-- **查询/建索引报缺少凭据**：确认 `SILICONFLOW_API_KEY` 环境变量已 export，或私有 config 路径（全小写）正确且 `chmod 600`。
-- **建索引中断后重跑**：目录里有 `.embedding_checkpoint.jsonl` 会自动续跑；成功提交后该文件应消失。
-- **大批量容易超时/429**：降低 `batch_size`、增大 `timeout`。
-- **文件明明存在却搜不到**：路径含空格、括号、中文或 iCloud 同步路径时，文件搜索工具可能返回 0 结果。不要据此判断文件为空或缺失，改为直接读文件，或用 shell `grep -n` 找关键词行号再定位读取；批量 grep 可放在一次 shell 调用里省往返。
-- **MCP 读不到拖入的文件**：有些客户端把拖入文件放进临时沙盒，让用户提供完整路径。
-- **索引过期阻塞查询**：先更新索引；确需旧索引，显式加 `--skip-check` 并在答案里说明证据可能滞后。
 
 ---
 
