@@ -66,15 +66,9 @@
 
 ## 安装
 
-把本仓库 `skills/` 下的 5 个技能目录放进你所用 AI agent 的技能目录即可。各 agent 的技能目录位置和加载方式不一样，按你自己那份 agent 的文档处理就行；不确定就把这件事交给 AI 去办。
+把本仓库 `skills/` 下的 5 个技能目录放进你所用 AI agent 的技能目录即可——目录在哪、怎么加载，按你那份 agent 的文档来，不确定就交给 AI 办。仓库用 `git clone https://github.com/Innoksadk223/kb-skills-repo.git` 取得，之后更新就是 `git pull`。
 
-```bash
-git clone https://github.com/Innoksadk223/kb-skills-repo.git ~/kb-skills
-```
-
-- **更新**：`cd ~/kb-skills && git pull`。若是把技能目录复制进去的，更新后要再复制一次；若你的 agent 支持指向仓库路径（比如软链接），拉取即生效，也不会留下多份旧副本。
-- **卸载**：从 agent 技能目录里移除对应技能即可，本仓库不受影响。
-- **本仓库只含 5 个技能**：文档解析与学术搜索等外围能力（`academic-search`、`mineru-document-extractor`、MinerU MCP、`markitdown`、`paper-spine`）**从各自上游安装**，地址见「技能列表 → 上游 / 第三方」。
+文档解析、学术搜索等外围能力不随本仓库提供，见「技能列表 → 上游 / 第三方」。
 
 ---
 
