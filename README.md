@@ -57,8 +57,8 @@
 3. 用最短总览说明：`social-science-km` 统筹全程，按请求范围选择步骤；完整建库是「文件转 Markdown → 最小 Wiki 初始化 → 深读档案 → wiki 图谱 → RAG 索引」，之后可基于证据问答。
 4. 给 3-5 个常用说法示例，不要一次灌输全部细节（见「使用方法 → 怎么提问」）。
 5. 用户问 Obsidian 时，教他打开知识库文件夹并按 `Ctrl/Cmd + G` 看图谱。
-6. 用户问 API Key 时，先说明不配置也能整理 Markdown/wiki，但真实语义检索需要 SiliconFlow；再指导配置 `SILICONFLOW_API_KEY`，并强调密钥只放环境变量或本地私有 config，不要写进仓库（见「配置与运维手册 → SiliconFlow RAG 配置」）。
-7. 用户处理 PDF、扫描件、表格或公式时，先问是否已有 MinerU skill + MCP；没有就给出上游安装命令和 MCP 的 `uvx` 配置，并提醒本仓库不内置副本（见「配置与运维手册 → MinerU 配置」）。
+6. 用户问 API Key 时，先说明不配置也能整理 Markdown/wiki，但真实语义检索需要 SiliconFlow；再指导配置 `SILICONFLOW_API_KEY`，并强调密钥只放环境变量或本地私有 config，不要写进仓库（见「RAG 配置（SiliconFlow）」）。
+7. 用户处理 PDF、扫描件、表格或公式时，先问是否已有 MinerU skill + MCP；没有就给出上游安装命令和 MCP 的 `uvx` 配置，并提醒本仓库不内置副本（见「技能列表 → 上游 / 第三方」）。
 8. 解释默认嵌入模型是 `BAAI/bge-m3`，适合中英文资料；换模型会导致已有索引需要重建。
 9. 结尾问用户想重点了解哪一块；如果用户明确说不用介绍，就收住。
 
@@ -188,7 +188,7 @@
 
 AI 会按「典型工作流」自动走完转换、深读、编译和索引；你也可以只要求其中一步，停止点见「典型工作流 → 停止点」。哪些资料需要深读，见「深读触发规则」。完成后 AI 会告诉你知识库在哪个文件夹。
 
-> PDF 解析依赖 **MinerU skill + MinerU MCP（推荐）**，二者均从上游安装，不在本仓库内置；安装与配置见「配置与运维手册 → MinerU 配置」。
+> PDF 解析依赖 **MinerU skill + MinerU MCP（推荐）**，二者均从上游安装，不在本仓库内置；安装与配置见「技能列表 → 上游 / 第三方」。
 
 **第二步：打开 Obsidian 看图。** 见下方「在 Obsidian 里看图谱」。
 
@@ -260,10 +260,10 @@ AI 会按「典型工作流」自动走完转换、深读、编译和索引；�
 A: 你电脑上。知识库就是一个普通文件夹，里面的 Markdown 文件可以用任何编辑器打开。
 
 **Q: 我的论文会上传到云端吗？**
-A: 只有做向量化时，文本片段和查询文本会发往硅基流动，不会存储你的原文；原始文件、索引文件和 `rag_config.json` 都留在本机。详见「配置与运维手册 → 隐私与网络边界」。
+A: 只有做向量化时，文本片段和查询文本会发往硅基流动，不会存储你的原文；原始文件、索引文件和 `rag_config.json` 都留在本机。详见「RAG 配置（SiliconFlow）」的隐私边界。
 
 **Q: 支持什么格式？**
-A: PDF、Word、网页文章、纯文本；PDF 默认优先用 MinerU，非 PDF 走 MarkItDown 轻量转换，失败、空输出或乱码时再用 MinerU 兜底。安装见「配置与运维手册 → MinerU 配置」。
+A: PDF、Word、网页文章、纯文本；PDF 默认优先用 MinerU，非 PDF 走 MarkItDown 轻量转换，失败、空输出或乱码时再用 MinerU 兜底。安装见「技能列表 → 上游 / 第三方」。
 
 **Q: 能多人协作吗？**
 A: 知识库就是一个文件夹。放在 iCloud 或 Dropbox 里就可以多设备同步。放在 GitHub 上可以协作（注意不要把 API Key 一起提交）。
@@ -278,203 +278,23 @@ A: 知识库背后用的服务，把资料和 wiki 结构「翻译」成数学�
 
 ## RAG 配置（SiliconFlow）
 
-知识库的**语义检索**靠 SiliconFlow 做向量索引；不配置它，仍然可以整理 Markdown 与 wiki 图谱，但没有真正的语义检索。其余外围能力（MinerU 文档解析、markitdown 轻量转换、academic-search 学术搜索、PaperSpine 论文写作）都**从上游安装**，入口见「技能列表 → 上游 / 第三方」；完整的配置与运维规则写在技能本体里（`skills/` 下各技能的 `SKILL.md` 与 `references/`），AI 会按需读取，这里不重复。
+> 这一节只讲「这是什么、要准备什么、边界在哪、细节在哪」；具体命令与运维步骤以技能文件为准，本文件不复述。
 
-`siliconflow-rag` 用 SiliconFlow embeddings 给 Markdown/wiki 建本地向量索引。索引文件保存在本地；技能标识与磁盘目录的大小写差异见「技能列表 → 大小写契约」。
+知识库的**语义检索**靠 `siliconflow-rag` 调用 SiliconFlow embeddings，给 Markdown 与 wiki 建本地向量索引；不配置它，仍然可以整理 Markdown 与 wiki 图谱，但没有真正的语义检索。
 
-官方说明：
+其余外围能力（MinerU 文档解析、markitdown 轻量转换、academic-search 学术搜索、PaperSpine 论文写作）都**从上游安装**，入口见「技能列表 → 上游 / 第三方」。
 
-- Embeddings API：https://docs.siliconflow.cn/en/api-reference/embeddings/create-embeddings
-- Rerank API：https://docs.siliconflow.cn/en/api-reference/rerank/create-rerank
-- API Key：https://cloud.siliconflow.cn/account/ak
+**要准备什么：** 把 API Key 放环境变量 `SILICONFLOW_API_KEY`，或存到本地私有 config `~/.hermes/private/siliconflow-rag/config.json` 并 `chmod 600`。
 
-下文 Python 示例中的 `<skills-repo>` 请替换为技能仓库的绝对路径，`<知识库项目>` 替换为知识库根目录。先 `cd "<知识库项目>"`，使 `wiki/`、`检索索引/` 和 `rag_config.json` 均相对该项目解析；脚本从技能仓库直接调用。
+**安全红线：** 不要把真实 key 写进仓库、`rag_config.json`、README、日志或索引 manifest；key 只放环境变量或本地私有 config。
 
-#### API Key
+**隐私边界：** 建索引和查询时，离开本机的只有用于生成向量的文本片段、查询文本，以及开启 rerank 时的候选片段；原始文件与索引文件都留在本机。对敏感资料可先用 `--mock` 走通流程；把资料发往外部服务前，遵守当前任务的授权范围。
 
-推荐用环境变量，最简单也最通用：
+**默认模型：** 嵌入 `BAAI/bge-m3`，可选 rerank `Qwen/Qwen3-Reranker-8B`（查询时加 `--rerank` 才调用）；**换嵌入模型会导致已有索引需要重建**。非密钥参数写在知识库项目根目录的 `rag_config.json`。
 
-```bash
-export SILICONFLOW_API_KEY="your_key_here"
-```
+**细节在技能里：** 建 raw / wiki 两个索引、检查与更新索引、增量更新与重建的区分、参数调整、断点续跑等具体操作，以技能本体为单一权威定义——[`skills/SiliconFlow-rag/SKILL.md`](skills/SiliconFlow-rag/SKILL.md) 与 [`skills/social-science-km/references/rag-workflow.md`](skills/social-science-km/references/rag-workflow.md)；AI 按需读取这两处。
 
-如果要保存到本地私有文件，当前脚本优先读取（目录全小写）：
-
-```bash
-mkdir -p ~/.hermes/private/siliconflow-rag
-cat > ~/.hermes/private/siliconflow-rag/config.json <<'JSON'
-{
-  "SILICONFLOW_API_KEY": "your_key_here"
-}
-JSON
-chmod 600 ~/.hermes/private/siliconflow-rag/config.json
-```
-
-兼容旧路径（同样小写，不需要迁移已有配置）：
-
-```text
-~/.codex/siliconflow-rag/config.json
-```
-
-> **安全红线：** 不要把真实 key 写进仓库、`rag_config.json`、README、日志或索引 manifest。key 只放环境变量或本地私有 config，且私有 config 必须 `chmod 600`。
-
-#### 隐私与网络边界
-
-建索引和查询时，**离开本机发往 SiliconFlow 的内容**只有：用于生成向量的文本片段、查询文本，以及开启 rerank 时的候选片段。原始文件、索引文件、`rag_config.json` 都留在本机。发送之前可以问 AI 具体哪些片段会被发送；对敏感资料可先用 `--mock` 走通流程（见下文）。
-
-#### 默认模型
-
-| 用途 | 默认值 | 说明 |
-|---|---|---|
-| 嵌入模型 | `BAAI/bge-m3` | 官方 embeddings API 支持；输入上限 8192 tokens，适合中英混合语料 |
-| 可选 rerank | `Qwen/Qwen3-Reranker-8B` | 查询时加 `--rerank` 才会调用 |
-
-替换嵌入模型（示例）：
-
-```bash
-cd "<知识库项目>"
-python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
-  --md-dir wiki/raw \
-  --index-dir 检索索引/raw \
-  --model BAAI/bge-m3
-```
-
-**换模型会导致已有索引需要重建**（见「增量更新 vs 重建」）。
-
-#### `rag_config.json` 字段
-
-非密钥参数可以写在知识库项目根目录的 `rag_config.json`：
-
-```json
-{
-  "build": {
-    "model": "BAAI/bge-m3",
-    "chunk_size": 1200,
-    "overlap": 200,
-    "batch_size": 16,
-    "timeout": 60,
-    "sleep": 0,
-    "dimensions": 1024,
-    "encoding_format": "base64"
-  },
-  "query": {
-    "embedding_model": "BAAI/bge-m3",
-    "rerank_model": "Qwen/Qwen3-Reranker-8B",
-    "top_k": 6,
-    "candidates": 12,
-    "wiki_top_k": 5,
-    "timeout": 60,
-    "expand_context": true,
-    "context_window": 1,
-    "multi_query": false,
-    "dimensions": 1024
-  }
-}
-```
-
-- **命令行参数覆盖配置文件的值。**
-- 建索引时仍要明确指定数据与索引目录：
-
-```bash
-cd "<知识库项目>"
-python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
-  --config rag_config.json --md-dir wiki/raw --index-dir 检索索引/raw
-python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
-  --config rag_config.json --index-dir 检索索引/raw --question "A 和 B 有什么区别？"
-```
-
-- `Qwen/Qwen3-Embedding-*` 支持 Matryoshka 降维；build 与 query 要用**同一个显式维度**（1024 是大语料下实用的存储/传输默认值）。`base64` 响应可减少 JSON 传输开销，不改本地向量格式。
-- 建索引会重试瞬时断连、HTTP 429、HTTP 5xx 最多三次（指数退避）。连接不稳或大模型可降低 `batch_size`、增大 `timeout`。
-- 长任务会在目标索引目录写 `.embedding_checkpoint.jsonl`，按 chunk ID 断点续跑；仅在 `chunks.jsonl`、`embeddings.jsonl`、`manifest.json` 成功提交后才删除。
-- **索引文件不要手工编辑**：每个索引目录的 `manifest.json` / `chunks.jsonl` / `embeddings.jsonl` 要成套保留，需要改就重跑 `build_index.py`。
-
-#### 建两个索引
-
-完整建库或首次索引时，知识库推荐建两个索引：
-
-```bash
-cd "<知识库项目>"
-python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
-  --md-dir wiki/raw \
-  --index-dir 检索索引/raw \
-  --metadata-mode enriched_raw \
-  --incremental
-
-python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
-  --md-dir wiki \
-  --index-dir 检索索引/wiki \
-  --metadata-mode wiki \
-  --include-dirs claims,concepts,entities,comparisons,debates,observations,structures,predicts,synthesis,queries \
-  --exclude-dirs raw,_archive \
-  --incremental
-```
-
-- 默认输入 `wiki/raw/`，默认索引输出 `检索索引/`，推荐 `检索索引/raw` 与 `检索索引/wiki`。
-- Wiki 索引覆盖 `wiki/` 下的图谱页面，包括按证据需要创建的 `observations/`、`structures/`、`predicts/`；项目根目录的论文大纲 `outlines/` **不在**该索引范围内。
-- `enriched_raw` 给 raw chunk 加上取自正式 wiki 节点的检索标签；引用证据永远是原始 raw chunk，绝不是生成的标签。
-- **不要把 `reading_dossiers/` 编入任一默认索引**：它是编译指南，既不是原始证据也不是正式图谱。
-- 还没有图谱页面时，可先用 `--metadata-mode plain` 建临时 raw 索引；一旦任一支持的图谱目录有页面，就改用 `enriched_raw` 并按需更新/重建原索引；有图谱页面后再建 wiki 索引。
-
-查询时可先用 wiki，再回到 raw 原文证据：
-
-```bash
-cd "<知识库项目>"
-python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
-  --wiki-first \
-  --wiki-index-dir 检索索引/wiki \
-  --raw-index-dir 检索索引/raw \
-  --question "这个领域的主要争议是什么？"
-```
-
-需要精排时加 `--rerank`（何时升级检索方式，见「检索升级规则」）。无论用哪种方式，都要遵守当前任务的外部服务授权范围。
-
-#### 通过总入口检查与查询
-
-`social-science-km` 的 helper 可直接从技能仓库调用并指定项目，无需复制到知识库。已有项目副本仍兼容，不自动覆盖或删除。
-
-```bash
-cd "<知识库项目>"
-python3 "<skills-repo>/skills/social-science-km/references/km_query.py" \
-  --project-root "<知识库项目>" --check
-python3 "<skills-repo>/skills/social-science-km/references/km_query.py" \
-  --project-root "<知识库项目>" "这个领域的主要争议是什么？"
-```
-
-`--check` 检查 raw / wiki 双索引后结束，**不更新索引**。实际查询先选择 raw / wiki 模式，再检查必要索引；直接查 raw 不受无关 Wiki 索引过期阻塞，但仍检查 raw 自身及其 `enriched_raw` 依赖。仅查询不触发摄入；仅 Wiki 结构体检交给 `karpathy-wiki`，报告后结束。获准沿用旧索引查询或写大纲时，应显式加 `--skip-check` 并说明证据可能滞后。
-
-检查与更新索引（当很可能需要更新时，优先用 `check_rebuild_rag.py`，它与 `km_query.py --check` 共享检查/应用逻辑，`--raw-only` / `--wiki-only` 可限定范围）：
-
-```bash
-# 仅检查，不更新
-python3 "<skills-repo>/skills/social-science-km/references/check_rebuild_rag.py" \
-  --project-root "<知识库项目>" --check
-
-# 授权后应用更新（内部用 build_index.py --incremental，路径与 metadata 模式保持一致）
-python3 "<skills-repo>/skills/social-science-km/references/check_rebuild_rag.py" \
-  --project-root "<知识库项目>"
-```
-
-内容新鲜度用 **SHA256** 判断，不看 mtime。raw 索引用 `wiki/raw/` 对比 `检索索引/raw/manifest.json`；`enriched_raw` 还会跟踪 wiki 标签的 `semantic_source_hashes`。wiki 索引对比图谱可读目录与 `检索索引/wiki/manifest.json`（含 `observations`、`structures`、`predicts` 以及 claims/concepts/entities/comparisons/debates/synthesis/queries）。wiki 过期时，先在授权范围内跑可用的 `karpathy-wiki` lint，报告断链、来源漂移、缺失的 claim 结构和 frontmatter 问题，再嵌入；非严重的 lint 问题不阻塞紧急的 raw-only 查询；缺 lint 工具要如实报告，不要和缺 RAG 凭据混为一谈。
-
-**增量更新 vs 重建：**
-
-- `wiki/raw/` 有实质变化 → 更新 raw 索引。工具报告普通的新增/变更文件时，这叫**「新增到索引」或「增量更新」**，不要叫「重建」。
-- `claims/`、`concepts/`、`entities/`、`comparisons/`、`debates/`、`observations/`、`structures/`、`predicts/`、`synthesis/`、`queries/` 有实质变化 → 更新 wiki 索引。如果只是文件变了，叫**「增量更新 wiki 索引」**。删除的文件则移除其条目。
-- **只有**下列情况才用「**重建**」：索引为空/缺失时的首次构建，或因为 `metadata_mode`、嵌入模型、mock/真实模式、chunk size、overlap、include/exclude 目录、源目录、索引格式变化而触发自动回退的整库重建。显式比较 `model`、`chunk_size`、`overlap`、`dimensions`、`encoding_format` 与 manifest 不一致时，必须整库重建。
-
-索引若过期，除非更新已获授权、或用户明确接受旧索引，否则应停止基于过期索引的检索；后者要在**每次受影响的查询**上加 `--skip-check`，并把「证据可能滞后」的说明带进答案，不得暗示索引是最新的。
-
-#### 不调用 API 的 mock 测试
-
-只想跑通脚本流程、不想调用 SiliconFlow：
-
-```bash
-cd "<知识库项目>"
-python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py" \
-  --md-dir wiki/raw --index-dir 检索索引/raw --mock
-python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
-  --index-dir 检索索引/raw --question "测试" --mock
-```
+**官方文档：** [Embeddings API](https://docs.siliconflow.cn/en/api-reference/embeddings/create-embeddings)｜[Rerank API](https://docs.siliconflow.cn/en/api-reference/rerank/create-rerank)｜[API Key](https://cloud.siliconflow.cn/account/ak)
 
 ---
 
@@ -515,6 +335,6 @@ git pull
 - **新增技能**：若上游新增了技能目录，按「安装」一节给对应 agent 补一条 `ln -s` 即可。
 - **移除技能**：删掉对应符号链接，例如 `rm ~/.claude/skills/<技能名>`；仓库不受影响。
 - **上游技能**：在你 clone 的上游仓库里各自 `git pull`，或按上游文档升级；MinerU MCP 用 `uvx` 时会自动取最新版。
-- **知识库索引维护**：资料或图谱页面变化后，按「配置与运维手册 → 通过总入口检查与查询」检查并按需做增量更新；只有设置/模型/索引格式变化才重建。
+- **知识库索引维护**：资料或图谱页面变化后，按 [`skills/SiliconFlow-rag/SKILL.md`](skills/SiliconFlow-rag/SKILL.md) 与 [`skills/social-science-km/references/rag-workflow.md`](skills/social-science-km/references/rag-workflow.md) 里的索引维护流程检查并按需做增量更新；只有设置/模型/索引格式变化才重建。
 
-> 提交到公开仓库前，务必确认没有把真实 API Key、私有 config 或敏感资料一起提交（见「隐私与网络边界」）。
+> 提交到公开仓库前，务必确认没有把真实 API Key、私有 config 或敏感资料一起提交（见「RAG 配置（SiliconFlow）」）。
