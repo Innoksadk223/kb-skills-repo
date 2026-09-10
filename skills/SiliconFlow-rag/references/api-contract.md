@@ -36,7 +36,7 @@ Endpoint: `POST https://api.siliconflow.cn/v1/rerank`
 
 Endpoint: `POST https://api.siliconflow.cn/v1/chat/completions`
 
-Multi-query is off by default. Use `--multi-query` only when recall is weak or the user's wording likely differs from corpus terminology.
+Multi-query is off by default. Start with ordinary retrieval and escalate only when recall, ordering or evidence risk demands it; the [escalation table in rag-workflow.md](../../social-science-km/references/rag-workflow.md#query-routing-and-escalation) defines when to add it.
 
 ```json
 {

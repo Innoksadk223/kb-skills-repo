@@ -34,7 +34,7 @@ description: Use when a knowledge-base wiki already exists and the user wants to
 ## Phase 1：骨架阶段
 
 1. **图谱勘探**：按主题词搜索实际存在的 `wiki/claims/ concepts/ debates/ comparisons/ entities/ observations/ structures/ predicts/` 相关页 → 读页面 → 构建图谱邻域表（复用 [图谱查询 Phase 1](../social-science-km/references/wiki-graph-expanded-query.md) 的表格式）。重点提取 `relationships.supports / contradicts / derives_from / supersedes`、`follows` 及已有 claim 的支持/反对/限定关系。`contradicts` 与 `debates/` 页提供冲突线索；观察、框架和预测页分别提供经验、分析结构与待检验推论，须沿各页原文出处核查，不能把预测当发现。
-2. **初轮检索**：由邻域表生成 2-4 个关系驱动子问题，先逐个执行 `python3 <skills-repo>/skills/social-science-km/references/km_query.py --project-root "<知识库>" "<子问题>" --no-lint`。小 Wiki 直接阅读时跳过。召回不足或措辞差异明显时加 `--multi-query`；候选排序不足时加 `--rerank`；高风险核心论据核查才用 `--deep`。已获准使用旧索引时，每条查询加 `--skip-check`。
+2. **初轮检索**：由邻域表生成 2-4 个关系驱动子问题，先逐个执行 `python3 <skills-repo>/skills/social-science-km/references/km_query.py --project-root "<知识库>" "<子问题>" --no-lint`。小 Wiki 直接阅读时跳过。起步用普通检索，只有召回、排序或证据风险确实不足时才升级；升级规则以 [rag-workflow.md 的 Query Routing And Escalation 表](../social-science-km/references/rag-workflow.md#query-routing-and-escalation) 为准（不在本文重复阈值）。已获准使用旧索引时，每条查询加 `--skip-check`。
 3. **产出骨架草稿**（用 outline-template.md 的骨架档结构，status: skeleton）：
    - thesis 候选 1-2 个（每个附一句论证链 A→B→C 和主要风险）
    - 章节树：每章仅一行论证任务
@@ -49,7 +49,7 @@ description: Use when a knowledge-base wiki already exists and the user wants to
 
 用户确认骨架后：
 
-1. 逐章复用已检索证据，只对尚未解决的关系或出处执行 1-3 个定向查询；命令路径、项目根、旧索引参数及升级规则沿用 Phase 1。高风险核心论据才加 `--deep`。小 Wiki 已通读时跳过查询，读取页面所指的关键 raw 段落。
+1. 逐章复用已检索证据，只对尚未解决的关系或出处执行 1-3 个定向查询；命令路径、项目根、旧索引参数及升级规则沿用 Phase 1（阈值只由那张升级表定义，此处不重复）。小 Wiki 已通读时跳过查询，读取页面所指的关键 raw 段落。
 2. 按 outline-template.md 完整结构（status: filled）填充：每章论证任务（承接/交付）、论证要点（3-5 条带出处）、本章冲突论点与应对策略、证据状态。
 3. "注意事项"节：逐条对照 pitfalls-checklist.md，写"本文如何应对"，禁止空泛复述雷区本身。
 4. 缺口清单：缺什么 → 建议检索词 → 建议补料路径（Gap-Driven Expansion / 深读 / 新采集）。

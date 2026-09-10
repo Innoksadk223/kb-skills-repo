@@ -113,7 +113,7 @@ AI 只读已有知识库，先查证据并提出骨架，一次讨论一个关�
 | `academic-search`（第三方可选） | 本地资料不够时，搜索相关论文、筛候选来源、判断开放获取 PDF | 推荐：https://github.com/ustc-ai4science/academic-search |
 | `mineru-document-extractor` / MinerU MCP | PDF、扫描件、复杂表格、公式、版式复杂的资料 | 上游：https://github.com/opendatalab/MinerU-Ecosystem ；MCP：https://github.com/opendatalab/MinerU-Ecosystem/tree/main/mcp |
 | `markitdown` | Word、PPT、Excel、网页、普通文档的轻量转换 | 上游：https://github.com/microsoft/markitdown |
-| `deep-reading-to-wiki` | 长书、章节、理论文献、需要认真吃透的材料 | 本仓库 `setup.sh` |
+| `deep-reading-to-wiki` | 典籍/注疏、专著、教材章节、合集、学位论文等容易被压缩失真、需要认真吃透的材料 | 本仓库 `setup.sh` |
 | `karpathy-wiki` | 把资料编译成 Obsidian 可读的图谱 wiki | 本仓库 `setup.sh` |
 | `siliconflow-rag` | 建索引，让提问能先找图谱再回到原文证据；磁盘目录为 `skills/SiliconFlow-rag/` | 本仓库 `setup.sh` |
 | `social-science-km` | 从接到请求起统筹路由，选择建库、补库、问答或维护，并按请求范围停止 | 本仓库 `setup.sh` |

@@ -151,8 +151,12 @@ def main() -> None:
 
         source_question = "这段话的原文出处在哪里？"
         concept_question = "孝与仁的关系是什么？"
+        # "证据" is no longer a raw-lookup marker, so a question that only says
+        # "证据" must fall through to wiki-first when a wiki manifest exists.
+        evidence_question = "有什么证据支持孝是仁之本？"
         check_query_cli(km, temp_dir, [source_question], 0, "raw")
         check_query_cli(km, temp_dir, [concept_question], 0, "wiki")
+        check_query_cli(km, temp_dir, [evidence_question], 0, "wiki")
         check_query_cli(km, temp_dir, [source_question, "--deep"], 0, "wiki")
         check_query_cli(km, temp_dir, ["--check"], 0, None)
 
@@ -210,6 +214,16 @@ def main() -> None:
         wiki_mode = km.choose_mode("孝与仁的关系是什么？", raw_only=False, deep=False, project_root=temp_dir)
         if wiki_mode != "wiki":
             raise SystemExit(f"Expected wiki mode for conceptual query, got: {wiki_mode}")
+
+        # CHANGE 2 routing assertions: "证据" no longer forces raw-only, while a
+        # genuine source-lookup question still routes raw.
+        evidence_mode = km.choose_mode(evidence_question, raw_only=False, deep=False, project_root=temp_dir)
+        if evidence_mode != "wiki":
+            raise SystemExit(f"Expected wiki mode for evidence question, got: {evidence_mode}")
+
+        source_lookup_mode = km.choose_mode(source_question, raw_only=False, deep=False, project_root=temp_dir)
+        if source_lookup_mode != "raw":
+            raise SystemExit(f"Expected raw mode for genuine source lookup, got: {source_lookup_mode}")
 
         cmd = km.build_query_command(
             project_root=temp_dir,

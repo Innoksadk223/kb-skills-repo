@@ -28,7 +28,7 @@ Resolve explicit task scope first, then required prerequisites, then source risk
 | Wiki is shallow after ingest | Retroactive deep reading → revise supported nodes → relevant index check/update | Targeted revision and remaining gaps |
 | Retrieval is weak | Required-index freshness → ordinary retrieval → justified escalation | Answer or explicit evidence gap; do not rewrite wiki to fix ranking |
 
-A book, collection, long chapter, theory-heavy or thesis-critical source needs the raw routing gate before formal compilation. A short, narrow, self-contained, low-risk source may qualify for direct wiki compilation; size alone never decides.
+A 典籍／原典／注疏、专著、教材／导论／手册章节、论文集／合集、学位论文 source — or any coherent multi-file group read as one unit — needs the raw routing gate before formal compilation, whatever its length; so does any source carrying a semantic override (thesis-critical, theory-heavy, argument-rich, conceptually disputed, or likely to lose support/objection/limitation context). A narrow, self-contained, low-risk source outside those categories may compile directly to wiki; size only signals that a source should be inspected, never the decision ([raw-routing-gate.md](references/raw-routing-gate.md)).
 
 Sub-skills remain independently usable. When this coordinator dispatches them, its source routing and acceptance requirements travel in the handoff; standalone “no dossier” paths cannot waive a required dossier here.
 
@@ -96,7 +96,7 @@ Do not assume MinerU skill/MCP installation status. These upstream tools are not
 
 ## 4. Batch Inventory, Then Source Readiness
 
-Load [raw-routing-gate.md](references/raw-routing-gate.md) before any formal compilation. It owns the size bands and semantic overrides; do not duplicate or weaken them.
+Load [raw-routing-gate.md](references/raw-routing-gate.md) before any formal compilation. It owns the mandatory material categories, the size signals and the semantic overrides; do not duplicate or weaken them.
 
 1. Inventory **all active-batch** converted content Markdown by bytes/lines, excluding operational `_*.md` files. Account for failed conversions too.
 2. Classify source types and logical collection membership; inspect group totals as well as individual files.
@@ -150,7 +150,7 @@ Parallel ownership is strict:
 1. Capture user inclination as a research direction, not a conclusion.
 2. Initialize missing wiki context if an authorized build/expansion needs it; then inspect SCHEMA/index/recent log and relevant graph pages.
 3. Identify a thin concept, missing claim/objection, weak comparison, underused source, or absent raw evidence.
-4. Use ordinary wiki-first discovery for conceptual gaps or raw-only for direct sources. Escalate recall/context only as needed under [rag-workflow.md](references/rag-workflow.md).
+4. Use ordinary wiki-first discovery for conceptual gaps or raw-only for direct sources. Escalate recall/context only as needed under the escalation table in [rag-workflow.md](references/rag-workflow.md#query-routing-and-escalation).
 5. Return raw paths, relevance, keywords, likely deep-reading need, and limitations using the source-discovery template. Stop here if only a shortlist was requested.
 6. If candidates remain weak/stale/insufficient, report the gap and check/broaden retrieval; use academic acquisition only within approved scope.
 7. For requested expansion, route candidates, create required dossiers with `trigger: user_directed_expansion`, `user_intent`, and `source_discovery`; compile only accepted raw-backed content.
@@ -166,7 +166,7 @@ Load [rag-workflow.md](references/rag-workflow.md) for commands, index settings/
 - Query mode is selected before freshness gating: raw needs raw; wiki-first/deep need both. Raw enrichment dependencies remain part of raw freshness.
 - Pure `--check` reports both indexes. Current indexes need no chatter; stale status names the cause and smallest required update.
 - Preserve project `rag_config.json`. New/changed files mean incremental update; deleted files mean entry removal; settings/model/index-format changes may force rebuild.
-- Start ordinary retrieval. Add multi-query for recall gaps, rerank for ordering/precise evidence, context for neighboring passages, deep for high-risk/final citation checks.
+- Start with ordinary retrieval; escalate only when recall, ordering or evidence risk demands it. The authoritative escalation table lives in [rag-workflow.md](references/rag-workflow.md#query-routing-and-escalation); do not restate its thresholds elsewhere.
 - Use [wiki-graph-expanded-query.md](references/wiki-graph-expanded-query.md) only when standard wiki-first is too shallow and relationships matter.
 - Explicit old-index approval requires `--skip-check` on affected queries plus a freshness caveat. Never bypass stale checks by default.
 - Missing required keys/indexes stop the dependent operation; permitted local reading and unrelated tasks remain available.
@@ -196,7 +196,7 @@ At each requested stop point, name outputs, coverage, blockers, and the next min
 | Load when | Reference |
 |---|---|
 | Acquiring/converting sources, coverage, parallel conversion | [source-ingestion.md](references/source-ingestion.md) |
-| Deciding raw size/type routes | [raw-routing-gate.md](references/raw-routing-gate.md) |
+| Deciding raw routes by material nature, size signals and overrides | [raw-routing-gate.md](references/raw-routing-gate.md) |
 | Initializing wiki, accepting dossiers, compiling, bulk ownership | [wiki-compilation.md](references/wiki-compilation.md) |
 | Checking/updating/querying indexes, answering, privacy, evaluation | [rag-workflow.md](references/rag-workflow.md) |
 | Escalating through wiki relationships | [wiki-graph-expanded-query.md](references/wiki-graph-expanded-query.md) |

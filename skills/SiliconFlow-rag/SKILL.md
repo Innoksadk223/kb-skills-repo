@@ -17,7 +17,7 @@ For user-directed wiki expansion, this skill's role is **source discovery**: ret
 - Retrieval modes, RRF, multi-query, rerank, evidence boundary: [references/retrieval-architecture.md](references/retrieval-architecture.md)
 - Config fields, defaults, index maintenance wording: [references/config-and-maintenance.md](references/config-and-maintenance.md)
 - Self-test and syntax checks: [references/testing.md](references/testing.md)
-- Core query routing and maintenance: [rag-workflow.md](../social-science-km/references/rag-workflow.md)
+- Authoritative query routing/escalation table and maintenance: [rag-workflow.md](../social-science-km/references/rag-workflow.md#query-routing-and-escalation)
 
 ## Safety rules
 
@@ -119,7 +119,7 @@ python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --source-discovery
 ```
 
-Then broaden with raw-only when source wording may differ from the wiki wording. Add multi-query when recall is insufficient or wording mismatch is likely:
+Then broaden with raw-only when source wording may differ from the wiki wording. Start with ordinary retrieval and escalate only when recall, ordering or evidence risk demands it; the escalation table in [rag-workflow.md](../social-science-km/references/rag-workflow.md#query-routing-and-escalation) owns the thresholds. The command below shows the multi-query escalation:
 
 ```bash
 python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
@@ -139,17 +139,17 @@ Return a shortlist, not a final wiki answer:
 | why relevant | Which user intent or wiki gap it may address. |
 | key terms | Terms that made the source retrievable. |
 | Raw size | Converted line/byte count when the source file is locally available. |
-| size gate | Size-only `deep-reading` candidate, inspect band, `direct-wiki` candidate, or blocked. |
+| size signal (script line `Size gate:`) | Advisory only: the emitted line/byte band just flags a source for inspection, it does not decide the route. Material type and context-loss risk decide ([raw-routing-gate.md](../social-science-km/references/raw-routing-gate.md)); empty or unreadable raw is `blocked`. |
 | next step | Apply `social-science-km` source-type/context-risk overrides, then use `deep-reading-to-wiki`, direct `karpathy-wiki`, or ignore weak evidence. |
 | limits | Missing context, weak hit, stale index, or needs broader query. |
 
-If fewer than three usable raw sources appear, report that limitation and broaden the query or check index freshness before sending anything to deep reading.
+If too few usable raw sources appear, report that limitation; the [escalation table](../social-science-km/references/rag-workflow.md#query-routing-and-escalation) decides whether that warrants a recall upgrade, and check index freshness before sending anything to deep reading.
 
-`--source-discovery` aggregates multiple retrieved chunks from the same file into one candidate source. Its size gate is not a final routing decision: books, theses, collections, theory-heavy sources, and thesis-critical texts still require the semantic overrides in `social-science-km`.
+`--source-discovery` aggregates multiple retrieved chunks from the same file into one candidate source. Its size hint is never a routing decision: 典籍／原典／注疏, 专著, 教材／导论／手册章节, 论文集／合集, 学位论文 and any coherent multi-file group read as one unit require deep reading regardless of length, and thesis-critical, theory-heavy, argument-rich, conceptually disputed or context-loss-prone sources take the semantic override — both defined in `social-science-km` ([raw-routing-gate.md](../social-science-km/references/raw-routing-gate.md)).
 
 ### Optional query modes
 
-Default to ordinary retrieval. Escalate to rerank when candidate ordering is inadequate or the task needs precise, high-stakes evidence selection, including critical thesis claims. The user need not name a flag or use special wording; choose based on evidence quality requirements within existing authorization.
+Default to ordinary retrieval; escalate only when recall, ordering or evidence risk demands it. Which upgrade to add, and when, is defined once in the [rag-workflow.md escalation table](../social-science-km/references/rag-workflow.md#query-routing-and-escalation); this section only shows the flags. The user need not name a flag or use special wording; choose based on evidence quality requirements within existing authorization.
 
 ```bash
 python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
@@ -160,7 +160,7 @@ python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --rerank
 ```
 
-Use multi-query only when recall is weak or wording mismatch is likely:
+Multi-query, when the escalation table calls for a recall upgrade:
 
 ```bash
 python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
@@ -169,9 +169,9 @@ python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --multi-query
 ```
 
-The core helper's `--deep` combines multi-query, rerank, and context (wiki-first when a wiki manifest exists, unless `--raw-only` is set). Reserve it for evidence tasks that need this combined escalation; do not apply it to every initial retrieval or every outline query.
+The core helper's `--deep` combines multi-query, rerank, and context (wiki-first when a wiki manifest exists, unless `--raw-only` is set). Apply it when the escalation table calls for that combined upgrade; never to every initial retrieval or every outline query.
 
-Add adjacent chunks when the answer needs local context:
+Add adjacent chunks for neighboring context:
 
 ```bash
 python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \

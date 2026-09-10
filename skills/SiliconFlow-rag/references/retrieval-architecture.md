@@ -36,7 +36,7 @@ Recommended layout:
 - **Dual retrieval**: vector similarity + lightweight BM25 lexical search.
 - **RRF**: vector and BM25 ranks are fused with `1/(k+rank)`.
 - **Multi-query**: optional; disabled by default; calls chat completions to generate 3 additional queries.
-- **Rerank**: optional; escalate when candidate ordering is inadequate or precise, high-stakes evidence selection is needed (including critical thesis claims). The user need not name a flag or use special wording.
+- **Rerank**: optional; it only reorders candidates. Start with ordinary retrieval and escalate only when recall, ordering or evidence risk demands it — which upgrade to add, and when, is defined once in the [rag-workflow.md escalation table](../../social-science-km/references/rag-workflow.md#query-routing-and-escalation). The user need not name a flag or use special wording.
 
 ## Evidence boundary
 
@@ -49,7 +49,7 @@ Recommended layout:
 ```text
 question → optional wiki expansion → retrieve Raw candidates
 → aggregate chunks by source_path → attach local Raw line/byte counts
-→ shortlist for social-science-km size/type routing
+→ shortlist for social-science-km material-type routing
 ```
 
-Source aggregation prevents one long document from occupying every shortlist row. The emitted size band is advisory; document type and context-loss risk decide whether `deep-reading-to-wiki` is required.
+Source aggregation prevents one long document from occupying every shortlist row. The emitted size band is advisory — it only prompts inspection of a source; material type and context-loss risk decide whether `deep-reading-to-wiki` is required ([raw-routing-gate.md](../../social-science-km/references/raw-routing-gate.md)).

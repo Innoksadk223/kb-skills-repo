@@ -30,7 +30,7 @@ Use the existing conversion manifest and dossier frontmatter for durable facts. 
 
 1. Load [deep-reading-to-wiki](../../deep-reading-to-wiki/SKILL.md) and its [quality gates](../../deep-reading-to-wiki/references/quality-gates.md).
 2. Pass exact raw paths, source type, `raw_bytes`, `raw_lines`, route/reason, collection grouping, target-wiki context when applicable, and reading mode. Dossier frontmatter must carry manifest `raw_lines` for tiered quotas.
-3. Default `mode: thorough` for books, monographs, collections, theory-heavy or thesis-critical sources: structure navigation assists window-by-window full reading, followed by selection from the over-complete pool.
+3. Default `mode: thorough` for the materials the routing gate marks mandatory — 典籍/原典/注疏, 专著, 教材/导论/手册章节, 论文集/合集, 学位论文, and theory-heavy or thesis-critical sources: structure navigation assists window-by-window full reading, followed by selection from the over-complete pool.
 4. Use `mode: budget` for rapid prescreening or explicitly requested time savings: L0–L3 structure scan, sampling, and local close reading, retaining the deep-reading skill's short-text full-read exception. A quick request does not silently waive a mandatory deep-reading route.
 5. A collection may use a merged dossier when one collective argument map is more useful; its selected mode applies to every member, not an unconditional sampling rule.
 6. For user-directed expansion pass `trigger: user_directed_expansion`, `user_intent`, and the `source_discovery` shortlist into dossier frontmatter.

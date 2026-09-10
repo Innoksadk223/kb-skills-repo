@@ -277,7 +277,7 @@ python3 "<skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py" \
   --question "这个领域的主要争议是什么？"
 ```
 
-默认使用基础检索；召回不足时再考虑 `--multi-query`，需要更精确排序时使用 `--rerank`，并遵守当前任务的外部服务授权范围：
+默认先用普通检索就够了；只有结果明显漏掉资料、排序不可靠，或需要核对关键引文时，才需要加强检索（具体升级规则见 [skills/social-science-km/references/rag-workflow.md](skills/social-science-km/references/rag-workflow.md#query-routing-and-escalation)）。无论用哪种方式，都要遵守当前任务的外部服务授权范围：
 
 ```bash
 cd "<知识库项目>"

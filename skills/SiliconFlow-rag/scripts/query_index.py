@@ -782,15 +782,23 @@ def raw_source_metrics(manifest: dict, source_path: str) -> tuple[int | None, in
 
 
 def size_gate(raw_bytes: int | None, raw_lines: int | None) -> str:
+    """Emit an inspection hint, never a routing decision.
+
+    Deep reading is triggered by material nature (典籍/原典/注疏, 专著, 教材/
+    导论/手册章节, 论文集/合集, 学位论文, or a coherent multi-file group) and by
+    the semantic overrides, not by length. Size only says "open the source and
+    look", so nothing here may be read as a route. See
+    skills/social-science-km/references/raw-routing-gate.md.
+    """
     if raw_bytes is None or raw_lines is None:
         return "unknown; inspect the Raw file before routing"
     if raw_bytes == 0 or raw_lines == 0:
         return "blocked; Raw is empty or unreadable"
     if raw_lines >= 500 or raw_bytes >= 100 * 1024:
-        return "deep-reading candidate (size trigger)"
+        return "large; inspect material type and context-loss risk before routing"
     if raw_lines >= 200 or raw_bytes >= 40 * 1024:
-        return "inspect source type and context-loss risk"
-    return "direct-wiki candidate by size only"
+        return "inspect material type and context-loss risk"
+    return "short; direct-wiki only if narrow, self-contained and low-risk"
 
 
 def matched_terms(question: str, text: str, limit: int = 8) -> list[str]:

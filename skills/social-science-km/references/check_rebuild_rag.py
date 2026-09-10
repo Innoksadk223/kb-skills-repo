@@ -8,12 +8,19 @@ Existing copies in project roots remain supported.
 
 The script keeps raw/wiki index maintenance in one place so agents do not
 improvise local rebuild commands.
+
+Layout: the RAG layout constants and the helpers shared with ``km_query.py``
+(hashing, staleness inputs, lint) now live in ``km_rag_common.py`` next to this
+file, imported via this script's own directory so the CLI still works from any
+current working directory.
+
+If you copy this helper into a project root, you must copy
+``km_rag_common.py`` alongside it as well.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import subprocess
@@ -21,15 +28,40 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+# The full shared surface is re-exported so existing references such as
+# ``check_rebuild_rag.compute_hashes`` keep resolving.
+try:
+    from km_rag_common import (
+        INDEX_DIR_NAME,
+        RAW_ENRICHMENT_SOURCE_DIRS,
+        RAW_INDEX_NAME,
+        SKIP_NAMES,
+        WIKI_DIR_NAME,
+        WIKI_INDEX_NAME,
+        WIKI_INDEX_SOURCE_DIRS,
+        compute_hashes,
+        describe_delta,
+        find_lint_script,
+        graph_hashes,
+        path_matches_dir,
+        project_build_settings,
+        raw_allowed_metadata_modes,
+        raw_enrichment_hashes,
+        raw_expected_metadata_mode,
+        run_wiki_lint,
+    )
+except ImportError as exc:  # pragma: no cover - guidance when a copy is incomplete
+    raise SystemExit(
+        "check_rebuild_rag.py 需要同目录的 km_rag_common.py（把 helper 复制到项目根目录时请一并复制）。原始错误: "
+        f"{exc}"
+    ) from exc
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-WIKI_DIR_NAME = "wiki"
-INDEX_DIR_NAME = "检索索引"
-RAW_INDEX_NAME = "raw"
-WIKI_INDEX_NAME = "wiki"
-WIKI_INDEX_SOURCE_DIRS = ("claims", "concepts", "entities", "comparisons", "debates", "observations", "structures", "predicts", "synthesis", "queries")
-RAW_ENRICHMENT_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates", "observations", "structures", "predicts")
-SKIP_NAMES = {"_conversion_failures.md", "_conversion_manifest.md", "_主题索引.md"}
 
 
 @dataclass
@@ -45,91 +77,11 @@ class IndexStatus:
     settings_rebuild: bool = False
 
 
-def path_matches_dir(rel_path: Path, dirs: tuple[str, ...]) -> bool:
-    rel = rel_path.as_posix()
-    return any(rel == folder or rel.startswith(f"{folder}/") for folder in dirs)
-
-
-def compute_hashes(
-    md_dir: Path,
-    include_dirs: tuple[str, ...] = (),
-    exclude_dirs: tuple[str, ...] = (),
-) -> dict[str, str]:
-    hashes: dict[str, str] = {}
-    if not md_dir.is_dir():
-        return hashes
-    for path in sorted(md_dir.rglob("*.md")):
-        rel_path = path.relative_to(md_dir)
-        if path.name.startswith("_") or path.name in SKIP_NAMES:
-            continue
-        if any(part.startswith(".") for part in rel_path.parts):
-            continue
-        if include_dirs and not path_matches_dir(rel_path, include_dirs):
-            continue
-        if exclude_dirs and path_matches_dir(rel_path, exclude_dirs):
-            continue
-        content = path.read_text(encoding="utf-8", errors="replace").lstrip("\ufeff")
-        hashes[rel_path.as_posix()] = hashlib.sha256(content.encode("utf-8")).hexdigest()
-    return hashes
-
-
 def read_manifest(index_dir: Path) -> dict:
     manifest_path = index_dir / "manifest.json"
     if not manifest_path.exists():
         return {}
     return json.loads(manifest_path.read_text(encoding="utf-8"))
-
-
-def project_build_settings(project_root: Path) -> dict[str, object]:
-    config_path = project_root / "rag_config.json"
-    if not config_path.is_file():
-        return {}
-    data = json.loads(config_path.read_text(encoding="utf-8"))
-    build = data.get("build") if isinstance(data, dict) else None
-    if not isinstance(build, dict):
-        return {}
-    expected: dict[str, object] = {}
-    if "model" in build:
-        expected["embedding_model"] = build["model"]
-    for key in ("chunk_size", "overlap", "dimensions", "encoding_format"):
-        if key in build:
-            expected[key] = build[key]
-    return expected
-
-
-def describe_delta(label: str, new_or_changed: list[str], deleted: list[str]) -> str:
-    parts = []
-    if new_or_changed:
-        parts.append(f"{len(new_or_changed)} 个新增/改动，需要增量更新索引")
-    if deleted:
-        parts.append(f"{len(deleted)} 个删除，需要从索引移除对应条目")
-    return f"{label} 有" + "；".join(parts)
-
-
-def graph_hashes(project_root: Path) -> dict[str, str]:
-    wiki_dir = project_root / WIKI_DIR_NAME
-    return compute_hashes(
-        wiki_dir,
-        include_dirs=WIKI_INDEX_SOURCE_DIRS,
-        exclude_dirs=("raw", "_archive"),
-    )
-
-
-def raw_enrichment_hashes(project_root: Path) -> dict[str, str]:
-    wiki_dir = project_root / WIKI_DIR_NAME
-    return compute_hashes(
-        wiki_dir,
-        include_dirs=RAW_ENRICHMENT_SOURCE_DIRS,
-        exclude_dirs=("raw", "_archive"),
-    )
-
-
-def raw_expected_metadata_mode(project_root: Path) -> str:
-    return "enriched_raw" if graph_hashes(project_root) else "plain"
-
-
-def raw_allowed_metadata_modes(project_root: Path) -> set[str]:
-    return {"enriched_raw"} if graph_hashes(project_root) else {"plain", "enriched_raw"}
 
 
 def check_one(
@@ -222,7 +174,7 @@ def check_one(
     if new_or_changed or deleted or dependencies_changed:
         messages = []
         if new_or_changed or deleted:
-            messages.append(describe_delta(label, new_or_changed, deleted))
+            messages.append(describe_delta(label, new_or_changed, deleted, action_hint=True))
         if dependencies_changed:
             messages.append(dependency_message or f"{label} 的依赖内容有改动，需要增量更新索引")
         return IndexStatus(
@@ -295,38 +247,6 @@ def find_build_script(project_root: Path) -> Path:
     return find_script(project_root, "skills", "SiliconFlow-rag", "scripts", "build_index.py")
 
 
-def find_lint_script(project_root: Path) -> Path | None:
-    try:
-        return find_script(project_root, "skills", "karpathy-wiki", "scripts", "lint.py")
-    except SystemExit:
-        return None
-
-
-def run_wiki_lint(project_root: Path) -> None:
-    lint_script = find_lint_script(project_root)
-    if lint_script is None:
-        print("[LINT] 未找到 karpathy-wiki lint.py，跳过。")
-        return
-    wiki_dir = project_root / WIKI_DIR_NAME
-    if not wiki_dir.is_dir():
-        print(f"[LINT] wiki 目录不存在，跳过: {wiki_dir}")
-        return
-    result = subprocess.run(
-        [sys.executable, str(lint_script), str(wiki_dir)],
-        cwd=str(project_root),
-        text=True,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=120,
-    )
-    summary = result.stdout.strip() or result.stderr.strip()
-    if result.returncode != 0:
-        print("[LINT] wiki lint 运行失败: " + summary)
-    elif summary:
-        print("[LINT] " + summary[:1200])
-
-
 def build_command(status: IndexStatus, build_script: Path, mock: bool, project_root: Path) -> list[str]:
     cmd = [
         sys.executable,
@@ -364,7 +284,7 @@ def apply_updates(project_root: Path, statuses: list[IndexStatus], mock: bool, n
             print(f"[SKIP] {status.label}: 无可索引内容。")
             continue
         if status.label == "wiki" and not no_lint:
-            run_wiki_lint(project_root)
+            run_wiki_lint(project_root, return_summary=False, include_script_relative=True)
         print(f"[UPDATE] {status.message}")
         result = subprocess.run(
             build_command(status, build_script, mock, project_root),

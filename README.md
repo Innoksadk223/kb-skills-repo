@@ -33,7 +33,7 @@
 | 技能 | 负责什么 |
 |---|---|
 | `social-science-km` | 总调度入口：按用户目标选择转换、深读、编译、检索或维护，并在请求范围内停止 |
-| `deep-reading-to-wiki` | 长书、章节、理论文献先生成深读档案，避免浅总结直接入库 |
+| `deep-reading-to-wiki` | 典籍/注疏、专著、教材章节、合集、学位论文等容易被压缩失真的材料先生成深读档案，避免浅总结直接入库 |
 | `karpathy-wiki` | 把原文和深读档案编译成 claims / concepts / entities / comparisons / observations / structures / predicts 等图谱节点 |
 | `siliconflow-rag` | 建 raw 原文索引 + wiki 结构索引，支持 wiki-first 检索 |
 | `wiki-paper-outline` | 只读已有知识库，经导师式讨论生成有证据出处的社科论文大纲，写入 `outlines/` |

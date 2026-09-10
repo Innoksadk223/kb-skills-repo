@@ -61,6 +61,8 @@ Before graph-readable pages exist, a temporary raw index with `--metadata-mode p
 
 ## Query Routing And Escalation
 
+This section is the single authoritative definition of retrieval escalation. Other skills and references state the principle — start with ordinary retrieval, escalate only when recall, ordering or evidence risk demands it — and link here instead of restating the thresholds.
+
 Start with ordinary retrieval; do not default every question or an outline batch to `--deep`.
 
 | Need / observed result | Mode or escalation |
@@ -81,7 +83,7 @@ Graph expansion reads wiki neighbors/relationships, generates relationship-speci
 - `--multi-query`, `--rerank`: selective recall/ranking upgrades under existing authorization.
 - `--deep`: combined high-quality writing mode, default `candidates=20`.
 - `--no-context`: disable helper's neighboring-chunk context; direct query script uses `--expand-context --context-window 1` to request it.
-- `--source-discovery`: aggregate hits into candidate raw sources, including local byte/line size hints for the routing gate.
+- `--source-discovery`: aggregate hits into candidate raw sources, including local byte/line size hints. Those hints only prompt inspection of a source; material type and context-loss risk decide the route (see [raw-routing-gate.md](raw-routing-gate.md)).
 - `--skip-check`: explicitly authorized old-index use; never an automatic fallback.
 
 Direct script alternatives, after mode-appropriate freshness checks, from project root:

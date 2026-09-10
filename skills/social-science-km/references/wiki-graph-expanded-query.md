@@ -65,16 +65,16 @@ python3 <skills-repo>/skills/social-science-km/references/km_query.py \
   "<扩展 query>" --raw-only --no-lint
 ```
 
-The graph expansion already supplies related wording. Add `--multi-query` only if recall remains weak or wording mismatch persists. Adjacent context is enabled by the helper by default.
+The graph expansion already supplies related wording. Start with ordinary retrieval and escalate only when recall, ordering or evidence risk demands it — the escalation table in [rag-workflow.md](rag-workflow.md#query-routing-and-escalation) is authoritative for what to add and when. Adjacent context is enabled by the helper by default.
 
-**Step 2 — Precision retrieval:** Query unresolved sub-questions using the same command with `"<子问题 N>"`. Reuse sufficient evidence from Step 1. Add `--rerank --candidates 15` when ordering is inadequate or precise evidence ranking is needed. Use `--deep` only for high-risk citation checks requiring wiki-first, rewriting, ranking and context; omit `--raw-only` for that wiki-first route. Independent queries may run in parallel within the authorized service/batch scope.
+**Step 2 — Precision retrieval:** Query unresolved sub-questions using the same command with `"<子问题 N>"`. Reuse sufficient evidence from Step 1. Add `--rerank --candidates 15` or `--deep` only under the same escalation table; `--deep` is wiki-first and bundles rewriting, ranking and context, so omit `--raw-only` for it. Independent queries may run in parallel within the authorized service/batch scope.
 
 **Step 3 — Merge and deduplicate:** After all necessary queries complete:
 
 1. Collect evidence from the broad and targeted queries.
 2. Deduplicate by `source_path` + `chunk_no` and record matched sub-questions. Preserve score provenance: rerank and similarity scores are different scales, so do not compare them as one number or treat rank as proof.
 3. Select evidence by relevance, source diversity and checked raw context; retain source attribution for disagreements.
-4. If fewer than 3 unique sources appear, report the coverage limit. Broaden only when the question needs more sources; check freshness if files changed since the previous check. Increasing rerank candidates is appropriate only when candidate truncation is the issue.
+4. If too few unique sources appear, report the coverage limit and let the [escalation table](rag-workflow.md#query-routing-and-escalation) decide any recall upgrade. Broaden only when the question needs more sources; check freshness if files changed since the previous check. Increasing rerank candidates is appropriate only when candidate truncation is the issue.
 
 ### Phase 4 — Answer
 
@@ -101,4 +101,4 @@ Present results using the **Evidence Answer** template in [rag-workflow.md](rag-
 - Sub-questions must be traceable back to specific rows in the Phase 1 neighborhood table
 - If a sub-question retrieves zero usable results, drop it rather than fabricate evidence
 - Wiki page content guides retrieval, but only raw chunks count as evidence
-- This is an escalation from standard wiki-first, not a replacement — use when wiki-first alone returns shallow results
+- This is an escalation from standard wiki-first, not a replacement — use when wiki-first alone returns shallow results. Which escalations to add, and when, stays in [rag-workflow.md](rag-workflow.md#query-routing-and-escalation).

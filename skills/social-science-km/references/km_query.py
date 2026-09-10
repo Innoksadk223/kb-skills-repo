@@ -6,12 +6,19 @@ Run the maintained helper with an explicit knowledge-base project root:
   python3 <skills-repo>/skills/social-science-km/references/km_query.py --project-root <project-root> "你的问题"
   # Add --raw-only for raw evidence, or --deep when evidence quality needs escalation.
 Existing copies in project roots remain supported.
+
+Layout: the RAG layout constants and the helpers shared with
+``check_rebuild_rag.py`` (hashing, staleness inputs, lint) now live in
+``km_rag_common.py`` next to this file, imported via this script's own
+directory so the CLI still works from any current working directory.
+
+If you copy this helper into a project root, you must copy
+``km_rag_common.py`` alongside it as well.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import subprocess
@@ -19,15 +26,40 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+# The full shared surface is re-exported so existing references such as
+# ``km_query.compute_hashes`` / ``km_query.graph_hashes`` keep resolving.
+try:
+    from km_rag_common import (
+        INDEX_DIR_NAME,
+        RAW_ENRICHMENT_SOURCE_DIRS,
+        RAW_INDEX_NAME,
+        SKIP_NAMES,
+        WIKI_DIR_NAME,
+        WIKI_INDEX_NAME,
+        WIKI_INDEX_SOURCE_DIRS,
+        compute_hashes,
+        describe_delta,
+        find_lint_script,
+        graph_hashes,
+        path_matches_dir,
+        project_build_settings,
+        raw_allowed_metadata_modes,
+        raw_enrichment_hashes,
+        raw_expected_metadata_mode,
+        run_wiki_lint,
+    )
+except ImportError as exc:  # pragma: no cover - guidance when a copy is incomplete
+    raise SystemExit(
+        "km_query.py 需要同目录的 km_rag_common.py（把 helper 复制到项目根目录时请一并复制）。原始错误: "
+        f"{exc}"
+    ) from exc
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-WIKI_DIR_NAME = "wiki"
-INDEX_DIR_NAME = "检索索引"
-RAW_INDEX_NAME = "raw"
-WIKI_INDEX_NAME = "wiki"
-WIKI_INDEX_SOURCE_DIRS = ("claims", "concepts", "entities", "comparisons", "debates", "observations", "structures", "predicts", "synthesis", "queries")
-RAW_ENRICHMENT_SOURCE_DIRS = ("claims", "concepts", "comparisons", "entities", "debates", "observations", "structures", "predicts")
-SKIP_NAMES = {"_conversion_failures.md", "_conversion_manifest.md", "_主题索引.md"}
 
 
 @dataclass
@@ -42,59 +74,11 @@ def project_path(project_root: Path, *parts: str) -> Path:
     return project_root.joinpath(*parts)
 
 
-def path_matches_dir(rel_path: Path, dirs: set[str] | tuple[str, ...]) -> bool:
-    rel = rel_path.as_posix()
-    return any(rel == folder or rel.startswith(f"{folder}/") for folder in dirs)
-
-
-def compute_hashes(
-    md_dir: Path,
-    include_dirs: tuple[str, ...] | set[str] | None = None,
-    exclude_dirs: tuple[str, ...] | set[str] | None = None,
-) -> dict[str, str]:
-    """Return {relative_path: sha256_hex} for Markdown files under md_dir."""
-    include_dirs = include_dirs or ()
-    exclude_dirs = exclude_dirs or ()
-    hashes: dict[str, str] = {}
-    if not md_dir.is_dir():
-        return hashes
-    for path in sorted(md_dir.rglob("*.md")):
-        rel_path = path.relative_to(md_dir)
-        if path.name.startswith("_") or path.name in SKIP_NAMES:
-            continue
-        if any(part.startswith(".") for part in rel_path.parts):
-            continue
-        if include_dirs and not path_matches_dir(rel_path, include_dirs):
-            continue
-        if exclude_dirs and path_matches_dir(rel_path, exclude_dirs):
-            continue
-        content = path.read_text(encoding="utf-8", errors="replace").lstrip("\ufeff")
-        hashes[rel_path.as_posix()] = hashlib.sha256(content.encode("utf-8")).hexdigest()
-    return hashes
-
-
 def index_manifest(index_dir: Path) -> dict:
     manifest_path = index_dir / "manifest.json"
     if not manifest_path.exists():
         return {}
     return json.loads(manifest_path.read_text(encoding="utf-8"))
-
-
-def project_build_settings(project_root: Path) -> dict[str, object]:
-    config_path = project_path(project_root, "rag_config.json")
-    if not config_path.is_file():
-        return {}
-    data = json.loads(config_path.read_text(encoding="utf-8"))
-    build = data.get("build") if isinstance(data, dict) else None
-    if not isinstance(build, dict):
-        return {}
-    expected: dict[str, object] = {}
-    if "model" in build:
-        expected["embedding_model"] = build["model"]
-    for key in ("chunk_size", "overlap", "dimensions", "encoding_format"):
-        if key in build:
-            expected[key] = build[key]
-    return expected
 
 
 def compare_hashes(current: dict[str, str], stored: dict[str, str]) -> tuple[list[str], list[str]]:
@@ -104,15 +88,6 @@ def compare_hashes(current: dict[str, str], stored: dict[str, str]) -> tuple[lis
     ]
     deleted = [rel for rel in stored if rel not in current]
     return new_or_changed, deleted
-
-
-def describe_delta(label: str, new_or_changed: list[str], deleted: list[str]) -> str:
-    parts = []
-    if new_or_changed:
-        parts.append(f"{len(new_or_changed)} 个新增/改动")
-    if deleted:
-        parts.append(f"{len(deleted)} 个删除")
-    return f"{label} 有" + "、".join(parts)
 
 
 def check_one_index(
@@ -162,39 +137,11 @@ def check_one_index(
     if new_or_changed or deleted or dependencies_changed:
         messages = []
         if new_or_changed or deleted:
-            messages.append(describe_delta(label, new_or_changed, deleted))
+            messages.append(describe_delta(label, new_or_changed, deleted, action_hint=False))
         if dependencies_changed:
             messages.append(dependency_message or f"{label} 的依赖内容有改动")
         return True, "；".join(messages)
     return False, ""
-
-
-def graph_hashes(project_root: Path) -> dict[str, str]:
-    wiki_dir = project_path(project_root, WIKI_DIR_NAME)
-    return compute_hashes(
-        wiki_dir,
-        include_dirs=WIKI_INDEX_SOURCE_DIRS,
-        exclude_dirs=("raw", "_archive"),
-    )
-
-
-def raw_enrichment_hashes(project_root: Path) -> dict[str, str]:
-    wiki_dir = project_path(project_root, WIKI_DIR_NAME)
-    return compute_hashes(
-        wiki_dir,
-        include_dirs=RAW_ENRICHMENT_SOURCE_DIRS,
-        exclude_dirs=("raw", "_archive"),
-    )
-
-
-def raw_expected_metadata_mode(project_root: Path) -> str:
-    """Default build mode: plain before graph pages, enriched_raw after graph pages."""
-    return "enriched_raw" if graph_hashes(project_root) else "plain"
-
-
-def raw_allowed_metadata_modes(project_root: Path) -> set[str]:
-    """Before graph pages exist, both plain and enriched_raw are valid."""
-    return {"enriched_raw"} if graph_hashes(project_root) else {"plain", "enriched_raw"}
 
 
 def check_staleness(project_root: Path) -> StalenessStatus:
@@ -257,32 +204,12 @@ def find_query_script(project_root: Path) -> Path:
     raise SystemExit("Cannot find SiliconFlow-rag query_index.py; install the skill or set KB_SKILLS_DIR=<skills 根目录>.")
 
 
-def find_lint_script(project_root: Path) -> Path | None:
-    bases = [project_root, *project_root.parents]
-    candidates: list[Path] = []
-    for base in bases:
-        candidates.extend([
-            base / "skills" / "karpathy-wiki" / "scripts" / "lint.py",
-            base / "skills-hermes" / "research" / "karpathy-wiki" / "scripts" / "lint.py",
-        ])
-    env_dir = os.environ.get("KB_SKILLS_DIR")
-    if env_dir:
-        candidates.insert(0, Path(env_dir) / "karpathy-wiki" / "scripts" / "lint.py")
-    candidates.extend([
-        Path.home() / ".claude" / "skills" / "karpathy-wiki" / "scripts" / "lint.py",
-        Path.home() / ".agents" / "skills" / "karpathy-wiki" / "scripts" / "lint.py",
-        Path.home() / ".codex" / "skills" / "karpathy-wiki" / "scripts" / "lint.py",
-        Path.home() / ".hermes" / "skills" / "karpathy-wiki" / "scripts" / "lint.py",
-    ])
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return None
-
-
 def raw_lookup_intent(question: str) -> bool:
     lowered = question.lower()
-    raw_markers = ["原文", "出处", "哪一段", "引用", "证据", "页码", "source", "quote", "citation", "passage"]
+    # "证据" was removed on purpose: conceptual questions like "有什么证据支持孝是仁之本？"
+    # need wiki argument structure, so that marker must not force raw-only routing.
+    # Do not re-add it; keep only genuine source-lookup markers here.
+    raw_markers = ["原文", "出处", "哪一段", "引用", "页码", "source", "quote", "citation", "passage"]
     return any(marker in question or marker in lowered for marker in raw_markers)
 
 
@@ -337,37 +264,6 @@ def build_query_command(
     return cmd
 
 
-def run_wiki_lint(project_root: Path) -> str:
-    lint_script = find_lint_script(project_root)
-    if lint_script is None:
-        return "未找到 karpathy-wiki lint.py，已跳过 wiki lint。"
-    wiki_dir = project_path(project_root, WIKI_DIR_NAME)
-    if not wiki_dir.is_dir():
-        return f"wiki 目录不存在，已跳过 wiki lint: {wiki_dir}"
-    result = subprocess.run(
-        [sys.executable, str(lint_script), str(wiki_dir)],
-        cwd=str(project_root),
-        text=True,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=120,
-    )
-    if result.returncode != 0:
-        return "wiki lint 运行失败: " + (result.stderr.strip() or result.stdout.strip())
-    try:
-        report = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return "wiki lint 输出不是 JSON，已跳过摘要。"
-    findings = report.get("findings") or {}
-    if not findings:
-        return "wiki lint: 未发现结构问题。"
-    severe = [key for key in ["broken_links", "source_drift", "claim_structure", "frontmatter"] if key in findings]
-    if severe:
-        return "wiki lint: 发现需优先处理的问题: " + ", ".join(severe)
-    return "wiki lint: 发现一般问题: " + ", ".join(sorted(findings))
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Query a social-science KM RAG project.")
     parser.add_argument("question", nargs="?", help="用户问题；配合 --check 可省略")
@@ -404,7 +300,7 @@ def main() -> None:
         if blocking:
             print(f"[WARN] RAG 索引过期：{status.message}")
             if status.wiki_stale and not args.no_lint:
-                print("[LINT] " + run_wiki_lint(project_root))
+                print("[LINT] " + run_wiki_lint(project_root, return_summary=True, include_script_relative=False))
             print("[HINT] 先运行增量更新脚本补入索引；确认要临时查询旧索引时再加 --skip-check。")
             sys.exit(1)
 
