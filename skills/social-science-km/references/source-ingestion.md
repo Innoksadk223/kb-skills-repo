@@ -17,7 +17,7 @@ Metadata, abstracts, and candidate lists are acquisition leads, not raw evidence
 
 ## Conversion Procedure
 
-Check dependencies for the current input types only. MinerU skill/MCP availability is environment-specific; do not assume either is installed. Consult repository [README](../../../README.md) and [CONFIG](../../../CONFIG.md) for upstream setup. A missing capability blocks only sources needing it.
+Check dependencies for the current input types only. MinerU skill/MCP availability is environment-specific; do not assume either is installed. Consult the repository [README](../../../README.md) for upstream setup. A missing capability blocks only sources needing it.
 
 1. Recursively inventory the active source batch: PDF, DOCX, PPTX, XLSX, HTML, TXT, Markdown, and other supported formats. Keep source and knowledge-base folders as siblings under the core directory contract.
 2. Read `mineru-document-extractor` for PDF/fallback extraction and `markitdown` for non-PDF conversion when needed.

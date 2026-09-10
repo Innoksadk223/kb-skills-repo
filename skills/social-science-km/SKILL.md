@@ -92,7 +92,7 @@ Check only route-specific dependencies:
 | Real indexing/retrieval | `siliconflow-rag`, required index/configuration, approved API use |
 | Paper outlining | `wiki-paper-outline`, its read-only source context; small-wiki local-reading exception applies |
 
-Do not assume MinerU skill/MCP installation status. These upstream tools are not vendored; setup references are in repository [README](../../README.md) / [CONFIG](../../CONFIG.md). A missing tool/key blocks only work that depends on it.
+Do not assume MinerU skill/MCP installation status. These upstream tools are not vendored; setup references are in the repository [README](../../README.md). A missing tool/key blocks only work that depends on it.
 
 ## 4. Batch Inventory, Then Source Readiness
 
