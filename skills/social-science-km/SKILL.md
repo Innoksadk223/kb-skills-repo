@@ -1,6 +1,6 @@
 ---
 name: social-science-km
-description: "Use as the coordinator for social-science knowledge bases: choose a bounded conversion, deep-reading, wiki compilation, retrieval, outline, or maintenance route, and coordinate full source-to-wiki workflows only when requested."
+description: "Use as the coordinator for social-science knowledge bases: choose a bounded conversion, deep-reading, wiki compilation, retrieval, outline, maintenance, or paper-writing evidence-support route, and coordinate full source-to-wiki workflows only when requested."
 ---
 
 # Social Science Knowledge Management
@@ -19,6 +19,7 @@ Resolve explicit task scope first, then required prerequisites, then source risk
 | Only deep-read / produce a dossier | `deep-reading-to-wiki`, with selected raw and reading mode; standalone allowed | Accepted dossier + limitations/handoff; no formal wiki or index writes |
 | Answer an existing-wiki question / find a quote | [RAG workflow](references/rag-workflow.md), mode-appropriate retrieval or permitted local reading | Evidence answer; no re-ingestion |
 | Write a paper outline | `wiki-paper-outline` | Skeleton → discussion → fill, output only under `outlines/`; no automatic corpus supplementation |
+| Write, revise, or adjust an existing paper draft | Wiki/RAG serve as the knowledge function: `siliconflow-rag` for evidence, plus `wiki-paper-outline` when structure is also wanted; prose drafting goes to a paper-writing skill or the user's chosen writer | Evidence and revision notes handed off; this repo writes or rewrites no paper prose |
 | Wiki structure/health check, lint only | `karpathy-wiki` maintenance | Findings report; no automatic repairs, ingestion, or index updates |
 | Index status only | RAG helper check-only maintenance | Status report; no query/API or index mutation |
 | Explicit index update | RAG maintenance within authorized scope | Relevant indexes updated + report |
@@ -162,6 +163,7 @@ Load [rag-workflow.md](references/rag-workflow.md) for commands, index settings/
 
 - Skill identifier: `siliconflow-rag`; repository script directory: `skills/SiliconFlow-rag/`; private config directories: lowercase `siliconflow-rag`. Do not migrate keys/configs.
 - Prefer direct bundled `km_query.py` / `check_rebuild_rag.py` calls with `--project-root "<知识库>"`. Existing project copies remain compatible; do not automatically replace them.
+- Answer only from executed evidence: run `km_query.py`, or use the direct wiki read a small-wiki route permits, and ground every point in the returned hits and their raw anchors. Never answer from remembered wiki pages, earlier session summaries, or the skill documentation itself.
 - Check indexes for retrieval, index maintenance, or after relevant wiki edits, not every session mentioning a knowledge base.
 - Query mode is selected before freshness gating: raw needs raw; wiki-first/deep need both. Raw enrichment dependencies remain part of raw freshness.
 - Pure `--check` reports both indexes. Current indexes need no chatter; stale status names the cause and smallest required update.
@@ -175,6 +177,8 @@ Load [rag-workflow.md](references/rag-workflow.md) for commands, index settings/
 ## 8. User-Facing Boundaries And Completion
 
 Explain progress in plain Chinese and choose the evidence answer, source shortlist, or operational status template in [rag-workflow.md](references/rag-workflow.md#answering-templates). Evidence answers retain all five sections, verbatim raw quotes, separate interpretation, and explicit uncertainty.
+
+Retrieval is the knowledge function whenever the user writes, revises, or adjusts a paper: supply wiki/raw evidence and revision notes, then hand the prose work to a paper-writing skill or the user's writer. Never return an evidence answer as if it were a revised passage, and never claim a passage was rewritten when no drafting tool ran.
 
 Honor authorization already given; ask only when the following boundary is not covered:
 
