@@ -265,10 +265,253 @@ def main() -> None:
             """,
         )
 
+        write(
+            wiki / "raw/01-访谈材料/长文材料.md",
+            "长文正文。\n" + "补充行。\n" * 2100,
+        )
+        # 长文来源：缺「精读文本 + 原文」成对结构，必须报出
+        write(
+            wiki / "claims/长文命题缺结构.md",
+            """
+            ---
+            title: 长文命题缺结构
+            type: claim
+            claim_type: support
+            core: false
+            status: working
+            confidence: medium
+            supports: []
+            opposes: []
+            limits: []
+            depends_on: []
+            related_concepts: []
+            related_entities: []
+            related_comparisons: []
+            sources: [raw/01-访谈材料/长文材料.md]
+            created: 2026-06-12
+            updated: 2026-06-12
+            ---
+
+            # 长文命题缺结构
+
+            ## 命题
+            这是长文的词条，但漏了第二遍结构。
+
+            ## 关系
+            - 依赖：[[核心命题]]
+            """,
+        )
+        # 长文来源：结构顺序颠倒，也必须报出
+        write(
+            wiki / "claims/长文命题顺序错.md",
+            """
+            ---
+            title: 长文命题顺序错
+            type: claim
+            claim_type: support
+            core: false
+            status: working
+            confidence: medium
+            supports: []
+            opposes: []
+            limits: []
+            depends_on: []
+            related_concepts: []
+            related_entities: []
+            related_comparisons: []
+            sources: [raw/01-访谈材料/长文材料.md]
+            created: 2026-06-12
+            updated: 2026-06-12
+            ---
+
+            # 长文命题顺序错
+
+            ## 命题
+            这是长文的词条，结构顺序颠倒了。
+
+            ## 关系
+            - 依赖：[[核心命题]]
+
+            ## 原文
+            > 逐字摘录
+            `raw/01-访谈材料/长文材料.md:1`
+
+            ## 精读文本
+            第一遍精读的记录。
+            """,
+        )
+        # 长文来源：成对且顺序正确，不应报出
+        write(
+            wiki / "claims/长文命题合规.md",
+            """
+            ---
+            title: 长文命题合规
+            type: claim
+            claim_type: support
+            core: false
+            status: working
+            confidence: medium
+            supports: []
+            opposes: []
+            limits: []
+            depends_on: []
+            related_concepts: []
+            related_entities: []
+            related_comparisons: []
+            sources: [raw/01-访谈材料/长文材料.md]
+            created: 2026-06-12
+            updated: 2026-06-12
+            ---
+
+            # 长文命题合规
+
+            ## 命题
+            这是长文的词条，第二遍结构完整。
+
+            ## 关系
+            - 依赖：[[核心命题]]
+
+            ## 精读文本
+            第一遍精读的记录。
+
+            ## 原文
+            > 逐字摘录
+            `raw/01-访谈材料/长文材料.md:1`
+            """,
+        )
+
+        # 合并组：单篇都不超 2000 行，合计超过 → 视为长文，需成对结构
+        for index in (1, 2):
+            write(
+                wiki / f"raw/01-访谈材料/组材料{index}.md",
+                "组内正文。\n" + "补充行。\n" * 1100,
+            )
+        write(
+            wiki / "claims/合并组命题.md",
+            """
+            ---
+            title: 合并组命题
+            type: claim
+            claim_type: support
+            core: false
+            status: working
+            confidence: medium
+            supports: []
+            opposes: []
+            limits: []
+            depends_on: []
+            related_concepts: []
+            related_entities: []
+            related_comparisons: []
+            sources: [raw/01-访谈材料/组材料1.md, raw/01-访谈材料/组材料2.md]
+            created: 2026-06-12
+            updated: 2026-06-12
+            ---
+
+            # 合并组命题
+
+            ## 命题
+            合并组来源，合计超过阈值。
+
+            ## 关系
+            - 依赖：[[核心命题]]
+            """,
+        )
+        # 路径写法带 wiki/ 前缀：解析成功，成对结构合规 → 不报
+        write(
+            wiki / "claims/前缀路径命题.md",
+            """
+            ---
+            title: 前缀路径命题
+            type: claim
+            claim_type: support
+            core: false
+            status: working
+            confidence: medium
+            supports: []
+            opposes: []
+            limits: []
+            depends_on: []
+            related_concepts: []
+            related_entities: []
+            related_comparisons: []
+            sources: [wiki/raw/01-访谈材料/长文材料.md]
+            created: 2026-06-12
+            updated: 2026-06-12
+            ---
+
+            # 前缀路径命题
+
+            ## 命题
+            sources 带 wiki/ 前缀，仍应解析到长文。
+
+            ## 关系
+            - 依赖：[[核心命题]]
+
+            ## 精读文本
+            第一遍精读的记录。
+
+            ## 原文
+            > 逐字摘录
+            `raw/01-访谈材料/长文材料.md:1`
+            """,
+        )
+        # raw 路径拼错：解析不到，报未解析提示
+        write(
+            wiki / "claims/路径拼错命题.md",
+            """
+            ---
+            title: 路径拼错命题
+            type: claim
+            claim_type: support
+            core: false
+            status: working
+            confidence: medium
+            supports: []
+            opposes: []
+            limits: []
+            depends_on: []
+            related_concepts: []
+            related_entities: []
+            related_comparisons: []
+            sources: [raw/01-访谈材料/不存在的材料.md]
+            created: 2026-06-12
+            updated: 2026-06-12
+            ---
+
+            # 路径拼错命题
+
+            ## 命题
+            sources 路径拼接错误。
+
+            ## 关系
+            - 依赖：[[核心命题]]
+            """,
+        )
+        # synthesis 入口页引用长文：非词条页，不要求成对结构
+        write(
+            wiki / "synthesis/长文路线.md",
+            """
+            ---
+            title: 长文路线
+            created: 2026-06-12
+            updated: 2026-06-12
+            type: synthesis
+            tags: [方法论]
+            sources: [raw/01-访谈材料/长文材料.md]
+            confidence: medium
+            ---
+
+            # 长文路线
+
+            入口页，连接 [[核心命题]] 与 [[社会资本（Social Capital）]]。
+            """,
+        )
+
         report = run_lint(wiki)
         findings = report.get("findings", {})
 
-        assert report["total_raw_files"] == 1, report
+        assert report["total_raw_files"] == 4, report
         assert "研究路线图" not in findings.get("index", {}).get("index_entries_without_page", []), report
         assert "普通命题" not in findings.get("index", {}).get("pages_not_in_index", []), report
         assert not findings.get("tag_issues"), report
@@ -294,6 +537,40 @@ def main() -> None:
         assert any(
             item.get("page") == "claims/序列命题.md"
             for item in findings.get("contradictions", [])
+        ), report
+        # 长文第二遍结构：缺结构与顺序颠倒各报一条，合规页不报
+        second_pass = findings.get("second_pass_structure", [])
+        flagged = {item.get("page") for item in second_pass}
+        assert "claims/长文命题缺结构.md" in flagged, report
+        assert any(
+            item.get("page") == "claims/长文命题缺结构.md"
+            and "第二遍通读未落结构" in item.get("issue", "")
+            for item in second_pass
+        ), report
+        assert any(
+            item.get("page") == "claims/长文命题顺序错.md"
+            and "顺序错误" in item.get("issue", "")
+            for item in second_pass
+        ), report
+        assert "claims/长文命题合规.md" not in flagged, report
+        # 短文来源不触发长文结构检查
+        assert "claims/核心命题.md" not in flagged, report
+        # 合并组（单篇各 1101 行，合计超阈值）：按长文检查
+        assert "claims/合并组命题.md" in flagged, report
+        assert any(
+            item.get("page") == "claims/合并组命题.md"
+            and "不可拆分组合计" in item.get("issue", "")
+            for item in second_pass
+        ), report
+        # sources 带 wiki/ 前缀仍能解析；该页结构合规，不应报
+        assert "claims/前缀路径命题.md" not in flagged, report
+        # synthesis 入口页引用长文：非词条页豁免
+        assert "synthesis/长文路线.md" not in flagged, report
+        # raw 路径拼错：单独报未解析，便于发现漏判
+        unresolved = findings.get("second_pass_unresolved_sources", [])
+        assert any(
+            item.get("page") == "claims/路径拼错命题.md"
+            for item in unresolved
         ), report
 
     print("karpathy-wiki lint self-test passed")

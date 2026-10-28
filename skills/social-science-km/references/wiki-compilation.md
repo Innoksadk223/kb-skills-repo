@@ -60,6 +60,7 @@ Use `karpathy-wiki` with `WIKI_PATH` pointing at the initialized wiki. For each 
 8. Update `wiki/index.md` and append `wiki/log.md` after ingest. For each actually compiled dossier, set `status: compiled` and list key `compiled_to:` pages; do not mark withheld members compiled.
 9. Confirm index/log and intended articles exist. The usual successful foundational compile includes an entity or concept article; a targeted update may instead modify justified existing/extended nodes, so assess its requested output rather than create filler.
 10. After actual wiki edits, check relevant index freshness under [rag-workflow.md](rag-workflow.md), including raw enrichment dependencies. Apply updates only within existing authorization.
+11. Long-source second pass (`raw_lines > 2000`): before writing pages, re-read the raw source end to end and summarize its knowledge points into nodes, each keeping the fixed pair `## 精读文本` + `## 原文` (verbatim excerpt with a line anchor). Shorter sources compile as usual. The dossier is the first-pass 精读 layer; the second pass is owned by `karpathy-wiki` and must not rewrite the dossier records. Details live in `karpathy-wiki` — do not restate the threshold or the page structure here.
 
 ## Bulk Ownership (50+ Files, Multiple Domains)
 

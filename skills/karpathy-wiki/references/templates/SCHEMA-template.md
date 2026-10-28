@@ -106,6 +106,28 @@ add it here first, then use it. This prevents tag sprawl.
 - **Archive a page** when its content is fully superseded — move to `_archive/`, remove from index
 - **Archive a stub** when all pages that [[wikilink]] to it have been archived — an orphan stub with no active referrers is dead weight
 
+## 长文来源页面（Long-Source Pages）
+
+When a page's `sources:` includes a raw file longer than 2000 lines, the page summarizes a long
+source and must carry two paired sections in this fixed order:
+
+```markdown
+## 精读文本
+第一遍精读得到的文本或结论，注明来自深读档案的哪个 HV 或阅读地图单元。
+
+## 原文
+> 逐字摘录，不改写也不概括
+`raw/....md:行号区间`
+```
+
+`## 精读文本` records what the first close reading found; `## 原文` gives the verbatim passage with
+a line anchor so anyone can re-check it. Keep them one-to-one — a page whose `## 原文` is paraphrase
+or cannot be found in the source counts as second pass not done. `scripts/lint.py` reports missing
+or reversed pairs under `second_pass_structure`. Pages sourced only from short raw files need
+neither section.
+
+<!-- ponytail: 2000 行阈值与 SKILL.md「长文第二遍通读」、lint.py LONG_SOURCE_LINES 同步 -->
+
 ## Entity Pages
 One page per notable entity. Include:
 - Overview / what it is

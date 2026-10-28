@@ -229,7 +229,7 @@ def run_wiki_lint(
         findings = report.get("findings") or {}
         if not findings:
             return "wiki lint: 未发现结构问题。"
-        severe = [key for key in ["broken_links", "source_drift", "claim_structure", "frontmatter"] if key in findings]
+        severe = [key for key in ["broken_links", "source_drift", "claim_structure", "second_pass_structure", "frontmatter"] if key in findings]
         if severe:
             return "wiki lint: 发现需优先处理的问题: " + ", ".join(severe)
         return "wiki lint: 发现一般问题: " + ", ".join(sorted(findings))

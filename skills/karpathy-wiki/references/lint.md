@@ -10,7 +10,7 @@ python3 scripts/lint.py <wiki_path>
 
 The script scans all wiki pages and raw files, outputs a JSON report. Parse the JSON and present findings to the user grouped by severity:
 
-**broken_links > follows > supersedes_consistency > orphans > source_drift > contradictions > claim_structure > index > last_verified > stale > frontmatter > quality > oversized > tag_issues > stub_upgrades > stub_cleanup**
+**broken_links > follows > supersedes_consistency > orphans > source_drift > contradictions > claim_structure > second_pass_structure > index > last_verified > stale > frontmatter > quality > oversized > tag_issues > stub_upgrades > stub_cleanup**
 
 ## Report Format
 
@@ -32,6 +32,7 @@ Translate JSON findings into a human-readable report:
 14. **Supersedes 一致性** — `supersedes` 与目标页 `superseded-by` 双向不一致
 15. **Index 完整性** — 应入 index 的页面缺失 / index 条目无对应页面
 16. **Last-verified 过期** — `last-verified` 超过 12 个月的页面
+17. **长文第二遍结构** — `raw_lines > 2000` 的源（或合计超阈值的不可拆分组合）编译出的词条缺 `## 精读文本` / `## 原文`、顺序颠倒，或 `## 原文` 没有 raw 路径与行号锚点。非词条页（`synthesis/`、`queries/`、`debates/`）豁免；`sources` 指向的 raw 文件解析不到时单独走 `second_pass_unresolved_sources` 提示，那不是合规通过。
 
 Stub 判定条件：`confidence: low` 且正文含 📝 标记（SCHEMA-template 的 stub 约定；若项目 SCHEMA 移除了该标记，stub 相关检查会静默失效）。
 
@@ -53,7 +54,7 @@ After changing `scripts/lint.py`, run:
 python3 scripts/lint_self_test.py
 ```
 
-The self-test covers recursive raw scanning, `synthesis/` scanning, ordinary claim index rules, bilingual taxonomy tags, contested claim status, and source drift.
+The self-test covers recursive raw scanning, `synthesis/` scanning, ordinary claim index rules, bilingual taxonomy tags, contested claim status, source drift, and the long-source second-pass structure (missing pair, reversed order, `sources` path resolution, merged group totals, non-node page exemption).
 
 ## Research Leads
 

@@ -6,7 +6,7 @@ Usage: python3 lint.py <wiki_path>
 Output: JSON with findings grouped by category.
 """
 
-import os, sys, re, json, hashlib
+import os, sys, re, json, hashlib, unicodedata
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -530,6 +530,148 @@ def check_claim_structure(pages):
                 issues.append({"page": relpath, "issue": "core claim has no sources"})
     return issues
 
+LONG_SOURCE_LINES = 2000  # 与 SKILL.md「长文第二遍通读」、compile-dossier.md ①.5 同步
+# 非词条页：入口页 / 过程归档，不要求「精读文本 + 原文」成对结构。
+NON_NODE_DIRS = ("synthesis/", "queries/", "debates/")
+RAW_ANCHOR = re.compile(r"raw/|:\s*\d+")
+
+def _norm_source(value):
+    """Normalize a `sources:` entry for path matching (NFC + strip wrappers)."""
+    return unicodedata.normalize("NFC", str(value).strip().strip("[]'\"").strip())
+
+def build_raw_index():
+    """Return ({relpath: own line count}, {basename: [relpath, ...]}).
+
+    Counting whole-file lines matches the `wc -lc` measurement the routing gate
+    records in the manifest, so the two stay on the same ruler.
+    """
+    counts = {}
+    basenames = defaultdict(list)
+    if not os.path.isdir(RAW):
+        return counts, basenames
+    for root, dirs, fnames in os.walk(RAW):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "assets"]
+        for fname in fnames:
+            if not fname.endswith(".md"):
+                continue
+            abspath = os.path.join(root, fname)
+            relpath = os.path.relpath(abspath, WIKI)
+            try:
+                with open(abspath, "r", encoding="utf-8") as f:
+                    line_count = len(f.readlines())
+            except Exception:
+                continue
+            counts[relpath] = line_count
+            basenames[_norm_source(os.path.basename(relpath))].append(relpath)
+    return counts, basenames
+
+def resolve_raw_source(entry, counts, basenames):
+    """Map a `sources:` entry onto a raw file, tolerating common path spellings."""
+    if not entry:
+        return None
+    candidate = _norm_source(entry)
+    for variant in (
+        candidate,
+        candidate.lstrip("./"),
+        re.sub(r"^wiki/", "", candidate),
+        re.sub(r"^.*[/\\]", "", candidate),
+    ):
+        if variant in counts:
+            return variant
+    # Unique basename match covers sources written with a different prefix.
+    hits = basenames.get(re.sub(r"^.*[/\\]", "", candidate), [])
+    return hits[0] if len(hits) == 1 else None
+
+def _parse_page_sources(fm):
+    sources = fm.get("sources", [])
+    if isinstance(sources, str):
+        sources = sources.strip("[]").split(",")
+    return [s for s in sources if str(s).strip()]
+
+def _section_positions(content):
+    """First offset of each `## 精读文本` / `## 原文` heading."""
+    positions = {}
+    for match in re.finditer(r"^[ \t]*##[ \t]*(精读文本|原文)[ \t]*$", content, re.MULTILINE):
+        positions.setdefault(match.group(1), match.start())
+    return positions
+
+def check_second_pass_structure(pages):
+    """长文词条必须成对出现 `## 精读文本` 与 `## 原文`，顺序固定且原文可回查。
+
+    A page is long-sourced when its resolvable raw sources are over
+    LONG_SOURCE_LINES individually, or add up to more than that as an
+    inseparable group. Entries that look like raw paths but resolve to no file
+    are reported separately — otherwise a spelling mismatch would silently
+    pass as compliance.
+    """
+    counts, basenames = build_raw_index()
+    issues = []
+    unresolved = []
+    for relpath, abspath, name, fm in pages:
+        if not fm or relpath.startswith(NON_NODE_DIRS):
+            continue
+        sources = _parse_page_sources(fm)
+        if not sources:
+            continue
+        resolved = []
+        unknown = []
+        for source in sources:
+            hit = resolve_raw_source(source, counts, basenames)
+            if hit is not None:
+                resolved.append((hit, counts[hit]))
+            elif str(source).strip().strip("[]'\"").startswith("raw/"):
+                unknown.append(str(source).strip())
+        if unknown:
+            unresolved.append({
+                "page": relpath,
+                "issue": (
+                    "sources 指向的 raw 文件未能解析，长文结构检查无法执行："
+                    + ", ".join(unknown)
+                ),
+            })
+        if not resolved:
+            continue
+        total = sum(line_count for _, line_count in resolved)
+        over_single = [p for p, line_count in resolved if line_count > LONG_SOURCE_LINES]
+        is_group = len(resolved) > 1 and total > LONG_SOURCE_LINES
+        if not over_single and not is_group:
+            continue
+        what = (
+            f"{over_single[0]} 超过 {LONG_SOURCE_LINES} 行"
+            if over_single
+            else f"{len(resolved)} 个来源作为不可拆分组合计 {total} 行"
+        )
+        try:
+            with open(abspath, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception:
+            continue
+        positions = _section_positions(content)
+        if "精读文本" in positions and "原文" in positions:
+            if positions["精读文本"] > positions["原文"]:
+                issues.append({
+                    "page": relpath,
+                    "issue": "长文词条结构顺序错误：`## 精读文本` 必须先于 `## 原文`",
+                })
+            elif not RAW_ANCHOR.search(content[positions["原文"]:]):
+                issues.append({
+                    "page": relpath,
+                    "issue": "`## 原文` 没有 raw 路径或行号锚点，无法回查逐字原文",
+                })
+            continue
+        missing = [
+            f"`## {section}`"
+            for section in ("精读文本", "原文")
+            if section not in positions
+        ]
+        issues.append({
+            "page": relpath,
+            "issue": (
+                f"长文（{what}）词条缺 {' 与 '.join(missing)}——第二遍通读未落结构"
+            ),
+        })
+    return issues, unresolved
+
 # ── Main ──
 
 def main():
@@ -572,6 +714,12 @@ def main():
     if claim_issues:
         report["findings"]["claim_structure"] = claim_issues
 
+    # ④c 长文第二遍结构（精读文本 + 原文）
+    second_pass_issues, unresolved_sources = check_second_pass_structure(pages)
+    if second_pass_issues:
+        report["findings"]["second_pass_structure"] = second_pass_issues
+    if unresolved_sources:
+        report["findings"]["second_pass_unresolved_sources"] = unresolved_sources
     # ⑤ Stale content
     stale = check_stale_content(pages, raw_files)
     if stale:

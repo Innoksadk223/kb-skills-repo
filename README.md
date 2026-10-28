@@ -172,7 +172,28 @@
 - 短、窄、自成一体、低风险、约 200 行 / 40 KiB 以下且不属于任何集合 → 直接编译（`direct-wiki`）。
 - 空、近空、乱码或结构不可用的原文 → `blocked`，退回上游转换流程处理。
 
-篇幅分档（≥500 行 / ≥100 KiB；200–499 行 / 40–99 KiB；<200 行且 <40 KiB）**只提示打开来源检查**：看标题页、目录、标题层级、摘要、结论和论证密度，再问「是不是必做深读材料？有没有语义覆盖？」都不是就是 `direct-wiki` 候选，并记录理由。只有 `direct-wiki` 可以跳过档案。
+篇幅分档（≥500 行 / ≥100 KiB；200–499 行 / 40–99 KiB；<200 行且 <40 KiB）**只提示打开来源检查**：看标题页、目录、标题层级、摘要、结论和论证密度，再问「是不是必做深读材料？有没有语义覆盖？」都不是就是 `direct-wiki` 候选，并记录理由。只有 `direct-wiki` 可以跳过档案。（下面「长文：编译前多读一遍」用的 2000 行阈值属于编译纪律，不属于本节篇幅分档，也不改变分流结果。）
+
+### 长文：编译前多读一遍（编译纪律，不是分流路线）
+
+**要不要深读，始终由材料性质决定**（见上一节）；下面这条只管「已经决定要编译的源，怎么归纳成词条」。两者的判断依据不同，别把它们混成一条规则。
+
+深读档案记录的只是**第一遍精读**。原文超过 **2000 行**时（或一个不可拆分组合合计超过 2000 行），`karpathy-wiki` 在写词条前会回到 `raw/` 再通读一遍全文，把散在档案里的候选归纳成正式图谱节点；不到这个长度的来源照常编译，没有这一遍。这一遍不改变已登记的 `wiki_route`：分到 `direct-wiki` 的长文不会因此变成深读，分到 `deep-reading` 的长文也不会因此免掉档案。
+
+归纳出来的每个词条（claim / concept / comparison / entity / observation / structure / prediction）都保持「精读文本 + 原文」成对结构，顺序固定：
+
+```markdown
+## 精读文本
+第一遍精读得到的文本或结论，注明来自深读档案的哪个 HV 或阅读地图单元。
+
+## 原文
+> 逐字摘录，不改写也不概括
+`raw/....md:行号区间`
+```
+
+不可颠倒、不可只留其一；`## 原文` 必须是能回查的逐字摘录并带行号锚点，只有转述的词条不算成立（`skills/karpathy-wiki/scripts/lint.py` 会报出缺失、顺序错误或锚点缺失）。`synthesis/`、`queries/`、`debates/` 这类入口页和过程归档不是词条，不要求这对区块。普通长度的来源同样不需要。
+
+所以长文的 wiki 词条会比短文的更「厚」——那是有意为之，不是啰嗦。
 
 分流与记录字段（`raw_bytes` / `raw_lines` / `source_type` / `wiki_route` / `route_reason`）的完整规则见 [`skills/social-science-km/references/raw-routing-gate.md`](skills/social-science-km/references/raw-routing-gate.md)；深读档案的输出、质量门与交接见 [`skills/deep-reading-to-wiki/SKILL.md`](skills/deep-reading-to-wiki/SKILL.md)。
 

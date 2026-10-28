@@ -100,7 +100,7 @@ When any index section exceeds 50 entries, split by pinyin first letter; when th
 | 用户意图 | 加载 | 说明 |
 |---------|------|------|
 | 摄入来源 (ingest) | `references/ingest.md` | 单个来源 → wiki 页面 + 交叉引用 + 导航更新 |
-| 编译深读档案 (compile dossier) | `references/compile-dossier.md` | 把 `reading_dossiers/` 的 CERIC 档案编译为正式 wiki 页面 |
+| 编译深读档案 (compile dossier) | `references/compile-dossier.md` | 把 `reading_dossiers/` 的 CERIC 档案编译为正式 wiki 页面；长文先做第二遍全文通读（见「长文第二遍通读」） |
 | 查询知识 (query) | `references/query.md` | 检索 → 综合回答 → 有价值的存档 |
 | 论证节点 (claims) | `references/claims.md` | 将论文/理论论证拆成图谱可见的小型论证卡片 |
 | 证据节点 (observations) | `references/claims.md`（卡片写法）+ `references/templates/SCHEMA-template.md`（frontmatter 规范） | 经验观察/数据发现，type: observation |
@@ -114,6 +114,35 @@ When any index section exceeds 50 entries, split by pinyin first letter; when th
 | 综述/入口 (synthesis) | `references/synthesis.md` | 轻量入口页；论证型 synthesis 必须抽取 claims |
 | 用户意图补库 (user-directed expansion) | `references/query.md` + `references/ingest.md` + `references/claims.md` | 用户指出想补某一主题时，先找 raw 来源与 deep-reading dossier，再正式入图谱 |
 | Obsidian 集成 | `references/obsidian-setup.md` | 图谱路径分组、Dataview、raw 排除 |
+
+## 长文第二遍通读（Long-Source Second Pass）
+
+第一遍精读产出的深读档案是**精读层**，不是归纳结果。源或不可拆分组的 `raw_lines > 2000` 时，编译前再做一遍**全文通读**，把散在档案里的候选归纳成正式词条；不到这个长度就照常编译，没有第二遍。
+
+**这是编译纪律，不是分流路线。** 篇幅只决定要不要第二遍，绝不决定要不要档案：要不要深读仍由 `social-science-km` 的材料性质分流决定，`route: direct-wiki` 的长文也照常不做档案。反向也成立——第二遍不改变已登记的 route，审计时不要把「该源带第二遍结构」误读成「该源走了深读」。
+
+- **第二遍读什么**：以档案的阅读地图和 HV 候选为线索，回到 `raw/` 按顺序通读全文，归纳第一遍分窗抽取时看不见的知识点——跨章重复、前后限定、论证收束、只有整体结构里才显形的关系。第二遍负责归纳，不负责改写第一遍的精读记录。
+- **来源边界**：`## 精读文本` 只记录**确实发生过**的第一遍精读，不能按第二遍的结论倒填，更不能由编译方臆造。两遍结论不一致时保留分歧，写进 `## 方法边界`。
+- **长文没有精读记录时**：分流为 `direct-wiki` 的长文如果确实需要这道纪律，正确的做法是把该源交回 `social-science-km` 重新分流为 `deep-reading`、补出档案，而不是在编译期自行发起一遍精读。分流未变、档案不存在时，`## 精读文本` 只能留空并说明缺口，不许编造。
+
+### 长文词条的固定结构
+
+每个由长文归纳出的**图谱词条**（claim / concept / comparison / entity / observation / structure / prediction）必须带一对固定顺序的区块：
+
+```markdown
+## 精读文本
+第一遍精读得到的文本或结论，注明来自深读档案的哪个 HV 或阅读地图单元。
+
+## 原文
+> 逐字摘录，不改写也不概括
+`raw/....md:行号区间`
+```
+
+`## 精读文本` 说清来源处的意义，`## 原文` 给出可回查的原句，两者一一对应；只有转述、对不上逐字原文的词条不算成立。落到页面上时，这两个区块承担短文 claim 里 `## 关键证据` 的锚点职责（CERIC 字段映射见 `references/compile-dossier.md`）。
+
+`synthesis/`、`queries/`、`debates/` 页面是入口页或过程归档，不是词条，不要求这对区块——它们引用原文时在 `## 原文` 之外的位置写清出处即可。
+
+<!-- ponytail: 2000 行阈值是校准旋钮，与深读 Gate 2 分档边界同步 -->
 
 ## 网络构建
 
@@ -259,6 +288,7 @@ When content is fully superseded or domain scope changes:
 - **Always orient first** — read SCHEMA + index + recent log before working.
 - **Don't turn user inclination into claims** — use it to choose a search direction, then locate raw evidence.
 - **Don't compile a dossier blindly** — check that its raw anchors still support the proposed wiki nodes.
+- **Don't skip the long-source second pass** — 长文（`raw_lines > 2000`）只按档案编译，拿到的只是第一遍精读的结论；必须回到 `raw/` 通读一遍再归纳，且每个词条保持「精读文本 + 原文」成对。
 - **Always update index.md and log.md** — skipping this makes the wiki degrade.
 - **Don't create pages outside the domain** — follow SCHEMA thresholds.
 - **Don't create graph-dead pages** — every page should link to at least 2 other pages; create stubs for dead wikilinks.
@@ -277,6 +307,7 @@ When content is fully superseded or domain scope changes:
 - [ ] `SCHEMA.md`, `index.md`, and recent `log.md` were read before edits.
 - [ ] User-directed expansion found usable raw evidence before writing formal pages.
 - [ ] If a `reading_dossiers/` handoff was used, its raw anchors and context risks were checked.
+- [ ] 长文（`raw_lines > 2000`）词条带固定顺序的 `## 精读文本` 与 `## 原文`，原文为逐字摘录并带行号锚点。
 - [ ] New/updated pages have required frontmatter and Chinese wikilinks.
 - [ ] `claims/` exists when the wiki contains argument-oriented material; `observations/` and `structures/` exist when the wiki has empirical or framework content.
 - [ ] Core claims are listed in `index.md`; non-core claims and observations/structures/predicts are discoverable through links.

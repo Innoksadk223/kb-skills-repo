@@ -75,6 +75,8 @@ It must say what to do next:
 - ignore as duplicate or low relevance;
 - verify with RAG before compilation.
 
+What the second pass owns: for a long source (`raw_lines > 2000`), `karpathy-wiki` re-reads the raw source end to end and summarizes the nodes, each as a fixed `## 精读文本` + `## 原文` pair. This skill does not perform that pass; it only has to make it possible by recording the first close reading faithfully (窗口覆盖、HV 候选、放弃清单). A dossier that reads like a finished summary instead of a reading record works against that.
+
 For each recommended wiki target, the handoff must include:
 
 - core contribution: what the page should add to the graph;
@@ -132,6 +134,7 @@ Stop and ask or report the blocker when:
 - the source is too malformed for reliable section mapping;
 - all candidates are weak or duplicate existing wiki nodes;
 - (budget mode only) a full-book read is required to answer the user but the user has not approved that token cost — in thorough mode full coverage is the contract, not a blocker.
+- (thorough mode, 长文 `raw_lines > 2000`) Fail if window coverage is partial or a window was skipped to save tokens — `karpathy-wiki` summarizes from these records in its second pass, so unwritten coverage becomes an unsupported wiki node.
 
 ## Final Check Before Handoff
 

@@ -1,6 +1,6 @@
 # Compile Dossier → Wiki
 
-Consume a `reading_dossiers/<source>-深读档案.md` and compile formal wiki pages from its CERIC context capsules and handoff list.
+Consume a `reading_dossiers/<source>-深读档案.md` and compile formal wiki pages from its CERIC context capsules and handoff list. For a long source (`raw_lines > 2000`) the dossier is the first-pass 精读 layer only — run the second pass below before writing pages.
 
 ## When to Use
 
@@ -19,6 +19,18 @@ Verify the dossier is ready:
 3. If `deep-reading-to-wiki` is installed, run its validator (`python3 <deep-reading-to-wiki 安装目录>/scripts/validate_dossier.py <dossier-path>`, 任意 cwd 均可) — FAIL blocks this source/group. PASS means structural checks passed, not that the source supports the claims or that full reading occurred. Under orchestration, missing required validation blocks the affected source/group and returns it for completion; only standalone compilation without the skill may use manual review of all dossier gates, anchors, capsules, quotas, and reading coverage.
 4. Read `source_raw`, `user_intent`, `confidence`, `source_discovery`, and the recorded reading mode/coverage. Check that the dossier covers the dispatched source/group and requested scope; merged dossiers obey the same mode-specific gates.
 5. Independently read the key raw passages and surrounding context. Verify they support each proposed node, its evidence type, boundaries, and inference chain before writing. An unsupported candidate stays pending or is rejected even with PASS; preserve the reason and next step.
+
+### ①.5 长文第二遍全文通读
+
+`raw_lines > 2000` 的源或不可拆分组，编译前必须再做一遍全文通读。深读档案记录的是第一遍分窗精读的结果；跨章重复、前后限定、论证收束，以及只在整体结构中显形的关系，都要靠第二遍归纳——直接拿档案编译出来的词条只等于第一遍的结论，这是本步骤存在的唯一理由。不到 2000 行的源跳过本节，照常编译。
+
+1. 以档案的阅读地图与 HV 候选为线索，回到 `raw/` 按顺序通读全文，不重读档案替代原文。
+2. 归纳知识点为词条，并保持在固定结构内成对书写：`## 精读文本` 记第一遍精读的文本或结论（注明来自哪个 HV 或阅读地图单元），`## 原文` 放逐字摘录与 `raw/....md:行号区间` 锚点。顺序固定，不可颠倒、不可只留其一。
+3. 第二遍只做归纳，不改写第一遍的精读记录。两遍结论不一致时保留分歧，写入 `## 方法边界`。
+4. 分流为 `direct-wiki` 的长文没有档案：不要在这里自行发起一遍精读。若该源确实需要这道纪律，交回 `social-science-km` 重新分流为 `deep-reading`、补出档案；分流未变、没有精读记录时，`## 精读文本` 只能留空并说明缺口，不许编造。
+5. 判定用的行数是 manifest / 档案记录的 `raw_lines`（与 lint 的 `wc` 口径一致）；多种写法都要能解析——`sources` 写成 `raw/...`、`wiki/raw/...` 或页面名时，由 lint 的解析规则统一处理，解析不到的 raw 路径会在 `second_pass_unresolved_sources` 里单独报出。
+
+<!-- ponytail: 2000 行阈值与 SKILL.md「长文第二遍通读」同步 -->
 
 ## ② Orient to Wiki
 
@@ -87,6 +99,21 @@ Use these types only when the evidence and graph role justify them; there is no 
 
 Use only fields that apply to the formal page type; retain all 10 fields in every HV dossier capsule. Preserve raw anchors, compression risks, and evidence boundaries in every compiled node.
 
+### 长文页面的固定结构
+
+由长文归纳出的页面（claim / concept / comparison / entity / observation / structure / prediction），在上述映射之外必须带一对固定顺序的区块：
+
+```markdown
+## 精读文本
+第一遍精读的文本或结论，注明来自深读档案的哪个 HV 或阅读地图单元。
+
+## 原文
+> 逐字摘录，不改写也不概括
+`raw/....md:行号区间`
+```
+
+回落规则：`## 精读文本` 承担字段 3 的局部语境，`## 原文` 承担字段 1 的锚点职责——claim 页不必再重复 `## 关键证据` 的锚点行；`## 方法边界` 照旧携带字段 7 与 9，两遍结论的分歧也记在这里。缺 `## 原文`、或原文对不上逐字摘录的页面，视为第二遍没做，退回重读。
+
 ## ④ Consume the Handoff List
 
 ### 建议新建 — create new pages
@@ -143,6 +170,7 @@ After creating all pages:
 2. Check each compiled claim page: does `## 方法边界` contain the compression risk (CERIC field 7)? If not, the page is shallow — go back.
 3. Check each compiled concept page: does `概念厘定` or `## 边界` contain the boundary statement (CERIC field 9)?
 4. Verify no `[[raw/...]]` wikilinks in claim evidence sections — raw paths must be plain text.
+5. 长文（`raw_lines > 2000`）页面逐页确认：`## 精读文本` 与 `## 原文` 成对且顺序正确，`## 原文` 为逐字摘录并带行号锚点（`scripts/lint.py` 的 `second_pass_structure` 会一并报出缺失）。
 
 ## ⑧ Finalize the Dossier
 

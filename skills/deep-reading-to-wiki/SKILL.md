@@ -104,6 +104,15 @@ Before reading the long source, orient to the target wiki when available. Under 
 
 If using the `social-science-km` workflow, run its RAG staleness check before RAG-assisted reading.
 
+## Boundary: The Second Pass Is Not Yours
+
+This skill delivers the first-pass 精读 layer. For a long source (`raw_lines > 2000`), the 归纳 into formal wiki nodes happens in `karpathy-wiki`, which re-reads the raw source end to end and writes each node as a fixed `## 精读文本` + `## 原文` pair. Do not perform that pass here, and do not restructure dossier sections to imitate the final page layout.
+
+Two consequences for this skill:
+
+- Record the first close reading faithfully — what each window yielded, which HV candidates were selected, and what was skipped. `karpathy-wiki` summarizes from these records, so an incomplete or silently smoothed dossier becomes a thin wiki node.
+- When a very long source passes through windows, keep the dossier's HV entries anchored to the sections the second pass will lean on, so the later summarize step has a reliable map back into `raw/`. See `references/quality-gates.md` Gate 6 and Stop Conditions.
+
 For topic-initiated dossiers, preserve the search context in frontmatter:
 
 ```yaml
@@ -135,6 +144,8 @@ Designed to stay reliable even for weaker models: small steps, one fixed instruc
 4. A window yielding zero candidates must be re-read once; if still empty, record its line range and a one-line reason in 放弃清单.
 5. After all windows, run the merge pass: dedupe candidates, select HV entries from the over-complete pool, build context capsules from the already-read text, and satisfy the quality-gates.md Gate 2 tier for `raw_lines`.
 6. Selection happens AFTER reading, from an over-complete pool — never before.
+
+For sources beyond `raw_lines > 2000`, thorough mode stays window-complete as written above: the second pass in `karpathy-wiki` summarizes from what this pass recorded, so no window may be skipped to save tokens. <!-- ponytail: 2000 行阈值与 karpathy-wiki「长文第二遍通读」同步 -->
 
 ### Budget mode: L0-L3 ladder
 
