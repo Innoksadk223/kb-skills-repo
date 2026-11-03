@@ -169,6 +169,7 @@ Rules:
 
 - All five sections are required. Empty sections (e.g. raw-only Wiki 路径) say `（无）` rather than disappearing.
 - Copy raw quotations verbatim from Raw Evidence output, or the explicitly checked raw passage in direct reading; never paraphrase inside quotation marks.
+- A raw file carrying a fidelity note (see [source-ingestion.md](source-ingestion.md) step 9) is verbatim *as converted*, not as printed: name that limit when the evidence comes from a scan, 影印本, table- or formula-heavy, vertical, or commentary-interleaved source, so it can be re-checked against the original before entering a paper.
 - Interpretation may use your own words but must faithfully reflect the source.
 - Wiki Hits explain recall and argument structure; they cannot independently support thesis assertions.
 - Uncertainties are mandatory; never fabricate coverage or evidence.

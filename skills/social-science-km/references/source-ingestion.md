@@ -27,7 +27,7 @@ Check dependencies for the current input types only. MinerU skill/MCP availabili
 6. Prefer MinerU MCP when available. Use CLI when MCP is unavailable, explicitly requested, or cannot satisfy the task. Long batches and token-backed network extraction must remain inside the approved scope.
 7. Write `.md` outputs to `<知识库>/wiki/raw/<source-folder-name>/...`, preserving relative structure. Existing Markdown may be copied without changing content. Never overwrite originals.
 8. If primary conversion and fallback fail, record source path, target path, attempted tools, and errors in `wiki/raw/_conversion_failures.md`; report them explicitly.
-9. Generate/update `wiki/raw/_conversion_manifest.md`: source path, output path, converter, status, source size/hash when cheap, language/OCR mode when known, and failure reason. Markdown tables are fine; retain existing JSONL format if the project uses it.
+9. Generate/update `wiki/raw/_conversion_manifest.md`: source path, output path, converter, status, source size/hash when cheap, language/OCR mode when known, and failure reason. When the source is one of the fidelity-risk kinds named in step 4 (scans, 古籍/影印本, tables, formulas, complex layouts, vertical or commentary-interleaved text), add a short fidelity note on that entry — downstream stages inherit the manifest and use the note to decide whether a verbatim quote needs the original. Markdown tables are fine; retain existing JSONL format if the project uses it.
 10. Generate/update `wiki/raw/_主题索引.md` with concise coverage and rough topic groups when filenames/headings support them.
 11. If proceeding toward wiki compilation, apply [raw-routing-gate.md](raw-routing-gate.md) to all active-batch content outputs and add `raw_bytes`, `raw_lines`, `source_type`, `wiki_route`, and `route_reason`. Conversion-only may stop after raw acceptance; do not launch downstream work just to populate future routes.
 
@@ -49,6 +49,7 @@ For large folders, split independent batches by directory, format, or topic:
 - `wiki/raw/` exists; it contains at least one `.md` unless all conversions failed.
 - PDF entries identify MinerU unless an explicit exception is documented.
 - Each MarkItDown failure/garbled output has been replaced by usable MinerU output or recorded as failed.
+- Fidelity-risk conversions (step 4 kinds) carry a fidelity note; a missing note means unverified for verbatim quotation, not known-clean.
 - A durable manifest exists after batch conversion or conversion of more than a few files; failures file exists whenever any source ultimately failed.
 - Report accepted, failed, and pending counts and paths; never describe partial coverage as a fully successful batch.
 - For the next stage, hand off the core's shared checklist through existing manifest/report/dossier fields; do not add a persistent task-state layer.

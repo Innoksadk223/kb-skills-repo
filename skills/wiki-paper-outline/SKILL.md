@@ -14,6 +14,7 @@ description: Use when a knowledge-base wiki already exists and the user wants to
 3. **检索优先于通读。** 除非 wiki 页面总数 < 15，否则必须通过 `km_query.py` 检索定位相关页面，而不是通读整个 wiki。
 4. **缺口标注，不自动补料。** 证据薄弱处显式标注并建议走 social-science-km 的 Gap-Driven Expansion，不自行触发深读或索引重建。
 5. **每个论证要点必须有出处标注**（`[wiki:claims/xxx]` 或 `[raw:文件]`），无出处的要点标 `[无证据支撑——需讨论或补料]`。
+6. **保真风险来源的逐字引文回查原件。** 引文若来自扫描件、影印本、表格或公式密集、竖排、注疏混排的源（即 `_conversion_manifest.md` 里带保真风险备注的那类），在写进大纲或交给写作前对照原件核对该句，标 `[raw:文件 · 已核原件]`；未核对只标 `[raw:文件]`，不得暗示已核。
 
 ## Reference 路由
 
