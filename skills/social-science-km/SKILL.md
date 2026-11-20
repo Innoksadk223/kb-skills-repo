@@ -21,7 +21,7 @@ Do not reinvent atomic WeKnora CRUD. Distinguish generic WeKnora skills from thi
 
 ## Choosing `wiki_mode` (`local_karpathy` vs `weknora_native`)
 
-New projects **do not generate a local `wiki/raw/*.md` conversion layer**: original files (`PDF`, `DOCX`, `EPUB`, `MD`, `TXT`, images) stay read-only in `<source-folder>/` and upload directly to WeKnora `<project>-raw` (server-side parsing: MinerU priority when configured, built-in `docreader` fallback; PDF page locators `p.X` preserved). Existing legacy projects that already have `wiki/raw/*.md` remain untouched and compatible.
+New projects **do not generate a local `wiki/raw/*.md` conversion layer**: original files (`PDF`, `DOCX`, `EPUB`, `MD`, `TXT`, images) stay read-only in `<source-folder>/` and upload directly to WeKnora `<project>-raw` (server-side parsing: per-KB `parser_engine_rules`, default built-in `docreader`; route `pdf` to `mineru_cloud` for scans, since a configured MinerU key alone does not change routing; PDF page locators `p.X` preserved). Existing legacy projects that already have `wiki/raw/*.md` remain untouched and compatible.
 
 Confirm or respect `<知识库>/weknora_config.json` `"wiki_mode"`:
 
@@ -97,7 +97,7 @@ Check only route-specific dependencies (`scripts/doctor.py` verifies all at once
 
 | Route | Required capability |
 |---|---|
-| Document parsing & RAG indexing/query | Running WeKnora server (`http://localhost:8080`), API Key, configured Embedding model (MinerU Cloud/Self-hosted used automatically for PDFs when configured; built-in `docreader` fallback otherwise — **no local conversion skills required**) |
+| Document parsing & RAG indexing/query | Running WeKnora server (`http://localhost:8080`), API Key, configured Embedding model (parsing is per-KB `parser_engine_rules`; default `docreader`, route `pdf` to `mineru_cloud`/`mineru` for scans — **no local conversion skills required**) |
 | `weknora_native` automated Wiki | Same WeKnora server + a configured generation (`KnowledgeQA`) model |
 | Deep reading | `deep-reading-to-wiki`, readable original PDF/source (multimodal read or WeKnora chunks) |
 | Local Wiki compilation / lint | `karpathy-wiki` |

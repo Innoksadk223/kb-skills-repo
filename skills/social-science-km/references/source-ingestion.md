@@ -8,9 +8,11 @@ WeKnora ships a built-in multi-format parsing pipeline (`docreader` + optional `
 
 - **No local conversion skills required**: Do **not** ask users to install standalone local conversion skills or plugins; WeKnora handles document parsing server-side.
 - **No local `wiki/raw/*.md` layer for new projects**: Original files (`PDF`, `DOCX`, `PPTX`, `XLSX`, `EPUB`, `HTML`, `MD`, `TXT`, `PNG/JPG`) remain untouched in the sibling `<source-folder>/` and upload directly to WeKnora's `<project>-raw` knowledge base.
-- **Parser engine priority (`MinerU` first → `builtin` fallback)**:
-  - If the WeKnora workspace has `mineru_cloud` (API Key) or self-hosted `mineru` configured in「设置 → 解析引擎」, PDFs and scans automatically route through MinerU for high-precision layout/table/formula extraction.
-  - Otherwise, WeKnora automatically falls back to its built-in `docreader` engine, preserving exact PDF page numbers and bounding-box `source_locators` (`p.X`).
+- **Parser engine routing (default `builtin`, explicit opt-in for `MinerU`)**:
+  - Routing is decided per knowledge base by `chunking_config.parser_engine_rules`. With no rule set, `pdf` goes to the built-in `docreader` engine — **configuring a MinerU API Key alone does not change routing**.
+  - `docreader` preserves PDF page numbers and bounding-box `source_locators` (`p.X`) and extracts the text layer of digital-born PDFs. Scanned / image-only PDFs produce image references only (`![…_page_N.jpg]`) with no text layer, which is useless for retrieval and citation.
+  - For scans, 古籍/影印本, and vertical or commentary-interleaved layouts, explicitly route `pdf` to `mineru_cloud` (or self-hosted `mineru`) for the knowledge base — in the Web UI per-KB「解析引擎」setting, or by `PATCH /api/v1/knowledge-bases/{kb_id}` with `{"parser_file_types": ["pdf"], "parser_engine": "mineru_cloud"}`; then reparse existing documents (`POST /api/v1/knowledge/batch-reparse` with `{"kb_id", "ids"}`) so previously indexed scans get a real text layer.
+  - Always verify after upload: sample a middle chunk of each PDF. If it is all `![…jpg]` with almost no CJK characters, the file was routed to a parser without OCR.
 - **Legacy compatibility**: Existing knowledge bases that already have `wiki/raw/*.md` stay untouched; never delete or migrate existing `wiki/raw/` directories.
 
 ## Ingestion Procedure
@@ -33,7 +35,7 @@ python3 <skills-repo>/skills/social-science-km/scripts/sync_kb.py \
 5. Inspect outputs written under `<知识库>/检索索引/`:
    - `检索索引/raw/manifest.json`: maps each relative source path (`02-学术研究/肖群忠.pdf`) to its SHA256 and WeKnora `knowledge_id`.
    - `检索索引/_source_manifest.md`: human-readable table of source paths, formats, byte sizes, WeKnora `knowledge_id`, and parse status.
-6. Flag fidelity-risk originals (scans, 古籍/影印本, vertical/commentary-interleaved layouts, dense tables/formulas) in `_source_manifest.md`. If `mineru_cloud` / `mineru` is not yet configured for heavy ancient scans, note that configuring a MinerU API Key in WeKnora Web UI improves OCR fidelity, or inspect the original PDF pages visually via multimodal read before quoting verbatim.
+6. Flag fidelity-risk originals (scans, 古籍/影印本, vertical/commentary-interleaved layouts, dense tables/formulas) in `_source_manifest.md`, and make sure those files are parsed by an OCR-capable engine (`mineru_cloud` / `mineru`) rather than the default `docreader`; otherwise inspect the original PDF pages visually via multimodal read before quoting verbatim.
 7. If proceeding toward `local_karpathy` Wiki compilation, apply [raw-routing-gate.md](raw-routing-gate.md) to classify each source in `_source_manifest.md` (`source_type`, `wiki_route`, `route_reason`).
 
 ## Acceptance And Reporting

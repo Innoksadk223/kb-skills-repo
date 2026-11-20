@@ -1,6 +1,6 @@
 # kb-skills-repo · 社科知识管理（WeKnora 一体化解析与双模式 Wiki 技能集）
 
-面向人文社科研究的 Agent 知识库与论文论证支持技能仓库。依托 **Tencent/WeKnora** 的服务端多格式解析（PDF 优先走 MinerU，内置引擎自动兜底）与混合检索（`pgvector` 向量 + `ParadeDB BM25` + `Rerank`），彻底免去本地安装格式转换插件与预先生成本地 `raw/*.md` 的繁琐步骤，同时支持**我们的社科精读卡片 Wiki** 与 **WeKnora 自带自动 Wiki** 两种路线按需切换。
+面向人文社科研究的 Agent 知识库与论文论证支持技能仓库。依托 **Tencent/WeKnora** 的服务端多格式解析（按库配置解析引擎，默认内置 `docreader`，扫描件可指定 MinerU）与混合检索（`pgvector` 向量 + `ParadeDB BM25` + `Rerank`），彻底免去本地安装格式转换插件与预先生成本地 `raw/*.md` 的繁琐步骤，同时支持**我们的社科精读卡片 Wiki** 与 **WeKnora 自带自动 Wiki** 两种路线按需切换。
 
 ---
 
@@ -41,7 +41,7 @@
 1. 按 [Tencent/WeKnora 官方文档](https://github.com/Tencent/WeKnora) 使用 Docker Compose（macOS 推荐 OrbStack）启动标准版服务（默认前端 `http://localhost`，后端 API `http://localhost:8080`）。
 2. 打开 `http://localhost` 进入「设置」：
    - **模型管理**：配置一个 **Embedding 模型**（必选）与 **Rerank 模型**（强烈推荐）；若需使用 `weknora_native` 自动 Wiki 或网页聊天，再配一个对话生成模型。
-   - **解析引擎（可选增强）**：若处理复杂排版/古籍扫描 PDF，填入 **MinerU Cloud API Key**（或自建 MinerU 地址），WeKnora 解析 PDF 时会自动优先走 MinerU，未配置则自动使用内置 `docreader` 解析引擎。
+   - **解析引擎（按库选择，不是全局默认）**：`docreader` 是默认引擎，能抽取数字版 PDF 的文字层并保留页码坐标；扫描件/影印本走它只会得到图片引用、没有文字层。填好 **MinerU Cloud API Key**（或自建 MinerU 地址）只是让它「可用」，并不会自动接管 —— 需在该知识库的「解析引擎」里把 `pdf` 指定为 `mineru_cloud`，再对已入库的扫描件触发重新解析。
    - **获取 API Key**：在「设置 → API Key」复制密钥，写入私有配置（切勿提交进代码库）：
 
 ```bash
