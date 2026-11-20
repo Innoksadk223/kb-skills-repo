@@ -7,11 +7,11 @@ Use this template for `reading_dossiers/<source-title>-深读档案.md`. Load `r
 title: <书名或文献名>深读档案
 type: reading_dossier
 source_raw:
-  - wiki/raw/...
+  - 02-学术研究/肖群忠.pdf # 新项目直接填原始文献相对路径（PDF/DOCX/MD）；旧项目兼容 wiki/raw/...md
 trigger: explicit_source # explicit_source / user_directed_expansion / retroactive_repair
 user_intent: ""
 source_discovery:
-  - path: wiki/raw/...
+  - path: 02-学术研究/肖群忠.pdf
     reason: ""
     key_terms: []
 status: draft
@@ -20,7 +20,7 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 compiled_to: []
 confidence: medium
-raw_lines: 0 # 转换 manifest 的总行数；standalone 直接统计源文件；合并档案填各源之和
+source_pages: 18 # PDF/文档填页数（或保留 raw_lines: 0 填 Markdown 行数；约 1 页 ≈ 40 行折算分档配额）
 reading_mode: thorough # thorough / budget；记录实际采用的模式
 ---
 
@@ -85,7 +85,7 @@ Repeat for each high-value candidate; every type requires the same 10-field caps
 #### 上下文胶囊（CERIC 结构，10 字段）
 
 **Claim（主张）**
-1. raw 锚点：`wiki/raw/...` + 行号区间 + 章节（standalone 使用实际文件路径；跨源候选列全相关锚点）
+1. 来源锚点：`02-学术研究/xxx.pdf#p.12` + 章节（旧项目兼容 `wiki/raw/...md:Lxx-Lyy`；跨源候选列全相关锚点）
    > 逐字摘录
 2. 命题类型：main thesis / support / objection / limitation / bridge / definition
 

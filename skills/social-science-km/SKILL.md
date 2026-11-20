@@ -1,13 +1,34 @@
 ---
 name: social-science-km
-description: "Use as the coordinator for social-science knowledge bases: choose a bounded conversion, deep-reading, wiki compilation, retrieval, outline, maintenance, or paper-writing evidence-support route, and coordinate full source-to-wiki workflows only when requested."
+description: Use as the coordinator for social-science knowledge bases: choose a bounded source sync, deep-reading, wiki compilation, retrieval, outline, maintenance, or paper-writing evidence-support route, and coordinate full source-to-wiki workflows only when requested.
 ---
 
 # Social Science Knowledge Management
 
-Coordinate the layered system and hand work to the appropriate skill. The user's requested scope has priority over the full pipeline; use the cheapest route that preserves evidence quality.
+Coordinate the layered knowledge-management system and hand work to the appropriate skill. The user's requested scope has priority over the full pipeline; use the cheapest route that preserves evidence quality.
 
-The full chain is **sources → `wiki/raw/` → selected `reading_dossiers/` → formal `wiki/` → raw/wiki indexes**. Discovery is optional upstream work; paper outlining is a separate downstream output. Do not create another orchestration framework, persistent task-state layer, or `资料md/` store.
+## Skill Architecture: Official Base vs 4 Self-Developed Skills
+
+Do not reinvent atomic WeKnora CRUD. Distinguish generic WeKnora skills from this repository's 4 social-science skills — each self-developed skill works **standalone** OR **orchestrated by `social-science-km`**:
+
+| Layer | Skill | Owner | Role & Standalone / Orchestrated Use |
+|---|---|---|---|
+| **Official Base** (optional) | `@lyingbug/weknora` (Claw Skill) or `weknora-shared` + `weknora-rag-search` (CLI skills) or built-in WeKnora MCP | **WeKnora Official** | Generic single-KB CRUD, ad-hoc file/URL upload, generic search outside a structured social-science project. |
+| **Coordinator & Dual-KB Bridge** | `social-science-km` | **This Repo** | End-to-end routing, source routing gate, `scripts/sync_kb.py`, two-hop `scripts/km_query.py`, freshness `scripts/check_rebuild_rag.py`, and one-click onboarding `scripts/doctor.py`. |
+| **Deep Reading** | `deep-reading-to-wiki` | **This Repo** | Segmented/sampled close reading into `reading_dossiers/*.md`. **Standalone** on any PDF/doc, or dispatched by KM for books/classics/collections. |
+| **Graph Wiki** | `karpathy-wiki` | **This Repo** | Local 8-type Obsidian graph (`claims`, `concepts`, `entities`, `comparisons`, `debates`, `observations`, `structures`, `predicts`) + `lint.py`. **Standalone** or dispatched by KM. |
+| **Paper Outlining** | `wiki-paper-outline` | **This Repo** | Advisor-style thesis skeleton → interrogation → filled outline under `outlines/`. **Standalone** on an existing Wiki or downstream of KM. |
+
+## Choosing `wiki_mode` (`local_karpathy` vs `weknora_native`)
+
+New projects **do not generate a local `wiki/raw/*.md` conversion layer**: original files (`PDF`, `DOCX`, `EPUB`, `MD`, `TXT`, images) stay read-only in `<source-folder>/` and upload directly to WeKnora `<project>-raw` (server-side parsing: MinerU priority when configured, built-in `docreader` fallback; PDF page locators `p.X` preserved). Existing legacy projects that already have `wiki/raw/*.md` remain untouched and compatible.
+
+Confirm or respect `<知识库>/weknora_config.json` `"wiki_mode"`:
+
+| `wiki_mode` | Pipeline | Visible in WeKnora Web UI (`http://localhost`) | Best For |
+|---|---|---|---|
+| `local_karpathy`（默认） | `<source-folder>/` → `<project>-raw` → routing gate → `reading_dossiers/` (as needed) → local `karpathy-wiki` (citing `<file>.pdf#p.X`) → `<project>-wiki` KB | Knowledge-base list shows **`<project>-raw`** (original docs) alongside **`<project>-wiki`** (all `claims/`, `concepts/`, `debates/` cards & chunks); local Obsidian renders graph edges | **社科论文写作、典籍/专著精读、学派争鸣梳理、导师式大纲讨论** |
+| `weknora_native`（可选） | `<source-folder>/` → `<project>-raw` single KB with `wiki_enabled=true` & `auto_generate=true` (skips local dossiers & `karpathy-wiki`) | Inside **`<project>-raw` → Wiki / 图谱页签**, browse auto-generated `entity/concept/summary` tree, cluster graph, and revision history | **日常文献速览、研究初期摸底、零手工维护卡片** |
 
 ## 1. Route And Stop
 
@@ -15,44 +36,38 @@ Resolve explicit task scope first, then required prerequisites, then source risk
 
 | User intent | Route | Stop point |
 |---|---|---|
-| Only convert PDFs/documents | [Source ingestion](references/source-ingestion.md); MinerU for PDFs, MarkItDown first for supported non-PDFs | Accepted raw outputs + coverage/failures report; no dossiers, compilation, or indexing |
-| Only deep-read / produce a dossier | `deep-reading-to-wiki`, with selected raw and reading mode; standalone allowed | Accepted dossier + limitations/handoff; no formal wiki or index writes |
-| Answer an existing-wiki question / find a quote | [RAG workflow](references/rag-workflow.md), mode-appropriate retrieval or permitted local reading | Evidence answer; no re-ingestion |
-| Write a paper outline | `wiki-paper-outline` | Skeleton → discussion → fill, output only under `outlines/`; no automatic corpus supplementation |
-| Write, revise, or adjust an existing paper draft | Wiki/RAG serve as the knowledge function: `siliconflow-rag` for evidence, plus `wiki-paper-outline` when structure is also wanted; prose drafting goes to a paper-writing skill or the user's chosen writer | Evidence and revision notes handed off; this repo writes or rewrites no paper prose |
-| Wiki structure/health check, lint only | `karpathy-wiki` maintenance | Findings report; no automatic repairs, ingestion, or index updates |
-| Index status only | RAG helper check-only maintenance | Status report; no query/API or index mutation |
-| Explicit index update | RAG maintenance within authorized scope | Relevant indexes updated + report |
-| Build/expand knowledge base from local sources | Conversion as needed → initialization → batch routing → source-ready dossiers/compilation → relevant index update | Requested chain completed, with partial/blocked sources disclosed |
-| Search a field and build from zero | Approved academic acquisition → source folder → full chain | Requested corpus/wiki/index result and coverage report |
-| Supplement a stated topic/gap | Gap-driven loop below; stop at shortlist if that is the request | Only the requested discovery or accepted evidence-backed expansion |
-| Wiki is shallow after ingest | Retroactive deep reading → revise supported nodes → relevant index check/update | Targeted revision and remaining gaps |
+| Check environment / new user setup | Run `scripts/doctor.py` | 5-point readiness report + copyable fix steps |
+| Only ingest/parse documents into WeKnora | [Source ingestion](references/source-ingestion.md) (`scripts/sync_kb.py --source-dir`) | Synced `<project>-raw` + `_source_manifest.md`; no dossiers or local wiki compilation |
+| Only deep-read / produce a dossier | `deep-reading-to-wiki` (reads original PDF/doc directly via multimodal/chunks; standalone allowed) | Accepted dossier citing `<source>#p.X` + limitations/handoff; no formal wiki writes |
+| Answer an existing-wiki question / find a quote | [RAG workflow](references/rag-workflow.md) (`scripts/km_query.py`) or permitted small-wiki local read | Evidence answer citing original file + page/chunk; no re-ingestion |
+| Write a paper outline | `wiki-paper-outline` (best with `local_karpathy`; if `weknora_native`, warn and offer switching or summary+raw fallback) | Skeleton → discussion → fill under `outlines/`; no automatic corpus supplementation |
+| Write, revise, or adjust a paper draft | `scripts/km_query.py` supplies evidence & revision notes (+ `wiki-paper-outline` if structure wanted); prose drafting goes to user's writer | Evidence and revision notes handed off; this repo writes no paper prose |
+| Wiki structure/health check, lint only | `karpathy-wiki` maintenance (`lint.py`) | Findings report; no automatic repairs, ingestion, or index updates |
+| Index status only | `scripts/check_rebuild_rag.py --check` | Status report; no query/API or index mutation |
+| Explicit index update | `scripts/check_rebuild_rag.py` within authorized scope | Relevant KBs updated + report |
+| Build/expand knowledge base from local sources | Sync `<source-folder>/` to `<project>-raw` → choose `wiki_mode`: (`local_karpathy`: routing gate → dossiers/compilation → sync `<project>-wiki`) OR (`weknora_native`: auto-wiki ON) | Requested chain completed, with partial/blocked sources disclosed |
+| Supplement a stated topic/gap | Gap-driven loop below; stop at shortlist if that is the request | Requested discovery shortlist or accepted evidence-backed expansion |
+| Wiki is shallow after ingest | Retroactive deep reading on original source → revise supported nodes → sync `<project>-wiki` | Targeted revision and remaining gaps |
 | Retrieval is weak | Required-index freshness → ordinary retrieval → justified escalation | Answer or explicit evidence gap; do not rewrite wiki to fix ranking |
 
-A 典籍／原典／注疏、专著、教材／导论／手册章节、论文集／合集、学位论文 source — or any coherent multi-file group read as one unit — needs the raw routing gate before formal compilation, whatever its length; so does any source carrying a semantic override (thesis-critical, theory-heavy, argument-rich, conceptually disputed, or likely to lose support/objection/limitation context). A narrow, self-contained, low-risk source outside those categories may compile directly to wiki; size only signals that a source should be inspected, never the decision ([raw-routing-gate.md](references/raw-routing-gate.md)).
-
-Sub-skills remain independently usable. When this coordinator dispatches them, its source routing and acceptance requirements travel in the handoff; standalone “no dossier” paths cannot waive a required dossier here.
+A 典籍／原典／注疏、专著、教材／导论／手册章节、论文集／合集、学位论文 source — or any coherent multi-file group read as one unit — needs the routing gate before formal compilation in `local_karpathy` mode, whatever its length; so does any source carrying a semantic override (thesis-critical, theory-heavy, argument-rich, conceptually disputed, or likely to lose support/objection/limitation context). A narrow, self-contained, low-risk single paper outside those categories may compile directly to wiki ([raw-routing-gate.md](references/raw-routing-gate.md)).
 
 ## 2. Directory And Evidence Contract
 
 Keep source and knowledge-base folders as siblings:
 
 ```text
-<source-folder>/                      # original sources, read-only
+<source-folder>/                      # original sources (PDF/DOCX/EPUB/MD/TXT), read-only
 <source-folder>（知识库）/             # project root for processed outputs
-├── reading_dossiers/                 # pre-wiki interpretation, not raw/graph
+├── weknora_config.json               # optional: wiki_mode, source_dir, chunk/query settings
+├── reading_dossiers/                 # pre-wiki close reading (local_karpathy), not indexed
 ├── outlines/                         # wiki-paper-outline output
-├── wiki/                             # WIKI_PATH, karpathy-wiki root
+├── wiki/                             # WIKI_PATH, karpathy-wiki root (local_karpathy)
 │   ├── SCHEMA.md                     # structure and conventions
 │   ├── index.md                      # content navigation
 │   ├── log.md                        # operation log
-│   ├── qa-log.md                     # karpathy-wiki question log
-│   ├── raw/                          # sole bottom-layer converted text
-│   │   ├── <source-folder-name>/     # preserve source-relative paths
-│   │   ├── _conversion_manifest.md  # coverage and routing ledger
-│   │   ├── _conversion_failures.md  # present when conversion fails
-│   │   └── _主题索引.md              # concise corpus inventory
-│   ├── claims/                       # theses, support, objections, limits
+│   ├── qa-log.md                     # question log
+│   ├── claims/                       # theses, support, objections, limits (cite <source>#p.X)
 │   ├── concepts/
 │   ├── entities/
 │   ├── comparisons/
@@ -63,144 +78,81 @@ Keep source and knowledge-base folders as siblings:
 │   ├── queries/                      # archived query results
 │   └── synthesis/                    # lightweight routes, not evidence banks
 └── 检索索引/
-    ├── raw/                          # raw evidence recall
-    └── wiki/                         # graph-readable wiki recall
+    ├── _source_manifest.md           # source inventory & routing ledger (new projects)
+    ├── raw/manifest.json             # <project>-raw KB ledger (SHA256 ↔ knowledge_id)
+    └── wiki/manifest.json            # <project>-wiki KB ledger (local_karpathy mode)
 ```
 
+- **Legacy compatibility**: Existing knowledge bases that already contain `wiki/raw/*.md` and `wiki/raw/_conversion_manifest.md` keep working as-is; never delete or migrate existing `wiki/raw/` unless explicitly requested.
 - Work from `<知识库>/`; set `WIKI_PATH=<知识库>/wiki/` for `karpathy-wiki`.
-- Never put the knowledge base inside the source folder or scatter processed layers beside its parent. Sibling separation prevents re-ingesting outputs.
-- Original sources remain unchanged. Only approved academic acquisition may add accepted new files to the source folder.
-- Dossiers guide interpretation through raw anchors; they are not original evidence and belong in neither default RAG index.
-- Wiki nodes and enriched-raw labels aid recall; substantive assertions and quotations require checked `wiki/raw/` evidence.
-- Preserve disagreements, attribution, context risks, and uncertainty. Never replace a weak source with confident generated prose.
-- `synthesis/` and optional `synthesis/_global/` are route maps linking formal nodes, not durable evidence banks.
+- Never put the knowledge base inside `<source-folder>/`. Original sources remain read-only.
+- Every formal Wiki page in `local_karpathy` mode **must declare its provenance** (`sources:` in frontmatter + file path and page/section in body, e.g. `02-学术研究/肖群忠.pdf#p.12`).
+- Wiki hits (local cards or `weknora_native` pages) explain conceptual/argument paths; substantive assertions and quotations require checked source evidence from `<project>-raw` (or direct inspection of the cited original PDF/file).
 
 ## 3. Initialize Only What The Route Needs
 
-For a new wiki-oriented workflow, establish project root, domain, and minimum wiki configuration **before** instructing deep reading to read wiki context. Use `karpathy-wiki` to initialize missing SCHEMA/index/log and required structures, preserving existing files. Then read `wiki/SCHEMA.md`, `wiki/index.md`, and recent `wiki/log.md`.
+For a new `local_karpathy` workflow, establish project root, domain, and minimum wiki configuration (`SCHEMA.md`, `index.md`, `log.md`) via `karpathy-wiki` **before** wiki-oriented deep reading. For an existing wiki, read its configuration rather than replacing it. For `weknora_native`, local `wiki/` initialization is unnecessary. Standalone `deep-reading-to-wiki` needs no target wiki.
 
-For an existing wiki, read its existing configuration rather than replacing it. For deep-reading-only, use standalone mode when no target wiki is needed. Conversion-only may create raw output directories without initializing the formal wiki. Query/lint against an absent wiki reports that absence rather than silently starting a build.
-
-Check only route-specific dependencies:
+Check only route-specific dependencies (`scripts/doctor.py` verifies all at once):
 
 | Route | Required capability |
 |---|---|
-| Academic discovery/acquisition | Upstream `academic-search` and the approved network boundary |
-| PDF conversion / extraction fallback | Upstream `mineru-document-extractor` and usable MinerU MCP or permitted CLI |
-| Supported non-PDF conversion | Upstream `markitdown` and needed local dependencies |
-| Deep reading | `deep-reading-to-wiki`, usable source, selected reading mode |
-| Wiki initialization/compilation/lint | `karpathy-wiki`, appropriate local project context |
-| Real indexing/retrieval | `siliconflow-rag`, required index/configuration, approved API use |
-| Paper outlining | `wiki-paper-outline`, its read-only source context; small-wiki local-reading exception applies |
+| Document parsing & RAG indexing/query | Running WeKnora server (`http://localhost:8080`), API Key, configured Embedding model (MinerU Cloud/Self-hosted used automatically for PDFs when configured; built-in `docreader` fallback otherwise — **no local conversion skills required**) |
+| `weknora_native` automated Wiki | Same WeKnora server + a configured generation (`KnowledgeQA`) model |
+| Deep reading | `deep-reading-to-wiki`, readable original PDF/source (multimodal read or WeKnora chunks) |
+| Local Wiki compilation / lint | `karpathy-wiki` |
+| Paper outlining | `wiki-paper-outline`, read-only wiki/RAG context |
 
-Do not assume MinerU skill/MCP installation status. These upstream tools are not vendored; setup references are in the repository [README](../../README.md). A missing tool/key blocks only work that depends on it.
+## 4. Batch Inventory, Then Source Readiness (`local_karpathy`)
 
-## 4. Batch Inventory, Then Source Readiness
+Load [raw-routing-gate.md](references/raw-routing-gate.md) before formal compilation:
 
-Load [raw-routing-gate.md](references/raw-routing-gate.md) before any formal compilation. It owns the mandatory material categories, the size signals and the semantic overrides; do not duplicate or weaken them.
+1. Inventory all active-batch source files in `<source-folder>/` (or legacy `wiki/raw/`).
+2. Classify source types and logical collection membership; record `source_bytes`, `source_type`, `wiki_route` (`deep-reading` | `direct-wiki` | `blocked`), and `route_reason` in `检索索引/_source_manifest.md` (or existing `_conversion_manifest.md`).
+3. Assess readiness per independent source or inseparable logical group:
+   - `direct-wiki` + usable source → compile from checked original source;
+   - `deep-reading` + accepted dossier (`validate_dossier.py` PASS + source-anchor check) → compile;
+   - missing/failed dossier or unfinished inseparable collection member → hold and report explicitly.
 
-1. Inventory **all active-batch** converted content Markdown by bytes/lines, excluding operational `_*.md` files. Account for failed conversions too.
-2. Classify source types and logical collection membership; inspect group totals as well as individual files.
-3. Record `raw_bytes`, `raw_lines`, `source_type`, `wiki_route`, and `route_reason` in the existing conversion manifest. Every batch content source needs a route before any batch source compiles.
-4. After that common inventory, assess readiness per independent source or inseparable logical group, not by waiting for every dossier in the entire batch.
-
-| Route/readiness | Compilation decision |
-|---|---|
-| `direct-wiki`, usable raw, low-risk conditions met | May compile from checked raw |
-| `deep-reading`, accepted dossier and checked raw support | May compile that source/group |
-| `deep-reading`, missing/failed/unverified dossier | Hold that source/group; name missing acceptance step |
-| `blocked` or missing route | Hold and report conversion/routing problem |
-| Inseparable source group with a required member unfinished | Hold group; do not bypass collection interpretation |
-
-Ready independent sources may proceed while other sources remain blocked or await deep reading. This is not permission to ignore an unfinished member of a logical collection. Report completed, pending, failed, and blocked coverage explicitly; partial completion is not whole-batch success.
-
-### Reading And Compilation Quality
-
-Load [wiki-compilation.md](references/wiki-compilation.md) for detailed initialization, dossier acceptance, formal writing, and bulk responsibilities.
-
-- `thorough` is the default for books, collections, theory-heavy and thesis-critical material: structure assists sequential full-window reading, then selection.
-- `budget` is for rapid prescreening or explicit time savings: L0–L3 sampling/local close reading, with the deep-reading skill's short-text full-read exception.
-- The selected mode applies to merged dossiers too. Preserve tiered quotas, raw-line measurements, anchors, context capsules, skipped areas, and anti-slack gates.
-- A required dossier needs structural validation PASS and substantive raw-support review before compilation. PASS alone does not prove a claim; unrun validation is unverified.
-- Candidates may include observations, structures, and predictions as well as claims/concepts/entities/comparisons. Include types only when evidence warrants them.
-- Deep reading writes dossiers only. `karpathy-wiki` writes formal pages and navigation, then marks actually compiled dossiers with `status: compiled` and `compiled_to:`.
+Load [wiki-compilation.md](references/wiki-compilation.md) for reading modes (`thorough` default for books/classics/collections; `budget` for prescreening), dossier acceptance, and compilation ownership.
 
 ## 5. Shared Handoff And Write Ownership
 
-Use this same checklist between stages in prompts/reports and existing manifest/dossier fields. Do not create another durable task-state file or schema.
+Carry project root, `WIKI_PATH`, requested scope/stop point, exact source paths + group membership, routing fields, reading mode, dossier path/validation status, and allowed output paths in stage handoffs. Do not invent another persistent task-state file.
 
-| Handoff item | Required content |
-|---|---|
-| Project and scope | Absolute project root, WIKI_PATH when applicable, user request, current route and stop point |
-| Sources and group | Exact original/raw paths, active source set, inseparable group membership, failed/pending members |
-| Routing | `source_type`, `raw_bytes`, `raw_lines`, `wiki_route`, `route_reason` |
-| Reading | Selected mode, research intent, wiki context or standalone, expansion discovery shortlist when used |
-| Dossier and acceptance | Exact dossier path(s), structural result, raw-support review, limitations/blockers; compiled pages when applicable |
-| Permissions | Exact allowed output paths, shared-file owner, prohibited writes, existing external/index authorization |
-| Return | Outputs actually written, ready/blocked sources, reasons and next action; no claim of unverified success |
-
-Parallel ownership is strict:
-
-- Conversion workers own non-overlapping raw subtrees and per-batch reports; parent owns shared conversion ledger, failures, and topic index.
-- Deep-reading workers own exact non-overlapping dossier paths only.
-- Compilation workers return structured analysis only and write no files; parent owns all wiki pages, navigation, logs, and compiled dossier metadata.
-- Parent coordinates index mutation after relevant writes. No concurrent shared navigation/index writes.
+- Deep-reading workers write only their assigned non-overlapping `reading_dossiers/*.md` path.
+- Compilation workers return structured analysis only and write no files; parent writes all `wiki/` pages, `index.md`, `log.md`, and `compiled_to:` metadata.
+- Parent runs `scripts/check_rebuild_rag.py` after wiki writes to sync `<project>-wiki` (visible in WeKnora Web UI).
 
 ## 6. Gap-Driven Expansion
 
-1. Capture user inclination as a research direction, not a conclusion.
-2. Initialize missing wiki context if an authorized build/expansion needs it; then inspect SCHEMA/index/recent log and relevant graph pages.
-3. Identify a thin concept, missing claim/objection, weak comparison, underused source, or absent raw evidence.
-4. Use ordinary wiki-first discovery for conceptual gaps or raw-only for direct sources. Escalate recall/context only as needed under the escalation table in [rag-workflow.md](references/rag-workflow.md#query-routing-and-escalation).
-5. Return raw paths, relevance, keywords, likely deep-reading need, and limitations using the source-discovery template. Stop here if only a shortlist was requested.
-6. If candidates remain weak/stale/insufficient, report the gap and check/broaden retrieval; use academic acquisition only within approved scope.
-7. For requested expansion, route candidates, create required dossiers with `trigger: user_directed_expansion`, `user_intent`, and `source_discovery`; compile only accepted raw-backed content.
-8. Check relevant indexes after wiki writes and apply authorized updates. Keep the loop intent → sources → dossier when needed → formal wiki → indexes.
+1. Treat user inclination as a research direction, not a predetermined conclusion.
+2. Inspect `wiki/index.md` and relevant graph pages (in `local_karpathy`) to locate thin concepts, missing objections, or weak evidence.
+3. Run `scripts/km_query.py --source-discovery` to shortlist candidate files already in `<project>-raw`. Stop here if only a shortlist was requested.
+4. If corpus sources cannot fill the gap, report the exact missing topic/literature so the user can add sources to `<source-folder>/`.
+5. For authorized expansion on existing sources, apply the routing gate → required dossiers (`trigger: user_directed_expansion`) → `karpathy-wiki` compilation → `scripts/check_rebuild_rag.py`.
 
 ## 7. Retrieval And Maintenance Contract
 
-Load [rag-workflow.md](references/rag-workflow.md) for commands, index settings/staleness, privacy, escalation, evaluation, and required answer templates.
+Load [rag-workflow.md](references/rag-workflow.md) for commands, freshness rules, escalation, and answer templates.
 
-- Skill identifier: `siliconflow-rag`; repository script directory: `skills/SiliconFlow-rag/`; private config directories: lowercase `siliconflow-rag`. Do not migrate keys/configs.
-- Prefer direct bundled `km_query.py` / `check_rebuild_rag.py` calls with `--project-root "<知识库>"`. Existing project copies remain compatible; do not automatically replace them.
-- Answer only from executed evidence: run `km_query.py`, or use the direct wiki read a small-wiki route permits, and ground every point in the returned hits and their raw anchors. Never answer from remembered wiki pages, earlier session summaries, or the skill documentation itself.
-- Check indexes for retrieval, index maintenance, or after relevant wiki edits, not every session mentioning a knowledge base.
-- Query mode is selected before freshness gating: raw needs raw; wiki-first/deep need both. Raw enrichment dependencies remain part of raw freshness.
-- Pure `--check` reports both indexes. Current indexes need no chatter; stale status names the cause and smallest required update.
-- Preserve project `rag_config.json`. New/changed files mean incremental update; deleted files mean entry removal; settings/model/index-format changes may force rebuild.
-- Start with ordinary retrieval; escalate only when recall, ordering or evidence risk demands it. The authoritative escalation table lives in [rag-workflow.md](references/rag-workflow.md#query-routing-and-escalation); do not restate its thresholds elsewhere.
-- Use [wiki-graph-expanded-query.md](references/wiki-graph-expanded-query.md) only when standard wiki-first is too shallow and relationships matter.
-- Explicit old-index approval requires `--skip-check` on affected queries plus a freshness caveat. Never bypass stale checks by default.
-- Missing required keys/indexes stop the dependent operation; permitted local reading and unrelated tasks remain available.
-- Wiki lint is maintenance, not ingestion. Report lint findings before relevant index updates; non-severe wiki lint does not block urgent usable raw-only queries.
+- Bundled scripts live in `skills/social-science-km/scripts/` (`km_query.py`, `check_rebuild_rag.py`, `sync_kb.py`, `query_kb.py`, `doctor.py`). Credentials live in `~/.hermes/private/weknora-rag/config.json` or `WEKNORA_HOST` + `WEKNORA_API_KEY`.
+- **Pure retrieval in Agent chat**: WeKnora returns ranked chunks (with PDF page locators `p.X` and optional server-side `Rerank`); the current Agent synthesizes the answer. No chat LLM is required inside WeKnora for `local_karpathy` retrieval.
+- Answer only from executed evidence (`km_query.py` output or permitted small-wiki + original-source inspection). Never answer from memory or skill docs.
+- Query mode precedes freshness gating: `raw-only` needs `raw`; `local_karpathy` `wiki-first` needs both `raw` and `wiki`; `weknora_native` `wiki-first` needs `raw`.
 
 ## 8. User-Facing Boundaries And Completion
 
-Explain progress in plain Chinese and choose the evidence answer, source shortlist, or operational status template in [rag-workflow.md](references/rag-workflow.md#answering-templates). Evidence answers retain all five sections, verbatim raw quotes, separate interpretation, and explicit uncertainty.
+Explain progress in plain Chinese using the templates in [rag-workflow.md](references/rag-workflow.md#answering-templates). Supply evidence and revision notes for paper drafting without claiming prose was rewritten.
 
-Retrieval is the knowledge function whenever the user writes, revises, or adjusts a paper: supply wiki/raw evidence and revision notes, then hand the prose work to a paper-writing skill or the user's writer. Never return an evidence answer as if it were a revised passage, and never claim a passage was rewritten when no drafting tool ran.
-
-Honor authorization already given; ask only when the following boundary is not covered:
-
-| Boundary | Action requiring prior authorization |
-|---|---|
-| External privacy | Sending raw chunks, questions, wiki retrieval text, rewrite prompts, or rerank snippets to external APIs |
-| Academic acquisition | Sending search queries, downloading legal full texts, adding accepted new source files |
-| Index mutation | Updating, removing, or rebuilding raw/wiki index entries |
-| Long conversion | Long MinerU/MarkItDown batches or token-backed extraction |
-| Mass wiki change | Editing 10+ existing pages or changing SCHEMA taxonomy |
-| Original material | Moving/deleting/modifying originals, normally prohibited |
-
-Do not repeat permission requests for approved work. Never write real API keys to repository files. Do not automatically run tests/builds/evaluations without authorization; report static inspection separately from executed validation.
-
-At each requested stop point, name outputs, coverage, blockers, and the next minimal action. Cite failure manifests when conversion fails. A missing external dependency or one failed source must not silently become a global stop for unrelated authorized work.
+Ask prior authorization only when not already covered for: sending private documents/queries to external model APIs, mutating WeKnora indexes, editing 10+ existing wiki pages, or modifying original files (normally prohibited). Never write API keys into repository files.
 
 ## Reference Map
 
 | Load when | Reference |
 |---|---|
-| Acquiring/converting sources, coverage, parallel conversion | [source-ingestion.md](references/source-ingestion.md) |
-| Deciding raw routes by material nature, size signals and overrides | [raw-routing-gate.md](references/raw-routing-gate.md) |
-| Initializing wiki, accepting dossiers, compiling, bulk ownership | [wiki-compilation.md](references/wiki-compilation.md) |
-| Checking/updating/querying indexes, answering, privacy, evaluation | [rag-workflow.md](references/rag-workflow.md) |
+| Syncing original PDFs/docs into WeKnora `<project>-raw` | [source-ingestion.md](references/source-ingestion.md) |
+| Deciding `deep-reading` vs `direct-wiki` by material nature | [raw-routing-gate.md](references/raw-routing-gate.md) |
+| Initializing wiki, accepting dossiers, compiling local cards | [wiki-compilation.md](references/wiki-compilation.md) |
+| Checking/updating/querying WeKnora KBs & formatting answers | [rag-workflow.md](references/rag-workflow.md) |
 | Escalating through wiki relationships | [wiki-graph-expanded-query.md](references/wiki-graph-expanded-query.md) |

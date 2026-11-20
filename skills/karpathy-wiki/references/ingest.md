@@ -4,15 +4,11 @@ When the user provides a source (URL, file, paste), integrate it into the wiki w
 
 ## Procedure
 
-### ① Capture the raw source
+### ① Capture or reference the source
 
-- **URL** → use your web-fetch/extract tool to get markdown, save to `raw/articles/`
-- **PDF (remote URL)** → prefer MinerU (MCP or the `mineru-document-extractor` skill) when available; otherwise your web-fetch tool. Save to `raw/papers/`
-- **PDF (local file)** → prefer MinerU (MCP / `mineru-document-extractor`) for extraction — strongest for scanned/影印 PDFs, tables, and formulas. Fallback: `pymupdf`. Save to `raw/papers/` as `.md`.
-- **Local file** (MD, DOCX, EPUB, TXT) → copy to `raw/articles/` or `raw/papers/` via shell (`cp`). DOCX/EPUB may need markdown conversion first — use MarkItDown or `pandoc` when available. If no conversion tool is available, read what you can directly and note limitations. Name the file descriptively.
-- **Pasted text** → save to appropriate `raw/` subdirectory
-- Name the file descriptively: `raw/articles/karpathy-wiki-2026.md`
-- **Add raw frontmatter** with `ingested`, `sha256` of the body. Compute the hash over the body after the closing `---`, ignoring blank lines immediately after frontmatter. Use `source_url` for web-sourced files only (omit for local files). On re-ingest: recompute sha256, compare to stored value — skip if identical, flag drift if different.
+- **Under `social-science-km` (or with a sibling `<source-folder>/`)**: **Do NOT convert PDFs/DOCX into local `raw/*.md` copies.** Keep original files read-only in `<source-folder>/` (synced to WeKnora `<project>-raw`), read them directly via multimodal PDF/image reading or WeKnora chunks, and cite `<rel_source_path>#p.X` in `sources:` and body anchors.
+- **Standalone URL / pasted text** (when no `<source-folder>/` exists): use your web-fetch/extract tool to save Markdown under `raw/articles/`, with `ingested` and `sha256` frontmatter.
+- **Standalone local PDF/DOCX/EPUB/MD**: read the file directly (multimodal PDF reading or native text) and cite its relative path + page/section (`papers/example.pdf#p.5`). Do not require standalone local conversion plugins.
 
 ### ①.5 Check the source route and deep-reading dossier
 

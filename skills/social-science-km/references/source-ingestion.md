@@ -1,55 +1,44 @@
-# Source Ingestion
+# Source Ingestion (WeKnora Direct Parsing)
 
-Load for discovery, conversion, or conversion coverage work. The requested scope controls the stop point: conversion-only ends after raw acceptance and coverage reporting; it does not start deep reading, wiki compilation, or indexing.
+Load when syncing original source documents into a knowledge base. Requested scope controls the stop point: ingestion-only ends after `<project>-raw` sync and manifest reporting; it does not start deep reading or wiki compilation unless requested.
 
-## Optional Academic-Search Acquisition
+## Why No Local Markdown Conversion Layer Is Needed
 
-Use `academic-search` when the user asks for related papers or local raw/indexed sources cannot fill a stated gap. This is an upstream capability, not shipped by this repository; check availability only when this route needs it. Follow its discipline profile before searching.
+WeKnora ships a built-in multi-format parsing pipeline (`docreader` + optional `mineru_cloud` / self-hosted `mineru`), and modern multimodal LLMs read PDFs and page images directly:
 
-1. Search with 2–3 focused queries. Return a shortlist with title, year, venue/source, relevance, citation count when available, DOI/arXiv ID, and legal full-text status.
-2. Before external search, downloads, or a long batch, check the user's existing authorization. Ask only for a boundary not already approved.
-3. Acquire only accepted `open_pdf` or otherwise legally accessible full text; never bypass paywalls.
-4. Save accepted files preferably under `<source-folder>/academic-search/<topic>/...`. This approved acquisition is the only source-folder mutation; never move, delete, or rewrite existing sources.
-5. Convert PDFs through MinerU and non-PDF/HTML through the routing below into `wiki/raw/<source-folder-name>/academic-search/<topic>/...`.
-6. Record query/topic, DOI/arXiv ID, source/PDF URL, download status, converter, and output path in the conversion manifest.
+- **No local conversion skills required**: Do **not** ask users to install standalone local conversion skills or plugins; WeKnora handles document parsing server-side.
+- **No local `wiki/raw/*.md` layer for new projects**: Original files (`PDF`, `DOCX`, `PPTX`, `XLSX`, `EPUB`, `HTML`, `MD`, `TXT`, `PNG/JPG`) remain untouched in the sibling `<source-folder>/` and upload directly to WeKnora's `<project>-raw` knowledge base.
+- **Parser engine priority (`MinerU` first → `builtin` fallback)**:
+  - If the WeKnora workspace has `mineru_cloud` (API Key) or self-hosted `mineru` configured in「设置 → 解析引擎」, PDFs and scans automatically route through MinerU for high-precision layout/table/formula extraction.
+  - Otherwise, WeKnora automatically falls back to its built-in `docreader` engine, preserving exact PDF page numbers and bounding-box `source_locators` (`p.X`).
+- **Legacy compatibility**: Existing knowledge bases that already have `wiki/raw/*.md` stay untouched; never delete or migrate existing `wiki/raw/` directories.
 
-Metadata, abstracts, and candidate lists are acquisition leads, not raw evidence. Formal wiki nodes require converted full text or an accepted dossier whose claims are checked against raw anchors.
+## Ingestion Procedure
 
-## Conversion Procedure
+1. Run `python3 <skills-repo>/skills/social-science-km/scripts/doctor.py` when server/parser status is unknown.
+2. Verify sibling separation: `<source-folder>/` (read-only originals) sits beside `<source-folder>（知识库）/`. Never write processed outputs inside `<source-folder>/`.
+3. Inventory supported files in `<source-folder>/` (`PDF`, `DOCX`, `PPTX`, `XLSX`, `EPUB`, `MD`, `TXT`, `HTML`, images).
+4. Sync original files directly into WeKnora `<project>-raw` (incremental SHA256 ledger + automatic reuse of completed server docs):
 
-Check dependencies for the current input types only. MinerU skill/MCP availability is environment-specific; do not assume either is installed. Consult the repository [README](../../../README.md) for upstream setup. A missing capability blocks only sources needing it.
+```bash
+python3 <skills-repo>/skills/social-science-km/scripts/sync_kb.py \
+  --project-root "<知识库>" \
+  --source-dir "<原始资料夹>" \
+  --wiki-mode local_karpathy \
+  --incremental
+```
 
-1. Recursively inventory the active source batch: PDF, DOCX, PPTX, XLSX, HTML, TXT, Markdown, and other supported formats. Keep source and knowledge-base folders as siblings under the core directory contract.
-2. Read `mineru-document-extractor` for PDF/fallback extraction and `markitdown` for non-PDF conversion when needed.
-3. For a non-PDF route, check the active Python environment with `python -m markitdown --version`; install MarkItDown and necessary optional dependencies only if missing and within existing authorization.
-4. Route **every PDF to MinerU first**, especially scans, 古籍/影印本, tables, formulas, and complex layouts. MarkItDown is not the default PDF route.
-5. Route supported **non-PDF documents to MarkItDown first**. Empty/near-empty output, boilerplate/page markers only, widespread `�`, mojibake, or text unreadable in the source language triggers MinerU fallback.
-6. Prefer MinerU MCP when available. Use CLI when MCP is unavailable, explicitly requested, or cannot satisfy the task. Long batches and token-backed network extraction must remain inside the approved scope.
-7. Write `.md` outputs to `<知识库>/wiki/raw/<source-folder-name>/...`, preserving relative structure. Existing Markdown may be copied without changing content. Never overwrite originals.
-8. If primary conversion and fallback fail, record source path, target path, attempted tools, and errors in `wiki/raw/_conversion_failures.md`; report them explicitly.
-9. Generate/update `wiki/raw/_conversion_manifest.md`: source path, output path, converter, status, source size/hash when cheap, language/OCR mode when known, and failure reason. When the source is one of the fidelity-risk kinds named in step 4 (scans, 古籍/影印本, tables, formulas, complex layouts, vertical or commentary-interleaved text), add a short fidelity note on that entry — downstream stages inherit the manifest and use the note to decide whether a verbatim quote needs the original. Markdown tables are fine; retain existing JSONL format if the project uses it.
-10. Generate/update `wiki/raw/_主题索引.md` with concise coverage and rough topic groups when filenames/headings support them.
-11. If proceeding toward wiki compilation, apply [raw-routing-gate.md](raw-routing-gate.md) to all active-batch content outputs and add `raw_bytes`, `raw_lines`, `source_type`, `wiki_route`, and `route_reason`. Conversion-only may stop after raw acceptance; do not launch downstream work just to populate future routes.
+   *(If the user chose `weknora_native` automated Web Wiki mode, pass `--wiki-mode weknora_native`; WeKnora will parse the files AND automatically build Web Wiki pages in `<project>-raw`.)*
 
-Do not create `资料md/` or another durable intermediate text layer. `wiki/raw/` is the sole bottom-layer converted text store.
-
-## Batch Conversion Ownership
-
-For large folders, split independent batches by directory, format, or topic:
-
-- Give each subagent a non-overlapping file list and matching `wiki/raw/` output subtree.
-- Workers may convert only assigned files and write their own raw outputs plus a small per-batch report.
-- The parent merges reports into `_conversion_failures.md`, `_conversion_manifest.md`, and `_主题索引.md`, and owns final coverage.
-- Workers must not concurrently edit those shared files, wiki pages, navigation, or RAG indexes.
-- Before downstream routing, reconcile missing inputs, duplicate outputs, conversion failures, and remaining garbled MarkItDown output. Failed inputs remain visible; independent accepted outputs can advance once the whole batch has been accounted for and routed.
+5. Inspect outputs written under `<知识库>/检索索引/`:
+   - `检索索引/raw/manifest.json`: maps each relative source path (`02-学术研究/肖群忠.pdf`) to its SHA256 and WeKnora `knowledge_id`.
+   - `检索索引/_source_manifest.md`: human-readable table of source paths, formats, byte sizes, WeKnora `knowledge_id`, and parse status.
+6. Flag fidelity-risk originals (scans, 古籍/影印本, vertical/commentary-interleaved layouts, dense tables/formulas) in `_source_manifest.md`. If `mineru_cloud` / `mineru` is not yet configured for heavy ancient scans, note that configuring a MinerU API Key in WeKnora Web UI improves OCR fidelity, or inspect the original PDF pages visually via multimodal read before quoting verbatim.
+7. If proceeding toward `local_karpathy` Wiki compilation, apply [raw-routing-gate.md](raw-routing-gate.md) to classify each source in `_source_manifest.md` (`source_type`, `wiki_route`, `route_reason`).
 
 ## Acceptance And Reporting
 
-- Every source is represented by one accepted Markdown output or an explicit failure record with attempted tools/errors. The manifest is the coverage source of truth; filename resemblance is insufficient.
-- `wiki/raw/` exists; it contains at least one `.md` unless all conversions failed.
-- PDF entries identify MinerU unless an explicit exception is documented.
-- Each MarkItDown failure/garbled output has been replaced by usable MinerU output or recorded as failed.
-- Fidelity-risk conversions (step 4 kinds) carry a fidelity note; a missing note means unverified for verbatim quotation, not known-clean.
-- A durable manifest exists after batch conversion or conversion of more than a few files; failures file exists whenever any source ultimately failed.
-- Report accepted, failed, and pending counts and paths; never describe partial coverage as a fully successful batch.
-- For the next stage, hand off the core's shared checklist through existing manifest/report/dossier fields; do not add a persistent task-state layer.
+- Every active-batch source file is either `completed` in `<project>-raw` (recorded in `检索索引/raw/manifest.json` and `_source_manifest.md`) or explicitly listed as failed/timed-out with its reason.
+- Original files in `<source-folder>/` remain unmodified.
+- No redundant `wiki/raw/*.md` copies are created for new direct-source projects.
+- Report accepted, reused, and failed counts clearly; never present partial ingestion as whole-batch completion.

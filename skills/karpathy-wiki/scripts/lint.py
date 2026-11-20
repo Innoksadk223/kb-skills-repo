@@ -533,22 +533,38 @@ def check_claim_structure(pages):
 LONG_SOURCE_LINES = 2000  # 与 SKILL.md「长文第二遍通读」、compile-dossier.md ①.5 同步
 # 非词条页：入口页 / 过程归档，不要求「精读文本 + 原文」成对结构。
 NON_NODE_DIRS = ("synthesis/", "queries/", "debates/")
-RAW_ANCHOR = re.compile(r"raw/|:\s*\d+")
+RAW_ANCHOR = re.compile(r"raw/|:\s*\d+|#p\.?\d+|\.(?:pdf|docx|epub)\b", re.IGNORECASE)
 
 def _norm_source(value):
-    """Normalize a `sources:` entry for path matching (NFC + strip wrappers)."""
-    return unicodedata.normalize("NFC", str(value).strip().strip("[]'\"").strip())
+    """Normalize a `sources:` entry for path matching (NFC + strip wrappers & #p.X/:Lxx)."""
+    cleaned = unicodedata.normalize("NFC", str(value).strip().strip("[]'\"").strip())
+    return cleaned.split("#", 1)[0].split(":", 1)[0].strip()
 
 def build_raw_index():
-    """Return ({relpath: own line count}, {basename: [relpath, ...]}).
+    """Return ({relpath: own line count}, {basename: [relpath, ...]}, known_external_sources).
 
-    Counting whole-file lines matches the `wc -lc` measurement the routing gate
-    records in the manifest, so the two stay on the same ruler.
+    Also reads `<project-root>/检索索引/raw/manifest.json` when present so direct-PDF
+    projects without a local `wiki/raw/` directory resolve `sources:` cleanly.
     """
     counts = {}
     basenames = defaultdict(list)
+    external_known = set()
+
+    project_root = os.path.dirname(os.path.abspath(WIKI))
+    raw_manifest_path = os.path.join(project_root, "检索索引", "raw", "manifest.json")
+    if os.path.isfile(raw_manifest_path):
+        try:
+            with open(raw_manifest_path, "r", encoding="utf-8") as mf:
+                mdata = json.load(mf)
+            for k in (mdata.get("file_hashes") or {}).keys():
+                nk = _norm_source(k)
+                external_known.add(nk)
+                external_known.add(os.path.basename(nk))
+        except Exception:
+            pass
+
     if not os.path.isdir(RAW):
-        return counts, basenames
+        return counts, basenames, external_known
     for root, dirs, fnames in os.walk(RAW):
         dirs[:] = [d for d in dirs if not d.startswith(".") and d != "assets"]
         for fname in fnames:
@@ -563,7 +579,7 @@ def build_raw_index():
                 continue
             counts[relpath] = line_count
             basenames[_norm_source(os.path.basename(relpath))].append(relpath)
-    return counts, basenames
+    return counts, basenames, external_known
 
 def resolve_raw_source(entry, counts, basenames):
     """Map a `sources:` entry onto a raw file, tolerating common path spellings."""
@@ -604,7 +620,7 @@ def check_second_pass_structure(pages):
     are reported separately — otherwise a spelling mismatch would silently
     pass as compliance.
     """
-    counts, basenames = build_raw_index()
+    counts, basenames, external_known = build_raw_index()
     issues = []
     unresolved = []
     for relpath, abspath, name, fm in pages:
@@ -619,6 +635,8 @@ def check_second_pass_structure(pages):
             hit = resolve_raw_source(source, counts, basenames)
             if hit is not None:
                 resolved.append((hit, counts[hit]))
+            elif _norm_source(source) in external_known or os.path.basename(_norm_source(source)) in external_known:
+                continue
             elif str(source).strip().strip("[]'\"").startswith("raw/"):
                 unknown.append(str(source).strip())
         if unknown:

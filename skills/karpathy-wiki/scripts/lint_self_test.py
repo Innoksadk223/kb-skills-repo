@@ -573,7 +573,83 @@ def main() -> None:
             for item in unresolved
         ), report
 
-    print("karpathy-wiki lint self-test passed")
+    # Test 2: New direct-PDF project WITHOUT wiki/raw/ directory
+    with tempfile.TemporaryDirectory(prefix="karpathy-wiki-noraw-test-") as td2:
+        proj2 = Path(td2)
+        wiki2 = proj2 / "wiki"
+        for dirname in ["claims", "concepts"]:
+            (wiki2 / dirname).mkdir(parents=True, exist_ok=True)
+        (proj2 / "检索索引" / "raw").mkdir(parents=True, exist_ok=True)
+        (proj2 / "检索索引" / "raw" / "manifest.json").write_text(
+            json.dumps({"file_hashes": {"02-学术研究/肖群忠.pdf": "abc123"}}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        write(wiki2 / "SCHEMA.md", "# Schema\n\n## Tag Taxonomy\n- `儒家伦理`\n")
+        write(
+            wiki2 / "index.md",
+            "# Index\n\n## 概念\n- [[孝]]\n\n## 论证节点 / Claims\n- [[孝为仁之本]]\n",
+        )
+        write(wiki2 / "log.md", "# Log")
+        write(
+            wiki2 / "concepts" / "孝.md",
+            """
+            ---
+            title: 孝
+            created: 2026-11-20
+            updated: 2026-11-20
+            type: concept
+            tags: [儒家伦理]
+            sources: [02-学术研究/肖群忠.pdf#p.12]
+            confidence: high
+            ---
+
+            # 孝
+
+            关联 [[孝为仁之本]]。出处：02-学术研究/肖群忠.pdf#p.12。
+            """,
+        )
+        write(
+            wiki2 / "claims" / "孝为仁之本.md",
+            """
+            ---
+            title: 孝为仁之本
+            type: claim
+            claim_type: main
+            core: true
+            status: supported
+            confidence: high
+            supports: []
+            opposes: []
+            limits: []
+            depends_on: []
+            related_concepts: [孝]
+            related_entities: []
+            related_comparisons: []
+            sources: [02-学术研究/肖群忠.pdf#p.12]
+            created: 2026-11-20
+            updated: 2026-11-20
+            ---
+
+            # 孝为仁之本
+
+            ## 命题
+            孝是儒家仁学发生的情感起点。
+
+            ## 关系
+            关联 [[孝]]，并提供给其它衍生命题。
+
+            ## 关键证据
+            > 孝悌也者，其为仁之本与！（02-学术研究/肖群忠.pdf#p.12）
+
+            ## 写作用途
+            核心主论点。
+            """,
+        )
+        rep2 = run_lint(wiki2)
+        assert rep2["total_raw_files"] == 0, rep2
+        assert rep2["findings"] == {}, f"Direct-PDF wiki without raw/ should have zero lint errors: {rep2}"
+
+    print("karpathy-wiki lint self-test passed (legacy raw + direct-PDF no-raw)")
 
 
 if __name__ == "__main__":

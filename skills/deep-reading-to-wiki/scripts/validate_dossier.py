@@ -120,14 +120,18 @@ def validate_dossier(text: str) -> tuple[list[str], list[str]]:
         for i, blk in enumerate(hv_blocks, 1):
             if "上下文胶囊" not in blk:
                 errors.append(f"HV-{i} 缺少上下文胶囊")
-            if "wiki/raw/" not in blk:
-                if re.search(r"[^\s`()（）]+\.md", blk):
-                    warnings.append(
-                        f"HV-{i} 锚点不在 wiki/raw/ 下（独立深读可接受；"
-                        "social-science-km 流程内应使用 wiki/raw/ 路径）"
-                    )
-                else:
-                    errors.append(f"HV-{i} 缺少文件路径锚点（如 wiki/raw/...md）")
+            has_source_anchor = bool(
+                "wiki/raw/" in blk
+                or re.search(
+                    r"[^\s`()（）]+\.(?:pdf|docx|doc|epub|md|markdown|txt|pptx|html)(?:#p\.?\d+(?:-\d+)?|:L?\d+)?",
+                    blk,
+                    flags=re.IGNORECASE,
+                )
+            )
+            if not has_source_anchor:
+                errors.append(
+                    f"HV-{i} 缺少来源路径锚点（如 02-学术研究/xxx.pdf#p.12 或 wiki/raw/...md）"
+                )
 
     # Self-check: all checkboxes must be checked ([x]) before handoff —
     # karpathy-wiki compile-dossier rejects any unchecked box.
@@ -144,36 +148,46 @@ def validate_dossier(text: str) -> tuple[list[str], list[str]]:
                     "通过必须打 [x]，未勾项会被 karpathy-wiki 编译端拒收"
                 )
 
-    # Tiered richness quotas keyed to converted source size (raw_lines).
+    # Tiered richness quotas keyed to source size (`raw_lines` or `source_pages` * 40).
     exempt = bool(self_check and "配额豁免：" in self_check)
-    m = re.search(r"^raw_lines\s*:\s*(\d+)", fm or "", re.MULTILINE)
-    if m:
-        min_hv, min_concepts, min_claims = _tier_for(int(m.group(1)))
+    m_lines = re.search(r"^raw_lines\s*:\s*(\d+)", fm or "", re.MULTILINE)
+    m_pages = re.search(r"^source_pages\s*:\s*(\d+)", fm or "", re.MULTILINE)
+    effective_lines: int | None = None
+    size_label = ""
+    if m_lines:
+        effective_lines = int(m_lines.group(1))
+        size_label = f"raw_lines={effective_lines}"
+    elif m_pages:
+        pages_val = int(m_pages.group(1))
+        effective_lines = pages_val * 40
+        size_label = f"source_pages={pages_val} (~{effective_lines} 行)"
+
+    if effective_lines is not None:
+        min_hv, min_concepts, min_claims = _tier_for(effective_lines)
         concepts, claims = _pool_counts(sections)
         sink = warnings if exempt else errors
         suffix = "（已声明配额豁免，降级为提示）" if exempt else (
             "——低于分档配额；如源确实贫瘠，在自检中写「配额豁免：」"
-            "并逐条指认贫瘠行号区间"
+            "并逐条指认贫瘠页码/行号区间"
         )
         if hv_blocks and len(hv_blocks) < min_hv:
             sink.append(
                 f"HV 候选 {len(hv_blocks)} < {min_hv}"
-                f"（raw_lines={m.group(1)} 档）{suffix}"
+                f"（{size_label} 档）{suffix}"
             )
         if concepts is not None and concepts < min_concepts:
             sink.append(
                 f"候选 Concepts {concepts} < {min_concepts}"
-                f"（raw_lines={m.group(1)} 档）{suffix}"
+                f"（{size_label} 档）{suffix}"
             )
         if claims is not None and claims < min_claims:
             sink.append(
                 f"候选 Claims {claims} < {min_claims}"
-                f"（raw_lines={m.group(1)} 档）{suffix}"
+                f"（{size_label} 档）{suffix}"
             )
     else:
         warnings.append(
-            "frontmatter 缺 raw_lines（转换 manifest 的源转换行数；"
-            "standalone 或合并档案按实际统计）——"
+            "frontmatter 缺 source_pages 或 raw_lines——"
             "无法执行分档配额检查，仅按最低档提示"
         )
         if 0 < len(hv_blocks) < 3:

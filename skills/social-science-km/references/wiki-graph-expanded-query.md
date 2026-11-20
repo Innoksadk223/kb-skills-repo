@@ -4,6 +4,7 @@ Use when the user asks a conceptual question and the answer depends on how conce
 
 ## When to use
 
+- Project uses `wiki_mode: "local_karpathy"` (local `karpathy-wiki` graph pages exist under `wiki/`)
 - User asks about a concept that has a rich wiki graph neighborhood
 - Standard wiki-first (`--wiki-first`) returns shallow or scattered results
 - The question involves cross-concept reasoning ("X 和 Y 有什么关系？", "X 在什么条件下成立？")
@@ -55,12 +56,12 @@ Rules:
 
 ### Phase 3 — Retrieval
 
-Use the existing `km_query.py` helper directly from its installed location with an explicit project root. It forwards project `rag_config.json` and checks the indexes needed by the selected route. Reuse a current check for unchanged inputs; do not update indexes during this read-only flow. If the user has authorized querying existing stale indexes, append `--skip-check` to every query and disclose that limitation. Missing indexes still require maintenance; `--skip-check` cannot create them.
+Use the existing `km_query.py` helper directly from its installed location with an explicit project root. It forwards project `weknora_config.json` (or legacy `rag_config.json`) and checks the indexes needed by the selected route. Reuse a current check for unchanged inputs; do not update indexes during this read-only flow. If the user has authorized querying existing stale indexes, append `--skip-check` to every query and disclose that limitation. Missing indexes still require maintenance; `--skip-check` cannot create them.
 
 **Step 1 — Broad recall:** Run the consolidated expanded query against raw evidence.
 
 ```bash
-python3 <skills-repo>/skills/social-science-km/references/km_query.py \
+python3 <skills-repo>/skills/social-science-km/scripts/km_query.py \
   --project-root "<知识库>" \
   "<扩展 query>" --raw-only --no-lint
 ```

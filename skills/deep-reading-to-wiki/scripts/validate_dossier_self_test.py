@@ -149,6 +149,61 @@ z
 """
 
 
+GOOD_PDF = """---
+title: 肖群忠孝论深读档案
+type: reading_dossier
+source_raw:
+  - 02-学术研究/孝为仁礼之本论_肖群忠.pdf
+trigger: explicit_source
+user_intent: ""
+status: draft
+target: karpathy-wiki
+created: 2026-11-20
+updated: 2026-11-20
+compiled_to: []
+confidence: high
+source_pages: 10
+---
+
+# 肖群忠孝论深读档案
+
+## 1. 阅读地图
+全文问题与放弃清单。
+
+## 2. 候选节点池
+### 候选 Concepts
+| 概念 | 用法 | 边界 | 来源锚点 | 建议 |
+|---|---|---|---|---|
+| 孝本论 | x | y | 02-学术研究/孝为仁礼之本论_肖群忠.pdf#p.12 | 新建 |
+### 候选 Claims
+| 命题 | 类型 | 支撑 | 来源锚点 | 价值 |
+|---|---|---|---|---|
+| 孝是仁的情感根源 | main | z | 02-学术研究/孝为仁礼之本论_肖群忠.pdf#p.12 | 高 |
+
+## 3. 高价值点深挖
+### HV-1: 孝与仁
+#### 上下文胶囊
+- 来源锚点：02-学术研究/孝为仁礼之本论_肖群忠.pdf#p.12
+### HV-2: 孝与礼
+#### 上下文胶囊
+- 来源锚点：02-学术研究/孝为仁礼之本论_肖群忠.pdf#p.13
+### HV-3: 反方回应
+#### 上下文胶囊
+- 来源锚点：02-学术研究/孝为仁礼之本论_肖群忠.pdf#p.15
+
+## 4. wiki 交接清单
+建议新建与必查锚点。
+
+## 5. 硬门禁自检
+- [x] 1. 不是摘要：通过
+- [x] 2. 足够丰富：通过 — 配额豁免：单篇 10 页论文 fixture（p.1-10）
+- [x] 3. 结构可追溯：通过
+- [x] 4. 胶囊完整：通过
+- [x] 5. 交接可执行：通过
+- [x] 6. 对抗性自问：通过
+"""
+
+
 def run() -> int:
     mod = _load()
     failures = []
@@ -156,6 +211,12 @@ def run() -> int:
     g_err, _ = mod.validate_dossier(GOOD)
     if g_err:
         failures.append(f"good fixture 本应通过，却报错: {g_err}")
+
+    pdf_err, pdf_warn = mod.validate_dossier(GOOD_PDF)
+    if pdf_err:
+        failures.append(f"direct PDF fixture 本应通过，却报错: {pdf_err}")
+    if any("wiki/raw/" in w for w in pdf_warn):
+        failures.append(f"direct PDF fixture 不应再对非 wiki/raw/ 路径告警，实得: {pdf_warn}")
 
     b_err, _ = mod.validate_dossier(BAD)
     expected = {

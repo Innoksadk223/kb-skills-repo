@@ -1,6 +1,6 @@
 ---
 name: deep-reading-to-wiki
-description: Read identified books, chapters, papers, or long Markdown sources into evidence-anchored reading_dossiers using thorough or budget mode. Use for deep-reading-only requests or social-science-km deep-reading handoffs; source discovery and overall workflow routing stay upstream, and formal Wiki compilation belongs to karpathy-wiki.
+description: Read identified books, chapters, PDFs, papers, or long Markdown sources into evidence-anchored reading_dossiers using thorough or budget mode. Works standalone on any PDF/document or under social-science-km orchestration; formal Wiki compilation belongs to karpathy-wiki.
 ---
 
 # Deep Reading To Wiki
@@ -13,7 +13,7 @@ It does not replace `karpathy-wiki`, does not write formal wiki pages, and does 
 
 The point of depth is to give future wiki nodes depth and richness: definitions with boundaries, claims with support and limits, relationships to existing pages, and raw anchors that preserve context. A dossier that only lists possible page paths is too thin.
 
-It may start from an explicit raw file or from a user-directed expansion shortlist produced by `SiliconFlow-rag`, such as "补充儿童教育" -> candidate `wiki/raw/` sources.
+It may start from an explicit original file (`<资料夹>/...pdf`, `.docx`, `.md`), a legacy `wiki/raw/...md` file, or a user-directed expansion shortlist produced by `social-science-km/scripts/km_query.py --source-discovery`. Modern multimodal models read PDFs and page images directly without requiring a pre-converted local `wiki/raw/*.md` copy; anchor every candidate to `<source-path>#p.X` (or `:Lxx-Lyy` for Markdown/legacy raw files).
 
 ## Output Contract
 
@@ -62,12 +62,12 @@ Use the smallest input that can support a strong dossier:
 
 | Mode | Input | What to do |
 |---|---|---|
-| Explicit source | One or more `wiki/raw/...md` paths | Create source-specific dossier(s). |
-| Source-discovery shortlist | Candidate raw paths from `SiliconFlow-rag` with user intent and key terms | Pick high-value candidates, note weak candidates, then create dossier(s). |
-| User-directed gap | A topic/gap from `social-science-km`, such as "补充儿童教育" | Require source discovery first unless raw paths are already known. |
+| Explicit source | One or more original source paths (`<source-folder>/...pdf`, `.md`, etc.) or legacy `wiki/raw/...md` paths | Create source-specific dossier(s) citing `<rel_path>#p.X` or `:Lxx`. |
+| Source-discovery shortlist | Candidate paths from `social-science-km/scripts/km_query.py --source-discovery` with user intent and key terms | Pick high-value candidates, note weak candidates, then create dossier(s). |
+| User-directed gap | A topic/gap from `social-science-km`, such as "补充儿童教育" | Require source discovery first unless source paths are already known. |
 | Retroactive repair | An already-ingested source whose wiki pages feel shallow (`trigger: retroactive_repair`) | Create the dossier the source should have had, then hand back for wiki revision. |
 
-Standalone use (no wiki project): any readable Markdown/text path is a valid explicit source; anchors then point to the actual file path and `validate_dossier.py` reports the non-`wiki/raw/` prefix as a warning, not an error.
+Standalone use (no wiki project): any readable PDF/DOCX/Markdown/text path is a valid explicit source; anchors point directly to `<file>#p.X` or `<file>:Lxx` and `validate_dossier.py` accepts them cleanly.
 
 Do not deep-read from the user's topic alone. If no raw path is located, stop and report the source-discovery blocker instead of inventing a dossier.
 

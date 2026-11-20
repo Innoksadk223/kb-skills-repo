@@ -1,212 +1,142 @@
-# RAG Workflow And Answer Contracts
+# RAG Workflow, Dual Wiki Modes, And Answer Contracts
 
-Use the skill identifier `siliconflow-rag`; its repository directory is [SiliconFlow-rag](../../SiliconFlow-rag/SKILL.md). Commands must preserve that disk-path case. Private configuration directories remain lowercase; do not migrate user configuration.
+All WeKnora sync, retrieval, freshness, and onboarding scripts are bundled directly inside `skills/social-science-km/scripts/` (stdlib Python 3 only; zero Go or third-party dependencies).
 
-## Dependencies, Privacy, And Scope
+Projects support two selectable Wiki modes via `<知识库>/weknora_config.json` `"wiki_mode"` (or CLI `--wiki-mode`):
+- **`local_karpathy`（默认）**：适合论文写作与严谨社科研究（深读档案 + 本地 `karpathy-wiki` 8 类卡片 + WeKnora `<project>-raw` & `<project>-wiki` 双库检索；网页端知识库列表可直接查看 `<project>-wiki` 卡片库）。
+- **`weknora_native`（可选）**：适合日常资料速览与初期摸底（原始文献直传 `<project>-raw` 单库并开启 `indexing_strategy.wiki_enabled=true` 自动生成概念/人物/摘要页；直接在 `<project>-raw` 的「Wiki / 图谱」页签浏览）。
 
-Before a real build/query, resolve `SILICONFLOW_API_KEY` from the environment, then `~/.hermes/private/siliconflow-rag/config.json`, then legacy `~/.codex/siliconflow-rag/config.json`, matching the scripts. If missing, stop that real API operation and request private configuration; never fabricate an index or put a real key in repository files.
+> **Ad-hoc single-KB operations outside a structured KM project**: When the user simply wants to upload a stray file or run a one-off search on an arbitrary WeKnora KB without a `<知识库>` directory, you may use the official WeKnora skill (`@lyingbug/weknora` Claw Skill, `weknora-shared` / `weknora-rag-search` CLI skills, or WeKnora built-in MCP).
 
-Explain the relevant external boundary before its first unapproved use: raw Markdown chunks/questions go to SiliconFlow for embeddings; wiki retrieval text is sent when building the wiki index; multi-query sends questions for rewriting; rerank sends candidate snippets. Existing authorization persists. Ask for new service/privacy scope, long batches, or index mutation only when not already authorized. Local status inspection does not require an API key.
+## Dependencies, Onboarding, And Privacy
 
-Check indexes when retrieval needs them, during index maintenance, or after relevant wiki edits. Merely mentioning a knowledge base, converting files, preparing local dossiers, or reading local wiki configuration does not require a dual-index scan.
+1. **One-click readiness check**: Run `python3 <skills-repo>/skills/social-science-km/scripts/doctor.py` when server/auth/model/parser status is unknown.
+2. **Credentials**: Resolved from `WEKNORA_HOST` + `WEKNORA_API_KEY` (or `WEKNORA_TOKEN`), `~/.hermes/private/weknora-rag/config.json` (`chmod 600`), or `weknora` CLI profile. Never write real keys into repository files.
+3. **Pure retrieval in Agent chat**: In `local_karpathy` mode, WeKnora only runs document parsing (`mineru_cloud` / `mineru` priority → `builtin` fallback), `pgvector` embedding, `ParadeDB BM25`, RRF fusion, and optional `Rerank`. **No chat LLM needs to be configured inside WeKnora** for Agent conversations (`Web UI 对话不可用` is expected when no chat model is set; the current Agent synthesizes the answer from returned chunks). Only `weknora_native` automated Wiki generation requires a generation model in WeKnora.
+4. **Privacy boundary**: Uploading files or running queries sends text/files to `WEKNORA_HOST` and its configured Embedding/Rerank/MinerU model providers. Local freshness checks (`--check`) are offline.
 
-## Preferred Helpers And Status
+## Preferred Commands
 
-Prefer direct calls to bundled helpers with an explicit project root. `<skills-repo>` is the installed repository root, not the knowledge-base root; `KB_SKILLS_DIR=<skills-repo>/skills` may assist script discovery. Existing project-local helper copies remain compatible; do not automatically overwrite or delete them.
+Run bundled scripts from `skills/social-science-km/scripts/` with `--project-root "<知识库>"`:
 
 ```bash
-python3 <skills-repo>/skills/social-science-km/references/km_query.py \
-  --project-root "<知识库>" "亲亲与仁的关系"
+# 1. One-click environment & setup doctor
+python3 <skills-repo>/skills/social-science-km/scripts/doctor.py
 
-python3 <skills-repo>/skills/social-science-km/references/check_rebuild_rag.py \
+# 2. Check index freshness (offline SHA256 check)
+python3 <skills-repo>/skills/social-science-km/scripts/check_rebuild_rag.py \
   --project-root "<知识库>" --check
+
+# 3. Sync new/changed original PDFs/docs & local Wiki cards into WeKnora
+python3 <skills-repo>/skills/social-science-km/scripts/check_rebuild_rag.py \
+  --project-root "<知识库>" [--source-dir "<原始资料夹>"]
+
+# 4. Two-hop evidence retrieval for Agent answering
+python3 <skills-repo>/skills/social-science-km/scripts/km_query.py \
+  --project-root "<知识库>" "孝为什么可以成为仁之本？学界有哪些反对意见？"
 ```
 
-- Query first chooses raw/wiki mode, then enforces freshness of the indexes that mode needs. Raw-only uses raw; wiki-first/deep use both. Unrelated wiki staleness must not block an otherwise usable raw query.
-- Raw freshness still includes raw content, settings, stage metadata mode, and `enriched_raw` semantic-source dependencies. Wiki changes affecting raw enrichment can legitimately make raw stale.
-- Pure `km_query.py --check` checks both indexes. Prefer `check_rebuild_rag.py --check` when an update is likely; it shares check/apply logic. Its `--raw-only` / `--wiki-only` scope maintenance.
-- If current, avoid unnecessary status chatter. If stale, name the index and cause. New/changed files mean “新增到索引 / 增量更新”; deleted files mean removing their entries. Reserve “重建” for settings/model/index-format changes forcing full rebuild.
-- Stop stale-index retrieval unless an update is authorized or the user explicitly accepts old-index retrieval. For the latter pass `--skip-check` on **every affected query**, carry the stale caveat into the answer, and do not imply freshness. This cannot supply a missing/unusable index.
-- If `<知识库>/rag_config.json` exists, helpers pass it to build/query scripts. Direct script calls must also pass `--config "<知识库>/rag_config.json"` to preserve project models and chunk/query settings.
-- Compare explicit `model`, `chunk_size`, `overlap`, `dimensions`, and `encoding_format` against manifests. Mismatch requires full rebuild.
+### Direct Low-Level Sync (`sync_kb.py`)
 
-Apply an authorized update with:
-
+**Option A: `local_karpathy` (Default — New project without `wiki/raw/`, direct PDF/doc upload + `<project>-wiki` KB)**
 ```bash
-python3 <skills-repo>/skills/social-science-km/references/check_rebuild_rag.py \
-  --project-root "<知识库>"
-```
+# Step 1: Sync original read-only folder (<资料夹>/) -> WeKnora <project>-raw KB
+python3 <skills-repo>/skills/social-science-km/scripts/sync_kb.py \
+  --project-root "<知识库>" --source-dir "<原始资料夹>" \
+  --wiki-mode local_karpathy --incremental
 
-The helper uses `SiliconFlow-rag/scripts/build_index.py --incremental` with matching paths and metadata modes. Content freshness uses SHA256, not mtime. Raw compares `wiki/raw/` with `检索索引/raw/manifest.json`; enriched raw also tracks wiki-label `semantic_source_hashes`. Wiki compares graph-readable directories with `检索索引/wiki/manifest.json`, including `observations`, `structures`, and `predicts` alongside claims/concepts/entities/comparisons/debates/synthesis/queries.
-
-When wiki is stale, run available `karpathy-wiki` lint before updating its index, within execution authorization. Report broken links, source drift, missing claim structure, and frontmatter issues before embedding. Non-severe wiki lint findings do not block urgent raw-only queries. Missing lint tooling should be reported, not confused with a missing RAG credential.
-
-## Initial Build And Metadata Stages
-
-Run direct build commands from `<知识库>/`; append `--config` as above if present:
-
-```bash
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
-  --md-dir wiki/raw --index-dir 检索索引/raw --metadata-mode enriched_raw
-
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/build_index.py \
+# Step 2 (after karpathy-wiki cards exist): Sync local wiki/ -> WeKnora <project>-wiki KB
+python3 <skills-repo>/skills/social-science-km/scripts/sync_kb.py \
+  --project-root "<知识库>" --wiki-mode local_karpathy \
   --md-dir wiki --index-dir 检索索引/wiki \
   --include-dirs claims,concepts,entities,comparisons,debates,observations,structures,predicts,synthesis,queries \
-  --exclude-dirs raw,_archive --metadata-mode wiki
+  --exclude-dirs raw,_archive --metadata-mode wiki --incremental
 ```
 
-Before graph-readable pages exist, a temporary raw index with `--metadata-mode plain` is acceptable. Once any supported graph directory contains pages, require `enriched_raw` and update/rebuild the prior plain raw index as appropriate. Build wiki index when graph pages exist.
+**Option B: `weknora_native` (Optional — Automated WeKnora Built-in Wiki + Single KB)**
+```bash
+python3 <skills-repo>/skills/social-science-km/scripts/sync_kb.py \
+  --project-root "<知识库>" --source-dir "<原始资料夹>" \
+  --wiki-mode weknora_native --incremental
+```
 
-`enriched_raw` adds retrieval-only labels from formal wiki nodes to raw chunks. Quoted/cited evidence remains the original raw chunk, never the generated label. Do not index `reading_dossiers/` in either default index: dossiers guide compilation but are neither raw evidence nor the formal graph.
+*(Legacy compatibility: existing projects with `wiki/raw/*.md` omit `--source-dir`; `check_rebuild_rag.py` and `sync_kb.py` automatically preserve `enriched_raw` header injection & stripping on `wiki/raw/`.)*
 
 ## Query Routing And Escalation
 
-This section is the single authoritative definition of retrieval escalation. Other skills and references state the principle — start with ordinary retrieval, escalate only when recall, ordering or evidence risk demands it — and link here instead of restating the thresholds.
-
-Start with ordinary retrieval; do not default every question or an outline batch to `--deep`.
+This table is the single authoritative definition of retrieval escalation across all skills:
 
 | Need / observed result | Mode or escalation |
 |---|---|
-| 原文、出处、哪一段、引用、证据; source/quote/passage lookup | Raw-only |
-| Conceptual, argumentative, comparison, cross-source, thesis questions | Wiki-first when available |
-| Broad terms, vocabulary mismatch, or fewer than 3 usable raw sources | Add `--multi-query` |
+| 原文、出处、哪一段、引用、页码; direct quote/page lookup | `--raw-only` |
+| Conceptual, argumentative, comparison, cross-source, thesis questions | Wiki-first (default when wiki exists) |
+| Broad terms, vocabulary mismatch, or fewer than 3 usable sources | Add `--multi-query` |
 | Relevant hits poorly ranked, final prose needs precise evidence order | Add `--rerank` |
-| Pronouns, previous/next paragraph, table or transition context matter | Add adjacent context before changing chunk size |
+| Pronouns, previous/next paragraph, table or transition context matter | Neighboring chunk context (enabled by default in `km_query.py`; `--no-context` disables) |
 | Final citation verification or high-risk thesis claims | `--deep`: wiki-first + multi-query + rerank + context, 20 candidates |
 | Wiki-first remains shallow because graph relationships matter | [wiki-graph-expanded-query.md](wiki-graph-expanded-query.md) |
 
-Graph expansion reads wiki neighbors/relationships, generates relationship-specific subquestions, retrieves in parallel, then merges/deduplicates evidence. It is an escalation, not the initial mode for every conceptual question. A small wiki may be read directly when its skill permits, with checked local raw anchors and no invented index requirement.
-
-`km_query.py` options:
-
-- `--raw-only`: raw evidence lookup.
-- `--multi-query`, `--rerank`: selective recall/ranking upgrades under existing authorization.
-- `--deep`: combined high-quality writing mode, default `candidates=20`.
-- `--no-context`: disable helper's neighboring-chunk context; direct query script uses `--expand-context --context-window 1` to request it.
-- `--source-discovery`: aggregate hits into candidate raw sources, including local byte/line size hints. Those hints only prompt inspection of a source; material type and context-loss risk decide the route (see [raw-routing-gate.md](raw-routing-gate.md)).
-- `--skip-check`: explicitly authorized old-index use; never an automatic fallback.
-
-Direct script alternatives, after mode-appropriate freshness checks, from project root:
-
-```bash
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
-  --index-dir 检索索引/raw --question "用户的问题"
-
-python3 <skills-repo>/skills/SiliconFlow-rag/scripts/query_index.py \
-  --wiki-first --wiki-index-dir 检索索引/wiki \
-  --raw-index-dir 检索索引/raw --question "用户的问题"
-```
-
-For justified deep retrieval append `--multi-query --rerank --candidates 20 --expand-context --context-window 1` to wiki-first. Append project `--config` when present. Raw-only prints `# RAG Evidence`; wiki-first prints `# Wiki Hits`, `# Expanded Query`, and `# Raw Evidence`. Do not infer factual support merely from those headings.
-
-## Lightweight Evaluation And Acceptance
-
-Retain a small retrieval regression set when changing metadata mode, chunk size/overlap, include/exclude directories, wiki structure rules, or query routing. Run it only when tests/API use are authorized; this recommendation is not permission to execute. Ordinary new/changed raw files need freshness checks and incremental updates, not a full evaluation each time.
-
-Start from [rag_eval_set.example.jsonl](rag_eval_set.example.jsonl); create `eval/rag_eval_set.jsonl` in the knowledge-base root with 10–20 high-value questions:
-
-```jsonl
-{"question":"孝为什么不能只基于生育事实？","mode":"wiki","expected_sources":["wiki/raw/...md"],"expected_terms":["照料","生育事实"],"notes":"核心论证召回"}
-{"question":"这段关于亲亲的原文出处在哪里？","mode":"raw","expected_sources":["wiki/raw/...md"],"expected_terms":["亲亲"],"notes":"直接证据查找"}
-```
-
-Minimum pass rule: expected source appears in retrieved raw evidence and at least one expected term appears in evidence text. LLM-judge/RAGAS-style faithfulness scoring is optional for larger revisions or high-stakes writing, subject to its privacy/cost authorization.
-
-Acceptance when applicable:
-
-- Raw index has `manifest.json`, `chunks.jsonl`, and `embeddings.jsonl`; wiki has the same when graph pages exist.
-- Raw metadata is `enriched_raw` after the graph stage; wiki metadata is `wiki`.
-- Wiki-first output includes the three headings above, source paths, and snippets.
-- After helper changes, the recommended local regression command is `python3 <skills-repo>/skills/social-science-km/references/km_query_self_test.py`, only when execution is authorized. Distinguish static review, skipped checks, and executed PASS; do not claim unrun tests passed.
+- If a required index is stale, stop and sync (or pass `--skip-check` **only** when the user explicitly approves querying stale indexes, and note the caveat in the answer).
+- Offline regression tests (run when authorized): `python3 <skills-repo>/skills/social-science-km/scripts/self_test.py`.
 
 ## Answering Templates
 
-Choose the smallest template matching intent. Evidence and interpretation remain separate; weak evidence must be reported.
+Choose the smallest template matching user intent. Separate raw evidence from interpretation; state uncertainties explicitly.
 
 ### Evidence Answer
 
-Every substantive claim must cite raw evidence. Wiki hits explain retrieval/argument paths; they never prove a claim alone.
+Every substantive claim must cite original source evidence (`# Raw Evidence`, e.g. `02-学术研究/肖群忠.pdf#p.12` or legacy `wiki/raw/...md`). Wiki hits explain recall/argument paths; they never prove a claim alone.
 
 ```markdown
 ## 检索摘要
 - 查询意图：（一句话概括用户想知道什么）
-- Wiki 命中节点：（列出命中的 claim/concept/comparison/entity 或其他节点；如 raw-only 则写「未使用」）
-- Raw 命中源文件：X 个（列出文件名）
-- 索引状态：当前 / 过期（如过期已提醒用户）/ 未使用（直接阅读）
+- Wiki 命中节点：（列出命中的本地卡片或 weknora_native 页面；raw-only 写「未使用」）
+- 命中源文献：X 篇（列出原文件名与页码）
+- 索引状态：当前 / 过期（已提醒用户）/ 未使用（小库直接阅读）
 
 ## Wiki 路径
-- 命中的 claim / concept / comparison 等如何帮助扩展问题
-- 相关的支持、反对、限定或依赖关系
-- 注意：这里是召回路径，不是最终证据
+- 命中的命题 / 概念 / 争议页如何展开了正反方或关联概念
+- 注意：这里是论证导航路径，不是最终原文证据
 
 ## 原始证据
-（每条证据一个子标题，来自不同源文件时分开展示）
 
 ### 观点／发现 A
-- 来源：`wiki/raw/xxx/xxx.md`（chunk N；直接阅读时给出原文锚点）
-> 原文引用
+- 来源：`02-学术研究/xxx.pdf#p.12`（chunk N）
+> 原文逐字引用
 
-解读：（用 1-2 句话说明这段原文与问题的关系）
-
-### 观点／发现 B
-- 来源：`wiki/raw/yyy.md`（chunk N）
-> 原文引用
-
-解读：...
+解读：（1-2 句话说明这段原文与问题的关系）
 
 ## 综合解读
-- 只基于 Raw Evidence 回答问题
-- 可以说明 Wiki Hits 帮助定位了哪些概念或论证节点
-- 不把 wiki 页面当作原始证据引用
+- 严格基于原始证据作答，可结合 Wiki 路径说明学理脉络
 
 ## 不确定项
-- 哪些推论证据不足、需要更多查证
-- 哪些概念在知识库中未覆盖
-- 建议的后续检索方向
+- 证据边界、未覆盖文献或建议补充检索方向
 ```
-
-Rules:
-
-- All five sections are required. Empty sections (e.g. raw-only Wiki 路径) say `（无）` rather than disappearing.
-- Copy raw quotations verbatim from Raw Evidence output, or the explicitly checked raw passage in direct reading; never paraphrase inside quotation marks.
-- A raw file carrying a fidelity note (see [source-ingestion.md](source-ingestion.md) step 9) is verbatim *as converted*, not as printed: name that limit when the evidence comes from a scan, 影印本, table- or formula-heavy, vertical, or commentary-interleaved source, so it can be re-checked against the original before entering a paper.
-- Interpretation may use your own words but must faithfully reflect the source.
-- Wiki Hits explain recall and argument structure; they cannot independently support thesis assertions.
-- Uncertainties are mandatory; never fabricate coverage or evidence.
 
 ### Source-Discovery Shortlist
 
-Use for supplementing, deepening, or rebalancing a topic when the immediate output is candidate raw sources.
-
 ```markdown
 ## 候选来源
-| raw 路径 | 为什么可能有用 | 命中关键词 | 建议下一步 | 限制 |
+| 源文件路径 | 为什么相关 | 命中关键词 | 建议路由 | 限制 |
 |---|---|---|---|---|
 
 ## 初步缺口判断
-- 薄弱概念 / 缺失 claim / 缺少反方 / 比较不足 / 原始证据不足
+- 薄弱概念 / 缺失正反方命题 / 原始文献缺口
 
 ## 下一步
-- deep-reading-to-wiki / 直接 karpathy-wiki / 继续扩大检索 / 暂停等待新来源
+- deep-reading-to-wiki / 直接 karpathy-wiki / 补充新文献
 ```
 
-The shortlist is a routing artifact, not final evidence or permission to write wiki pages.
-
 ### Operational Status
-
-Use for index status, conversion coverage, helper failures, API-key blockers, or batch progress.
 
 ```markdown
 ## 状态
 - 当前结果：
 - 需要用户确认的动作：
-- 不会做的事：
 
 ## 证据
-- 命令 / 文件 / manifest：
+- 命令 / 清单 / WeKnora 库状态：
 
 ## 下一步
 - 最小可执行动作：
 ```
-
-For partial batches name completed, blocked, failed, and pending sources/groups with reasons and next actions. No confirmation needed within existing authorization should be represented as a new blocker.

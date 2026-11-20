@@ -37,11 +37,7 @@ wiki/
 ├── SCHEMA.md           # Conventions, structure rules, domain config
 ├── index.md            # Core catalog; lists all standard pages + only core claims
 ├── log.md              # Chronological action log (append-only, rotated yearly)
-├── raw/                # Layer 1: immutable source material; excluded from graph
-│   ├── articles/
-│   ├── papers/
-│   ├── transcripts/
-│   └── assets/
+├── raw/                # Optional Layer 1 (legacy/standalone pasted articles); new KM projects keep PDFs/docs in sibling <source-folder>/ and cite <rel_path>#p.X directly
 ├── entities/           # Layer 2: people, authors, orgs, products, texts
 ├── concepts/           # Layer 2: concepts/topics
 ├── comparisons/        # Layer 2: 辨析页（comparison/distinction）
@@ -55,7 +51,7 @@ wiki/
 ├── qa-log.md           # Q&A log (append-only)
 ```
 
-- **raw/**: Immutable. Read but do not modify except during source capture/re-ingest. Do not make raw files graph nodes.
+- **Provenance & `raw/`**: Every non-stub page must declare its source in frontmatter `sources:` (e.g. `sources: [02-学术研究/肖群忠.pdf#p.12]` in new direct-source projects, or `wiki/raw/...md` in legacy projects) and note exact page/section on key claims in the body. If `raw/` exists, treat it as immutable and excluded from graph nodes.
 - **concepts/entities/comparisons/**: Knowledge nodes.
 - **claims/observations/structures/predicts/**: Argument and evidence nodes — see [网络构建](#网络构建).
 - **debates/**: Optional controversy hubs for mature social-science wikis; use `comparisons/` for simple distinctions.
@@ -234,7 +230,7 @@ Use this when the user says they want to add, deepen, rebalance, or supplement a
 
 1. Orient first: read `SCHEMA.md`, `index.md`, recent `log.md`, and search existing wiki pages for the user's topic.
 2. Identify the graph gap in plain language: missing concept, thin claim, missing objection, weak comparison, missing source, or shallow synthesis.
-3. Find raw evidence before writing: use available RAG/source-discovery workflow from `social-science-km` or `SiliconFlow-rag`; do not rely on wiki pages alone.
+3. Find source evidence before writing: use the RAG/source-discovery workflow from `social-science-km` (`scripts/km_query.py`); do not rely on wiki pages alone.
 4. If no usable raw source is found, stop and report the source-discovery gap; do not create placeholder claims from general knowledge.
 5. For long, theory-heavy, or thesis-critical raw sources under `social-science-km`, require an accepted `deep-reading-to-wiki` dossier before formal edits; also honor any other source explicitly routed to required deep reading. Missing dossiers or an unavailable skill block that source/group and return it to the orchestrator. Only standalone ingest may prefer a dossier and fall back to normal ingest with a stated depth trade-off. `references/ingest.md` follows this same boundary.
 6. When a dossier exists, verify its `source_raw`, `user_intent` when present, high-value context capsules, and raw anchors before compiling it. Validator PASS is structural only; check that raw evidence supports the proposed nodes.
