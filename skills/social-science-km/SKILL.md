@@ -1,6 +1,6 @@
 ---
 name: social-science-km
-description: Use as the coordinator for social-science knowledge bases: choose a bounded source sync, deep-reading, wiki compilation, retrieval, outline, maintenance, or paper-writing evidence-support route, and coordinate full source-to-wiki workflows only when requested.
+description: "Use as the coordinator for social-science knowledge bases: choose a bounded source sync, deep-reading, wiki compilation, retrieval, outline, maintenance, or paper-writing evidence-support route, and coordinate full source-to-wiki workflows only when requested."
 ---
 
 # Social Science Knowledge Management
